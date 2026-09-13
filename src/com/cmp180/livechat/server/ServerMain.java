@@ -2,7 +2,6 @@ package com.cmp180.livechat.server;
 
 import com.cmp180.livechat.common.ChatSession;
 import com.cmp180.livechat.common.Protocol;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -16,16 +15,22 @@ public class ServerMain {
     private static final int PORT = 5000;
     private final Queue<ClientHandler> waitingCustomers = new ConcurrentLinkedQueue<>();
     private final Queue<ClientHandler> availableStaffs = new ConcurrentLinkedQueue<>();
+    private ServerGUI gui;
+    public ServerMain() {
+    }
+    public ServerMain(ServerGUI gui) {
+        this.gui = gui;
+    }
 
     public void start() {
-        System.out.println("==================================================");
-        System.out.println("   HỆ THỐNG LIVE CHAT SUPPORT SERVER (PORT " + PORT + ")");
-        System.out.println("==================================================");
+        log("==================================================");
+        log("   HỆ THỐNG LIVE CHAT SUPPORT SERVER (PORT " + PORT + ")");
+        log("==================================================");
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                System.out.println("[KẾT NỐI MỚI] Địa chỉ: " + clientSocket.getRemoteSocketAddress());
+                log("[KẾT NỐI MỚI] Địa chỉ: " + clientSocket.getRemoteSocketAddress());
 
                 // Mở 1 Thread riêng cho mỗi Client kết nối (Bài 5 Multithreading)
                 ClientHandler handler = new ClientHandler(clientSocket, this);
@@ -47,7 +52,7 @@ public class ServerMain {
             } else {
                 waitingCustomers.add(client);
                 client.sendMessage(Protocol.CMD_WAITING + Protocol.SEP + "Đang chờ kết nối với nhân viên CSKH...");
-                System.out.println("[HÀNG CHỜ] Khách hàng '" + client.getName() + "' đã vào hàng chờ.");
+                log("[HÀNG CHỜ] Khách hàng '" + client.getName() + "' đã vào hàng chờ.");
             }
         } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(client.getRole())) {
             if (!waitingCustomers.isEmpty()) {
@@ -56,7 +61,7 @@ public class ServerMain {
             } else {
                 availableStaffs.add(client);
                 client.sendMessage(Protocol.CMD_WAITING + Protocol.SEP + "Đang ở trạng thái SẴN SÀNG nhận yêu cầu từ khách...");
-                System.out.println("[CSKH RẢNH] Nhân viên '" + client.getName() + "' đang sẵn sàng.");
+                log("[CSKH RẢNH] Nhân viên '" + client.getName() + "' đang sẵn sàng.");
             }
         }
     }
@@ -68,7 +73,7 @@ public class ServerMain {
         ChatSession session = new ChatSession(customer, staff);
         customer.sendMessage(Protocol.CMD_PAIRED + Protocol.SEP + "Đã kết nối với CSKH: " + staff.getName());
         staff.sendMessage(Protocol.CMD_PAIRED + Protocol.SEP + "Đang hỗ trợ khách hàng: " + customer.getName());
-        System.out.println("-> [GHẾP PHIÊN THÀNH CÔNG] " + customer.getName() + " <---> " + staff.getName());
+        log("-> [GHẾP PHIÊN THÀNH CÔNG] " + customer.getName() + " <---> " + staff.getName());
     }
 
     /**
@@ -100,6 +105,16 @@ public class ServerMain {
         availableStaffs.remove(client);
         if (client.getSession() != null) {
             closeSession(client.getSession(), client.getName() + " đã ngắt kết nối.");
+        }
+    }
+
+    private void log(String msg) {
+        // 1. Luôn in ra màn hình Console
+        log(msg); 
+        
+        // 2. Nếu đang chạy bằng GUI thì mới in lên GUI
+        if (gui != null) {
+            gui.log(msg);
         }
     }
 
