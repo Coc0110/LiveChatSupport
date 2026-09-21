@@ -1,23 +1,19 @@
 package com.cmp180.livechat.common;
 
-/**
- * Định nghĩa các Hằng số Lệnh Giao thức (Application Protocol)
- * Giúp mã nguồn rõ ràng, tránh gõ sai chuỗi.
- */
 public class Protocol {
-    public static final String DELIMITER = "\\|";
     public static final String SEP = "|";
-
-    // Các lệnh từ Client -> Server
-    public static final String CMD_CONNECT = "CONNECT";
-    public static final String CMD_MSG = "MSG";
-    public static final String CMD_END = "END";
-
-    // Các lệnh phản hồi từ Server -> Client
-    public static final String CMD_WAITING = "WAITING";
-    public static final String CMD_PAIRED = "PAIRED";
-
-    // Vai trò hệ thống
+    public static final String SEPARATOR = "|";
     public static final String ROLE_CUSTOMER = "CUSTOMER";
     public static final String ROLE_STAFF = "STAFF";
+    
+    public static final String CMD_CUST_LOGIN = "CUST_LOGIN";
+    public static final String CMD_STAFF_LOGIN = "STAFF_LOGIN";
+    public static final String CMD_ACCEPT_CUST = "ACCEPT_CUST";
+    public static final String CMD_CHAT = "CHAT_MSG";
+    public static final String CMD_END = "END_SESSION";
+    public static final String CMD_END_SESSION = "END_SESSION";
+    public static final String CMD_WAITING = "WAITING";
+    public static final String CMD_QUEUE_UPDATE = "QUEUE_UPDATE";
+    public static final String CMD_PAIRED = "PAIRED";
+    public static final String CMD_ERROR = "ERROR";
 }

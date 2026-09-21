@@ -87,9 +87,7 @@ public class ServerGUI extends JFrame {
             lblStatus.setText("Trạng thái: ĐÃ DỪNG");
             lblStatus.setForeground(Color.RED);
 
-            log("-> Server đã dừng hoạt động.");
-            
-            // TODO: Bạn có thể viết thêm hàm dừng ServerSocket trong ServerMain nếu muốn
+            log("-> Server đã dừng hoạt động.");           
         }
     }
 
