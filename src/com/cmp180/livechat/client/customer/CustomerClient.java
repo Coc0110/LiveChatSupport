@@ -136,7 +136,7 @@ public class CustomerClient extends JFrame {
         panel.add(Box.createVerticalStrut(15));
     }
 
-    // ================= 2. MÀN HÌNH CHAT CHÍNH (ĐÃ CẬP NHẬT CHUẨN 100%) =================
+    // ================= 2. MÀN HÌNH CHAT CHÍNH =================
     private JPanel createMainChatScreen() {
         JPanel mainChatPanel = new JPanel(new BorderLayout());
         
@@ -144,7 +144,7 @@ public class CustomerClient extends JFrame {
             public void mouseClicked(MouseEvent e) { mainChatPanel.requestFocus(); }
         });
 
-        // --- Sidebar (Bên trái) ---
+        // --- Sidebar ---
         JPanel sidebar = new JPanel(null); 
         sidebar.setPreferredSize(new Dimension(280, 0));
         sidebar.setBackground(Color.WHITE);
@@ -174,11 +174,11 @@ public class CustomerClient extends JFrame {
         sidebar.add(logoIcon);
         sidebar.add(logoText);
 
-        // --- Khung chat (Bên phải) ---
+        // --- Khung chat ---
         JPanel chatArea = new JPanel(new BorderLayout());
         chatArea.setBackground(Color.WHITE); 
 
-        // Header chuẩn Figma (Avatar tư vấn viên + Thông tin + Nút Kết thúc trò chuyện)[cite: 21]
+        // Header
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(Color.WHITE);
         header.setBorder(BorderFactory.createCompoundBorder(
@@ -186,7 +186,6 @@ public class CustomerClient extends JFrame {
             new EmptyBorder(12, 25, 12, 25)
         ));
         
-        // Thông tin tư vấn viên gồm Avatar tròn & trạng thái[cite: 21]
         JPanel agentPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         agentPanel.setOpaque(false);
         
@@ -195,7 +194,6 @@ public class CustomerClient extends JFrame {
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // Vẽ vòng tròn xanh biểu thị online ở góc avatar
                 g2.setColor(new Color(40, 167, 69));
                 g2.fillOval(28, 28, 10, 10);
                 g2.setColor(Color.WHITE);
@@ -212,45 +210,38 @@ public class CustomerClient extends JFrame {
         agentPanel.add(avatarComp);
         agentPanel.add(agentDetails);
 
-        // Nút Kết thúc trò chuyện: Icon và chữ cùng 1 hàng ngang, bo tròn mượt mà[cite: 21]
-        JButton endChatBtn = new JButton("Kết thúc trò chuyện") {
+        // ĐÃ SỬA: Dùng Icon chuẩn để icon và chữ thẳng hàng tuyệt đối trên 1 dòng[cite: 23]
+        Icon cancelIcon = new Icon() {
             @Override
-            protected void paintComponent(Graphics g) {
+            public void paintIcon(Component c, Graphics g, int x, int y) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                // Nền hồng nhạt
-                g2.setColor(new Color(255, 235, 238));
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 16, 16);
-                
-                // Vẽ icon cấm/hủy nhỏ xinh nằm bên trái chữ
                 g2.setColor(new Color(220, 53, 69));
                 g2.setStroke(new BasicStroke(1.5f));
-                g2.drawOval(12, 11, 12, 12);
-                g2.drawLine(15, 14, 21, 20);
+                g2.drawOval(x, y, 14, 14);
+                g2.drawLine(x + 3, y + 3, x + 11, y + 11);
                 g2.dispose();
-                super.paintComponent(g);
             }
+            @Override public int getIconWidth() { return 14; }
+            @Override public int getIconHeight() { return 14; }
         };
+
+        RoundedButton endChatBtn = new RoundedButton("Kết thúc trò chuyện", 16, new Color(255, 235, 238), new Color(220, 53, 69));
+        endChatBtn.setIcon(cancelIcon);
+        endChatBtn.setIconTextGap(8); // Khoảng cách giữa icon và chữ
         endChatBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        endChatBtn.setForeground(new Color(220, 53, 69));
-        endChatBtn.setContentAreaFilled(false);
-        endChatBtn.setBorderPainted(false);
-        endChatBtn.setFocusPainted(false);
-        endChatBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        endChatBtn.setBorder(new EmptyBorder(0, 28, 0, 12)); // Chừa chỗ bên trái cho icon
         endChatBtn.setPreferredSize(new Dimension(175, 36));
         endChatBtn.addActionListener(e -> cardLayout.show(mainContainer, "START_SCREEN"));
         
         header.add(agentPanel, BorderLayout.WEST);
         header.add(endChatBtn, BorderLayout.EAST);
 
-        // Vùng hiển thị tin nhắn (Chat Message Panel)[cite: 21]
+        // Nội dung tin nhắn
         JPanel messageListPanel = new JPanel();
         messageListPanel.setLayout(new BoxLayout(messageListPanel, BoxLayout.Y_AXIS));
         messageListPanel.setBackground(new Color(248, 249, 250));
         messageListPanel.setBorder(new EmptyBorder(20, 30, 20, 30));
 
-        // Thanh mốc thời gian phiên chat[cite: 21]
         JPanel timeBadgePanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         timeBadgePanel.setOpaque(false);
         JLabel timeBadge = new JLabel(" Phiên chat được bắt đầu lúc 09:30 AM ");
@@ -263,9 +254,7 @@ public class CustomerClient extends JFrame {
         messageListPanel.add(timeBadgePanel);
         messageListPanel.add(Box.createVerticalStrut(15));
 
-        // Tin nhắn mẫu từ tư vấn viên (Bên trái)[cite: 21]
         addChatMessage(messageListPanel, "Xin chào anh/chị! Em là Nguyễn Văn A, tư vấn viên của LiveChat Support. Em có thể hỗ trợ gì cho mình hôm nay ạ?", "09:30 AM", false);
-        // Tin nhắn mẫu từ khách hàng (Bên phải)[cite: 21]
         addChatMessage(messageListPanel, "Chào bạn, mình muốn hỏi về chính sách bảo hành của dòng sản phẩm bên mình.", "09:32 AM", true);
         addChatMessage(messageListPanel, "Dạ, dòng sản phẩm bên em được bảo hành chính hãng 12 tháng kể từ ngày kích hoạt ạ. Không biết dòng sản phẩm của mình mua từ khi nào vậy ạ?", "09:33 AM", false);
         addChatMessage(messageListPanel, "Mình mua bản Pro từ đầu tháng trước rồi, giờ cần hỗ trợ kích hoạt trực tuyến.", "09:35 AM", true);
@@ -274,7 +263,7 @@ public class CustomerClient extends JFrame {
         scrollPane.setBorder(null);
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
 
-        // Thanh nhập tin nhắn dưới cùng (Input Area)[cite: 21]
+        // Input Area
         JPanel inputArea = new JPanel(new BorderLayout(15, 0));
         inputArea.setBackground(Color.WHITE);
         inputArea.setBorder(BorderFactory.createCompoundBorder(
@@ -282,11 +271,9 @@ public class CustomerClient extends JFrame {
             new EmptyBorder(18, 25, 18, 25)
         ));
         
-        // Ô nhập liệu bo tròn lớn[cite: 21]
         PlaceholderTextField inputField = new PlaceholderTextField(25, "Nhập tin nhắn hỗ trợ tại đây...");
         inputField.setPreferredSize(new Dimension(0, 48));
 
-        // Nút gửi hình máy bay giấy tròn xanh[cite: 21]
         JButton sendBtn = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -324,7 +311,6 @@ public class CustomerClient extends JFrame {
         return mainChatPanel;
     }
 
-    // Hàm tiện ích tạo bong bóng chat[cite: 21]
     private void addChatMessage(JPanel container, String message, String time, boolean isUser) {
         JPanel msgWrapper = new JPanel(new FlowLayout(isUser ? FlowLayout.RIGHT : FlowLayout.LEFT, 0, 2));
         msgWrapper.setOpaque(false);
@@ -404,7 +390,8 @@ public class CustomerClient extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(Color.WHITE);
-            g2.fill(new RoundRectangle2D.Double(0, 0, getWidth() - 1, getHeight() - 1, cornerRadius, cornerRadius));
+            // Đã thu lưới vẽ vào 1px để đảm bảo khung được render 100% khi bo viền
+            g2.fill(new RoundRectangle2D.Double(1, 1, getWidth() - 3, getHeight() - 3, cornerRadius, cornerRadius));
             g2.dispose();
             super.paintComponent(g);
         }
@@ -413,9 +400,15 @@ public class CustomerClient extends JFrame {
         protected void paintBorder(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            if (isFocusOwner()) g2.setColor(new Color(0, 122, 255));
-            else g2.setColor(new Color(220, 220, 220));
-            g2.draw(new RoundRectangle2D.Double(0, 0, getWidth() - 1, getHeight() - 1, cornerRadius, cornerRadius));
+            // ĐÃ SỬA: Cạnh viền vuông vức màu đen khi ấn vào[cite: 23]
+            if (isFocusOwner()) {
+                g2.setColor(Color.BLACK);
+                g2.setStroke(new BasicStroke(1.5f)); 
+            } else {
+                g2.setColor(new Color(220, 220, 220));
+                g2.setStroke(new BasicStroke(1.0f));
+            }
+            g2.draw(new RoundRectangle2D.Double(1, 1, getWidth() - 3, getHeight() - 3, cornerRadius, cornerRadius));
             g2.dispose();
         }
     }
@@ -461,7 +454,8 @@ public class CustomerClient extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(Color.WHITE);
-            g2.fill(new RoundRectangle2D.Double(0, 0, getWidth() - 1, getHeight() - 1, cornerRadius, cornerRadius));
+            // Đã thu lưới vẽ vào 1px
+            g2.fill(new RoundRectangle2D.Double(1, 1, getWidth() - 3, getHeight() - 3, cornerRadius, cornerRadius));
             super.paintComponent(g);
             g2.dispose();
         }
@@ -470,9 +464,15 @@ public class CustomerClient extends JFrame {
         protected void paintBorder(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            if (isFocusOwner()) g2.setColor(new Color(0, 122, 255)); 
-            else g2.setColor(new Color(220, 220, 220));
-            g2.draw(new RoundRectangle2D.Double(0, 0, getWidth() - 1, getHeight() - 1, cornerRadius, cornerRadius));
+            // ĐÃ SỬA: Viền đen 4 cạnh đầy đủ khi focus[cite: 23]
+            if (isFocusOwner()) {
+                g2.setColor(Color.BLACK); 
+                g2.setStroke(new BasicStroke(1.5f)); 
+            } else {
+                g2.setColor(new Color(220, 220, 220));
+                g2.setStroke(new BasicStroke(1.0f));
+            }
+            g2.draw(new RoundRectangle2D.Double(1, 1, getWidth() - 3, getHeight() - 3, cornerRadius, cornerRadius));
             g2.dispose();
         }
     }
