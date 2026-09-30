@@ -1,12 +1,8 @@
 package com.cmp180.livechat.server;
 
 import java.io.IOException;
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
-import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 
 public class ServerMain {
     private static final int PORT = 5000;
@@ -43,7 +39,6 @@ public class ServerMain {
     }
 
     public static void main(String[] args) {
-        System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8));
         new ServerMain(null).start();
     }
 }

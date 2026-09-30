@@ -1,21 +1,22 @@
 package com.cmp180.livechat.server;
 
+import com.cmp180.livechat.common.Message;
 import com.cmp180.livechat.common.Protocol;
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.util.regex.Pattern;
+import java.util.UUID;
 
 public class ClientHandler implements Runnable {
     private final Socket socket;
-    private final ServerMain server; // Dùng để gọi hàm log()
+    private final ServerMain server;
     private final SessionManager sessionManager;
     
-    private BufferedReader in;
-    private PrintWriter out;
+    private ObjectInputStream in;
+    private ObjectOutputStream out;
     
+    private final String clientId; // ĐỊNH DANH DUY NHẤT
     private String name;
     private String role;
     private ChatSession session;
@@ -24,9 +25,12 @@ public class ClientHandler implements Runnable {
         this.socket = socket;
         this.server = server;
         this.sessionManager = sessionManager;
+        this.clientId = UUID.randomUUID().toString(); // Khởi tạo UUID
+        
         try {
-            this.in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
-            this.out = new PrintWriter(socket.getOutputStream(), true);
+            // Lưu ý: Luôn khởi tạo OutputStream trước InputStream trong Object streams
+            this.out = new ObjectOutputStream(socket.getOutputStream());
+            this.in = new ObjectInputStream(socket.getInputStream());
         } catch (IOException e) {
             server.log("Lỗi khởi tạo I/O cho Client: " + e.getMessage());
         }
@@ -35,76 +39,56 @@ public class ClientHandler implements Runnable {
     @Override
     public void run() {
         try {
-            String message;
-            // Vòng lặp chờ dữ liệu từ mạng (Luồng sẽ bị block ở đây cho đến khi có tin nhắn tới)
-            while ((message = in.readLine()) != null) {
+            Message message;
+            // Lắng nghe Object thay vì String
+            while ((message = (Message) in.readObject()) != null) {
                 processMessage(message);
             }
-        } catch (IOException e) {
-            server.log("[NGẮT KẾT NỐI] Client " + (name != null ? name : "Unknown") + " đã rời đi đột ngột.");
+        } catch (Exception e) {
+            server.log("[NGẮT KẾT NỐI] Client " + (name != null ? name : clientId) + " đã rời đi.");
         } finally {
-            // Đảm bảo dọn dẹp hàng đợi và đóng session khi Client mất mạng
             sessionManager.handleDisconnect(this);
             closeConnection();
         }
     }
 
-    private void processMessage(String rawMessage) {
-        // Tách chuỗi dựa trên ký tự phân cách SEP (Ví dụ: SEP là "|")
-        // Giới hạn tách thành 3 phần: Lệnh | Tham số 1 | Nội dung (nếu có)
-        String[] parts = rawMessage.split(Pattern.quote(Protocol.SEP), 3);
-        if (parts.length < 1) return;
-
-        String cmd = parts[0];
+    private void processMessage(Message msg) {
+        String cmd = msg.getCommand();
 
         switch (cmd) {
-            // Lệnh đăng nhập từ Khách hàng (VD: CUST_LOGIN|Nguyễn Văn A)
             case Protocol.CMD_CUST_LOGIN:
-                this.name = parts.length > 1 ? parts[1] : "Guest";
+                this.name = msg.getContent(); // Nội dung là tên KH
                 this.role = Protocol.ROLE_CUSTOMER;
                 sessionManager.registerClient(this);
                 break;
 
-            // Lệnh đăng nhập từ Nhân viên (VD: STAFF_LOGIN|NV_01)
             case Protocol.CMD_STAFF_LOGIN:
-                this.name = parts.length > 1 ? parts[1] : "Staff";
+                this.name = msg.getContent();
                 this.role = Protocol.ROLE_STAFF;
                 sessionManager.registerClient(this);
                 break;
 
-            // Nhân viên gửi lệnh tiếp nhận khách (VD: ACCEPT_CUST|Nguyễn Văn A)
             case Protocol.CMD_ACCEPT_CUST:
-                if (parts.length > 1 && Protocol.ROLE_STAFF.equals(this.role)) {
-                    String customerName = parts[1];
-                    sessionManager.acceptCustomer(this, customerName);
+                if (Protocol.ROLE_STAFF.equals(this.role)) {
+                    String targetUUID = msg.getContent(); // Truyền lên UUID của khách
+                    sessionManager.acceptCustomer(this, targetUUID);
                 }
                 break;
 
-            // Lệnh chat (VD: CHAT_MSG|Xin chào admin)
             case Protocol.CMD_CHAT:
-                if (session != null && parts.length > 1) {
-                    String chatContent = parts[1];
-                    String senderName = this.name;
-                    
-                    // Tìm đối tác để forward tin nhắn
+                if (session != null) {
                     ClientHandler partner = (this == session.getCustomer()) ? session.getStaff() : session.getCustomer();
-                    
-                    // ĐÃ SỬA TÊN BIẾN THÀNH rawMessage
-                    server.log("[CHUYỂN TIẾP TIN NHẮN] " + rawMessage); 
-                    
                     if (partner != null) {
-                        // Forward tin nhắn sang bên kia (VD: CHAT_MSG|Nguyễn Văn A|Xin chào admin)
-                        partner.sendMessage(Protocol.CMD_CHAT + Protocol.SEP + senderName + Protocol.SEP + chatContent);
+                        // Gửi Message qua bên kia
+                        partner.sendMessage(new Message(Protocol.CMD_CHAT, this.name, msg.getContent()));
                     }
                 } else {
-                    sendMessage(Protocol.CMD_ERROR + Protocol.SEP + "Bạn chưa được kết nối với ai để chat.");
+                    sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Bạn chưa được kết nối với ai để chat."));
                 }
                 break;
                 
-            // Lệnh chủ động kết thúc phiên (VD: END_SESSION|Đã giải quyết xong)
             case Protocol.CMD_END_SESSION:
-                String reason = parts.length > 1 ? parts[1] : "Đã kết thúc chủ động.";
-                sessionManager.closeSession(this.session, this.name + " đã đóng phiên chat: " + reason);
+                sessionManager.closeSession(this.session, this.name + " đã kết thúc phiên chat.");
                 break;
                 
             default:
@@ -113,23 +97,24 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    public void sendMessage(String message) {
-        if (out != null) {
-            out.println(message);
-        }
-    }
-
-    private void closeConnection() {
+    public void sendMessage(Message message) {
         try {
-            if (socket != null && !socket.isClosed()) {
-                socket.close();
+            if (out != null) {
+                out.writeObject(message);
+                out.flush();
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    // Các hàm Getters & Setters
+    private void closeConnection() {
+        try {
+            if (socket != null && !socket.isClosed()) socket.close();
+        } catch (IOException e) { }
+    }
+
+    public String getClientId() { return clientId; }
     public String getName() { return name; }
     public String getRole() { return role; }
     public ChatSession getSession() { return session; }
