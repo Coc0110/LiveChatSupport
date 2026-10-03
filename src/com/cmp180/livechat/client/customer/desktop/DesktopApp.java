@@ -23,6 +23,8 @@ public class DesktopApp extends JFrame {
         mainContainer.setBackground(new Color(160, 160, 160)); 
 
         mainContainer.add(createStartScreen(), "START_SCREEN");
+        mainContainer.add(createLoadingScreen(), "LOADING_SCREEN");
+        mainContainer.add(createSuccessScreen(), "SUCCESS_SCREEN");
         mainContainer.add(createMainChatScreen(), "MAIN_CHAT_SCREEN");
 
         add(mainContainer);
@@ -30,6 +32,7 @@ public class DesktopApp extends JFrame {
         mainContainer.requestFocusInWindow();
     }
 
+    // ================= 1. MÀN HÌNH BẮT ĐẦU =================
     private JPanel createStartScreen() {
         JPanel bgPanel = new JPanel(new GridBagLayout());
         bgPanel.setBackground(new Color(160, 160, 160)); 
@@ -105,7 +108,19 @@ public class DesktopApp extends JFrame {
         startBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         startBtn.setMaximumSize(new Dimension(380, 45)); 
         startBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        startBtn.addActionListener(e -> cardLayout.show(mainContainer, "MAIN_CHAT_SCREEN"));
+        
+        // --- XỬ LÝ CHUYỂN CẢNH KHI ẤN BẮT ĐẦU ---
+        startBtn.addActionListener(e -> {
+            cardLayout.show(mainContainer, "LOADING_SCREEN");
+            Timer timer = new Timer(2500, ev -> {
+                cardLayout.show(mainContainer, "SUCCESS_SCREEN");
+                Timer timer2 = new Timer(1500, ev2 -> cardLayout.show(mainContainer, "MAIN_CHAT_SCREEN"));
+                timer2.setRepeats(false);
+                timer2.start();
+            });
+            timer.setRepeats(false);
+            timer.start();
+        });
         
         formCard.add(startBtn);
         
@@ -135,6 +150,137 @@ public class DesktopApp extends JFrame {
         panel.add(Box.createVerticalStrut(15));
     }
 
+    // ================= 2. MÀN HÌNH ĐANG KẾT NỐI (LOADING) =================
+    private JPanel createLoadingScreen() {
+        JPanel bgPanel = new JPanel(new BorderLayout());
+        bgPanel.setBackground(new Color(160, 160, 160)); 
+        bgPanel.add(createFloatingLogo(), BorderLayout.NORTH); // Logo góc trái trên[cite: 46]
+
+        RoundedPanel formCard = new RoundedPanel(20, Color.WHITE);
+        formCard.setPreferredSize(new Dimension(500, 520));
+        formCard.setLayout(new BoxLayout(formCard, BoxLayout.Y_AXIS));
+        
+        formCard.add(Box.createVerticalStrut(120));
+
+        JComponent loadingIcon = new JComponent() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(230, 242, 255)); g2.fillOval(10, 10, 100, 100);
+                g2.setColor(new Color(200, 225, 255)); g2.fillOval(25, 25, 70, 70);
+                g2.setColor(new Color(0, 122, 255)); g2.fillOval(35, 35, 50, 50);
+                g2.setColor(Color.WHITE); g2.setStroke(new BasicStroke(2f));
+                g2.drawOval(48, 48, 24, 24); g2.drawLine(55, 55, 65, 65); g2.drawLine(65, 55, 55, 65);
+                g2.dispose();
+            }
+        };
+        loadingIcon.setPreferredSize(new Dimension(120, 120));
+        loadingIcon.setMaximumSize(new Dimension(120, 120));
+        loadingIcon.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel title = new JLabel("Đang kết nối với tư vấn viên...");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        title.setHorizontalAlignment(SwingConstants.CENTER); 
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel subtitle = new JLabel("<html><div style='text-align: center; color: #888888; font-size: 14px; width: 380px;'>Vui lòng chờ trong giây lát. Hệ thống đang<br>tìm tư vấn viên phù hợp nhất.</div></html>");
+        subtitle.setHorizontalAlignment(SwingConstants.CENTER); 
+        subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        formCard.add(loadingIcon);
+        formCard.add(Box.createVerticalStrut(40));
+        formCard.add(title);
+        formCard.add(Box.createVerticalStrut(15));
+        formCard.add(subtitle);
+        formCard.add(Box.createVerticalGlue());
+
+        JPanel centerWrapper = new JPanel(new GridBagLayout());
+        centerWrapper.setOpaque(false);
+        centerWrapper.add(formCard);
+        
+        bgPanel.add(centerWrapper, BorderLayout.CENTER);
+        return bgPanel;
+    }
+
+    // ================= 3. MÀN HÌNH ĐÃ KẾT NỐI (SUCCESS) =================
+    private JPanel createSuccessScreen() {
+        JPanel bgPanel = new JPanel(new BorderLayout());
+        bgPanel.setBackground(new Color(160, 160, 160)); 
+        bgPanel.add(createFloatingLogo(), BorderLayout.NORTH); // Logo góc trái trên[cite: 47]
+
+        RoundedPanel formCard = new RoundedPanel(20, Color.WHITE);
+        formCard.setPreferredSize(new Dimension(500, 520));
+        formCard.setLayout(new BoxLayout(formCard, BoxLayout.Y_AXIS));
+        
+        formCard.add(Box.createVerticalStrut(140));
+
+        JComponent successIcon = new JComponent() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(235, 255, 240)); g2.fillOval(10, 10, 100, 100);
+                g2.setColor(new Color(200, 255, 215)); g2.fillOval(25, 25, 70, 70);
+                g2.setColor(new Color(0, 210, 50)); g2.fillOval(35, 35, 50, 50);
+                g2.setColor(Color.WHITE); g2.setStroke(new BasicStroke(2.5f));
+                g2.drawOval(48, 48, 24, 24); g2.drawLine(54, 60, 58, 64); g2.drawLine(58, 64, 66, 56);
+                g2.dispose();
+            }
+        };
+        successIcon.setPreferredSize(new Dimension(120, 120));
+        successIcon.setMaximumSize(new Dimension(120, 120));
+        successIcon.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        JLabel title = new JLabel("<html><div style='text-align: center; width: 380px;'><b>Đã kết nối với tư vấn viên<br>Nguyễn Văn A</b></div></html>");
+        title.setFont(new Font("Segoe UI", Font.PLAIN, 22));
+        title.setHorizontalAlignment(SwingConstants.CENTER); 
+        title.setAlignmentX(Component.CENTER_ALIGNMENT); 
+
+        formCard.add(successIcon);
+        formCard.add(Box.createVerticalStrut(40));
+        formCard.add(title);
+        formCard.add(Box.createVerticalGlue());
+
+        JPanel centerWrapper = new JPanel(new GridBagLayout());
+        centerWrapper.setOpaque(false);
+        centerWrapper.add(formCard);
+        
+        bgPanel.add(centerWrapper, BorderLayout.CENTER);
+        return bgPanel;
+    }
+
+    // Helper tạo Logo trôi ở góc trái màn hình chờ
+    private JPanel createFloatingLogo() {
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 20));
+        topPanel.setOpaque(false);
+        
+        JComponent logoIcon = new JComponent() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(0, 122, 255));
+                g2.fillRoundRect(0, 0, 32, 32, 12, 12); 
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawRoundRect(8, 8, 16, 12, 6, 6); 
+                g2.drawLine(12, 20, 10, 24); 
+                g2.drawLine(10, 24, 16, 20);
+                g2.dispose();
+            }
+        };
+        logoIcon.setPreferredSize(new Dimension(32, 32));
+        
+        JLabel logoText = new JLabel("<html><b>LiveChat</b><br><span style='font-size:10px; color:#007AFF'>SUPPORT DESK</span></html>");
+        logoText.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        
+        topPanel.add(logoIcon);
+        topPanel.add(logoText);
+        return topPanel;
+    }
+
+    // ================= 4. MÀN HÌNH CHAT CHÍNH =================
     private JPanel createMainChatScreen() {
         JPanel mainChatPanel = new JPanel(new BorderLayout());
         

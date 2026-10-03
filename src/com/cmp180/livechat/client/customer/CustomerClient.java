@@ -12,10 +12,10 @@ public class CustomerClient {
              * LỰA CHỌN GIAO DIỆN ĐỂ CHẠY (Bật/Tắt comment để sử dụng)
              * ========================================================= */
             
-            // Chạy form giao diện DESKTOP (Đang bật)
+            // Chạy form giao diện DESKTOP
             new DesktopApp().setVisible(true);
 
-            // Chạy form giao diện MOBILE (Bỏ dấu // ở đầu dòng dưới để chạy)
+            // Chạy form giao diện MOBILE
             // new MobileApp().setVisible(true);
         });
     }
