@@ -15,12 +15,13 @@ public class StaffMainFrame extends JFrame {
 
         cardLayout = new CardLayout();
         mainContainer = new JPanel(cardLayout);
-        mainContainer.setBackground(new Color(245, 247, 250));
+        mainContainer.setBackground(new Color(225, 230, 238));
 
         // Nạp các màn hình độc lập vào hệ thống quản lý, truyền 'this' để chúng gọi được hàm navigateTo
         mainContainer.add(new LoginPanel(this), "LOGIN_SCREEN");
         mainContainer.add(new QueuePanel(this), "QUEUE_SCREEN");
         mainContainer.add(new ChatPanel(this), "CHAT_SCREEN");
+        mainContainer.add(new SettingsPanel(this), "SETTINGS_SCREEN");
 
         add(mainContainer);
         

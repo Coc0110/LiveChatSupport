@@ -8,7 +8,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class StaffNetworkService {
     private static final String SERVER_IP = "127.0.0.1";
@@ -18,10 +20,16 @@ public class StaffNetworkService {
     private ObjectOutputStream out;
     private ObjectInputStream in;
     
-    private StaffNetworkListener listener;
+    private final List<StaffNetworkListener> listeners = new CopyOnWriteArrayList<>();
     
-    public void setListener(StaffNetworkListener listener) {
-        this.listener = listener;
+    public void addListener(StaffNetworkListener listener) {
+        if (!listeners.contains(listener)) {
+            listeners.add(listener);
+        }
+    }
+    
+    public void removeListener(StaffNetworkListener listener) {
+        listeners.remove(listener);
     }
     
     public void connectAndLogin(String staffIdOrName) {
@@ -35,13 +43,13 @@ public class StaffNetworkService {
                 sendMessage(new Message(Protocol.CMD_STAFF_LOGIN, "Staff", staffIdOrName));
                 
                 // Báo UI login thành công
-                if (listener != null) listener.onLoginSuccess();
+                for (StaffNetworkListener l : listeners) l.onLoginSuccess();
                 
                 // Bắt đầu vòng lặp đọc dữ liệu từ server
                 readLoop();
                 
             } catch (IOException e) {
-                if (listener != null) listener.onError("Không thể kết nối Server: " + e.getMessage());
+                for (StaffNetworkListener l : listeners) l.onError("Không thể kết nối Server: " + e.getMessage());
             }
         }).start();
     }
@@ -55,29 +63,29 @@ public class StaffNetworkService {
                 switch (cmd) {
                     case Protocol.CMD_QUEUE_UPDATE:
                         Map<String, String> queue = parseQueueData(msg.getContent());
-                        if (listener != null) listener.onQueueUpdated(queue);
+                        for (StaffNetworkListener l : listeners) l.onQueueUpdated(queue);
                         break;
                         
                     case Protocol.CMD_PAIRED:
                         // Nội dung từ server gửi về chứa thông báo đã kết nối
-                        if (listener != null) listener.onPairedWithCustomer(msg.getContent());
+                        for (StaffNetworkListener l : listeners) l.onPairedWithCustomer(msg.getContent());
                         break;
                         
                     case Protocol.CMD_CHAT:
-                        if (listener != null) listener.onMessageReceived(msg.getSenderId(), msg.getContent());
+                        for (StaffNetworkListener l : listeners) l.onMessageReceived(msg.getSenderId(), msg.getContent());
                         break;
                         
                     case Protocol.CMD_END:
-                        if (listener != null) listener.onSessionEnded(msg.getContent());
+                        for (StaffNetworkListener l : listeners) l.onSessionEnded(msg.getContent());
                         break;
                         
                     case Protocol.CMD_ERROR:
-                        if (listener != null) listener.onError(msg.getContent());
+                        for (StaffNetworkListener l : listeners) l.onError(msg.getContent());
                         break;
                 }
             }
         } catch (Exception e) {
-            if (listener != null) listener.onError("Mất kết nối từ Server: " + e.getMessage());
+            for (StaffNetworkListener l : listeners) l.onError("Mất kết nối từ Server: " + e.getMessage());
         }
     }
     

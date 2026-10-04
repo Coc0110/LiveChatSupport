@@ -9,6 +9,7 @@ public class SessionManager {
     private final ServerMain server;
     private final Queue<ClientHandler> waitingCustomers = new ConcurrentLinkedQueue<>();
     private final Queue<ClientHandler> availableStaffs = new ConcurrentLinkedQueue<>();
+    private int activeSessions = 0;
 
     public SessionManager(ServerMain server) {
         this.server = server;
@@ -58,6 +59,9 @@ public class SessionManager {
         customer.sendMessage(new Message(Protocol.CMD_PAIRED, "Server", "Đã kết nối với CSKH: " + staff.getName()));
         staff.sendMessage(new Message(Protocol.CMD_PAIRED, "Server", "Đang hỗ trợ khách hàng: " + customer.getName()));
         server.log("-> [GHÉP PHIÊN THÀNH CÔNG] " + customer.getName() + " <---> " + staff.getName());
+        
+        activeSessions++;
+        updateDashboard();
     }
 
     public void closeSession(ChatSession session, String reason) {
@@ -76,6 +80,8 @@ public class SessionManager {
             availableStaffs.add(staff);
             broadcastQueueToStaff();
         }
+        activeSessions--;
+        updateDashboard();
     }
 
     public void handleDisconnect(ClientHandler client) {
@@ -101,6 +107,13 @@ public class SessionManager {
         Message msg = new Message(Protocol.CMD_QUEUE_UPDATE, "Server", queueData.toString());
         for (ClientHandler staff : availableStaffs) {
             staff.sendMessage(msg);
+        }
+        updateDashboard();
+    }
+
+    private void updateDashboard() {
+        if (server.getGui() != null) {
+            server.getGui().updateDashboard(waitingCustomers.size(), availableStaffs.size(), activeSessions);
         }
     }
 }

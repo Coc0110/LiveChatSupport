@@ -6,11 +6,13 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.*;
+import com.cmp180.livechat.client.staff.network.StaffNetworkListener;
 
-public class LoginPanel extends JPanel {
+public class LoginPanel extends JPanel implements StaffNetworkListener {
     private StaffMainFrame parentFrame;
     private CardLayout authLayout;
     private JPanel authContainer;
+    private JButton loginBtn;
 
     public LoginPanel(StaffMainFrame parentFrame) {
         this.parentFrame = parentFrame;
@@ -23,6 +25,8 @@ public class LoginPanel extends JPanel {
 
         authContainer.add(buildLoginForm(), "LOGIN");
         add(authContainer);
+        
+        StaffContext.getInstance().getNetworkService().addListener(this);
     }
 
     private JPanel buildLoginForm() {
@@ -70,7 +74,7 @@ public class LoginPanel extends JPanel {
         forgotLbl.setCursor(new Cursor(Cursor.HAND_CURSOR));
         forgotPanel.add(forgotLbl);
 
-        JButton loginBtn = new JButton("Đăng nhập") {
+        loginBtn = new JButton("Đăng nhập") {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -107,9 +111,10 @@ public class LoginPanel extends JPanel {
                 JOptionPane.showMessageDialog(this, "Vui lòng nhập tên/mã NV");
                 return;
             }
+            loginBtn.setEnabled(false);
+            loginBtn.setText("Đang kết nối...");
             StaffContext.getInstance().setStaffName(username);
             StaffContext.getInstance().getNetworkService().connectAndLogin(username);
-            parentFrame.navigateTo("QUEUE_SCREEN");
         });
 
         JLabel agreeLbl = new JLabel("Bằng việc đăng nhập, bạn đồng ý với Chính sách");
@@ -223,5 +228,32 @@ public class LoginPanel extends JPanel {
             public void focusLost(FocusEvent e) { field.repaint(); }
         });
         return field;
+    }
+
+    @Override
+    public void onLoginSuccess() {
+        SwingUtilities.invokeLater(() -> {
+            if (loginBtn != null) {
+                loginBtn.setEnabled(true);
+                loginBtn.setText("Đăng nhập");
+            }
+            parentFrame.navigateTo("QUEUE_SCREEN");
+        });
+    }
+
+    @Override public void onQueueUpdated(java.util.Map<String, String> waitingCustomers) {}
+    @Override public void onPairedWithCustomer(String customerName) {}
+    @Override public void onMessageReceived(String sender, String msg) {}
+    @Override public void onSessionEnded(String reason) {}
+
+    @Override
+    public void onError(String msg) {
+        SwingUtilities.invokeLater(() -> {
+            if (loginBtn != null) {
+                loginBtn.setEnabled(true);
+                loginBtn.setText("Đăng nhập");
+            }
+            JOptionPane.showMessageDialog(this, msg, "Lỗi kết nối", JOptionPane.ERROR_MESSAGE);
+        });
     }
 }

@@ -3,11 +3,14 @@ package com.cmp180.livechat.server;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ServerMain {
     private static final int PORT = 5000;
     private ServerGUI gui;
     private final SessionManager sessionManager; 
+    private final ExecutorService threadPool = Executors.newCachedThreadPool();
 
     public ServerMain() {
         this.sessionManager = new SessionManager(this);
@@ -26,7 +29,7 @@ public class ServerMain {
                 log("[KẾT NỐI MỚI] " + clientSocket.getRemoteSocketAddress());
                 
                 ClientHandler handler = new ClientHandler(clientSocket, this, sessionManager);
-                new Thread(handler).start();
+                threadPool.execute(handler);
             }
         } catch (IOException e) {
             log("Lỗi Server: " + e.getMessage());
@@ -36,6 +39,10 @@ public class ServerMain {
     public void log(String msg) {
         System.out.println(msg); 
         if (gui != null) gui.log(msg);
+    }
+
+    public ServerGUI getGui() {
+        return gui;
     }
 
     public static void main(String[] args) {

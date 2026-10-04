@@ -97,14 +97,14 @@ public class ClientHandler implements Runnable {
         }
     }
 
-    public void sendMessage(Message message) {
+    public synchronized void sendMessage(Message message) {
         try {
             if (out != null) {
                 out.writeObject(message);
                 out.flush();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            server.log("Lỗi gửi dữ liệu cho " + (name != null ? name : clientId) + ": " + e.getMessage());
         }
     }
 
