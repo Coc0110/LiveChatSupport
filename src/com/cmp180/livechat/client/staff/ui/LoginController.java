@@ -45,7 +45,7 @@ public class LoginController {
         try {
             Stage stage = (Stage) btnLogin.getScene().getWindow();
             // Load giao diện Chat
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("ZaloChat.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("LCSChat.fxml"));
             Parent root = loader.load();
             
             Scene scene = new Scene(root);

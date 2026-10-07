@@ -35,7 +35,7 @@ import javafx.animation.Timeline;
 import javafx.animation.KeyFrame;
 import javafx.util.Duration;
 
-public class ZaloChatController implements StaffNetworkListener {
+public class LCSChatController implements StaffNetworkListener {
 
     @FXML private ListView<CustomerItem> listClients;
     @FXML private ListView<ChatMessage> listMessages;
@@ -240,7 +240,8 @@ public class ZaloChatController implements StaffNetworkListener {
         private Label lblText = new Label();
         private Label lblTime = new Label();
         private Label lblStatus = new Label();
-        private VBox metaBox = new VBox(2);
+        private VBox messageAndStatus = new VBox(2);
+        private HBox timeAndBubble = new HBox(5);
         
         public MessageListCell() {
             lblText.setWrapText(true);
@@ -249,9 +250,6 @@ public class ZaloChatController implements StaffNetworkListener {
             
             lblTime.setStyle("-fx-text-fill: #888888; -fx-font-size: 10px;");
             lblStatus.setStyle("-fx-text-fill: #888888; -fx-font-size: 10px;");
-            
-            metaBox.getChildren().addAll(lblTime, lblStatus);
-            metaBox.setAlignment(Pos.BOTTOM_RIGHT);
         }
         
         @Override
@@ -262,30 +260,39 @@ public class ZaloChatController implements StaffNetworkListener {
                 setStyle("-fx-background-color: transparent;");
             } else {
                 root.getChildren().clear();
-                metaBox.getChildren().clear();
+                messageAndStatus.getChildren().clear();
+                timeAndBubble.getChildren().clear();
                 
                 lblText.setText(item.getText());
                 lblTime.setText(item.getFormattedTime());
-                lblStatus.setText(item.getStatus());
                 
                 if (item.getType() == ChatMessage.Type.MY_MSG) {
                     lblText.setStyle("-fx-background-color: #0084FF; -fx-text-fill: white; -fx-background-radius: 15 15 0 15; -fx-font-size: 14px;");
-                    metaBox.getChildren().addAll(lblTime, lblStatus);
-                    metaBox.setAlignment(Pos.BOTTOM_RIGHT);
+                    timeAndBubble.setAlignment(Pos.BOTTOM_RIGHT);
+                    timeAndBubble.getChildren().addAll(lblTime, lblText);
+                    
+                    messageAndStatus.setAlignment(Pos.TOP_RIGHT);
+                    messageAndStatus.getChildren().add(timeAndBubble);
+                    
+                    boolean isLast = (getIndex() == getListView().getItems().size() - 1);
+                    if (isLast) {
+                        lblStatus.setText("Đã nhận");
+                        messageAndStatus.getChildren().add(lblStatus);
+                    }
+                    
                     root.setAlignment(Pos.CENTER_RIGHT);
-                    root.getChildren().addAll(metaBox, lblText);
-                    HBox.setMargin(metaBox, new Insets(0, 5, 0, 0));
+                    root.getChildren().add(messageAndStatus);
                 } else if (item.getType() == ChatMessage.Type.SYSTEM_MSG) {
                     lblText.setStyle("-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 12px; -fx-font-style: italic;");
                     root.setAlignment(Pos.CENTER);
                     root.getChildren().add(lblText);
                 } else {
                     lblText.setStyle("-fx-background-color: white; -fx-text-fill: black; -fx-background-radius: 15 15 15 0; -fx-font-size: 14px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);");
-                    metaBox.getChildren().add(lblTime); // Chỉ hiện giờ, ko hiện "Đã gửi" cho KH
-                    metaBox.setAlignment(Pos.BOTTOM_LEFT);
+                    timeAndBubble.setAlignment(Pos.BOTTOM_LEFT);
+                    timeAndBubble.getChildren().addAll(lblText, lblTime);
+                    
                     root.setAlignment(Pos.CENTER_LEFT);
-                    root.getChildren().addAll(lblText, metaBox);
-                    HBox.setMargin(metaBox, new Insets(0, 0, 0, 5));
+                    root.getChildren().add(timeAndBubble);
                 }
                 
                 setGraphic(root);
@@ -318,7 +325,18 @@ public class ZaloChatController implements StaffNetworkListener {
             avatar.setAlignment(Pos.CENTER);
             avatar.setStyle("-fx-background-color: #0084FF; -fx-text-fill: white; -fx-background-radius: 50; -fx-font-weight: bold; -fx-font-size: 16;");
             
-            nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14; -fx-text-fill: black;");
+            nameLabel.setStyle("-fx-font-size: 14; -fx-text-fill: black;");
+            nameLabel.setMaxWidth(130);
+            nameLabel.setEllipsisString("...");
+            nameLabel.setWrapText(false);
+            
+            issueLabel.setMaxWidth(130);
+            issueLabel.setEllipsisString("...");
+            issueLabel.setWrapText(false);
+            
+            textContainer.setMinWidth(0);
+            HBox.setHgrow(textContainer, Priority.SOMETIMES);
+
             issueLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 12;");
             
             textContainer.getChildren().addAll(nameLabel, issueLabel);

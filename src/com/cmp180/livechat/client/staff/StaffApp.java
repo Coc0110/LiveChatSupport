@@ -10,7 +10,7 @@ public class StaffApp extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        Parent root = FXMLLoader.load(getClass().getResource("ui/ZaloLogin.fxml"));
+        Parent root = FXMLLoader.load(getClass().getResource("ui/LCSLogin.fxml"));
         primaryStage.setTitle("LiveChat Support - Login");
         primaryStage.setScene(new Scene(root));
         primaryStage.centerOnScreen();

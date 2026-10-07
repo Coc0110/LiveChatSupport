@@ -13,7 +13,7 @@
 <?import javafx.scene.shape.SVGPath?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane prefHeight="650.0" prefWidth="1000.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cmp180.livechat.client.staff.ui.ZaloChatController">
+<BorderPane prefHeight="650.0" prefWidth="1000.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cmp180.livechat.client.staff.ui.LCSChatController">
    
    <!-- CỘT TRÁI: Thanh công cụ -->
    <left>
@@ -52,9 +52,10 @@
       </VBox>
    </left>
    
-   <!-- CỘT GIỮA: Danh sách hội thoại -->
    <center>
-      <VBox prefHeight="650.0" prefWidth="280.0" style="-fx-border-color: #e0e0e0; -fx-border-width: 0 1 0 0; -fx-background-color: white;" BorderPane.alignment="CENTER">
+      <HBox BorderPane.alignment="CENTER">
+         <!-- Cá»˜T GIá»®A: Danh sÃ¡ch há»™i thoáº¡i -->
+         <VBox prefHeight="650.0" prefWidth="280.0" minWidth="280.0" maxWidth="280.0" style="-fx-border-color: #e0e0e0; -fx-border-width: 0 1 0 0; -fx-background-color: white;">
          <children>
             <HBox alignment="CENTER" prefHeight="70.0" prefWidth="280.0" style="-fx-padding: 15;">
                <children>
@@ -66,11 +67,8 @@
             <ListView fx:id="listClients" prefHeight="580.0" prefWidth="280.0" style="-fx-border-width: 0; -fx-background-color: transparent;" VBox.vgrow="ALWAYS" />
          </children>
       </VBox>
-   </center>
-   
-   <!-- CỘT PHẢI: Khung chat chính -->
-   <right>
-      <BorderPane prefHeight="650.0" prefWidth="655.0" style="-fx-background-color: #e5e5ea;" BorderPane.alignment="CENTER">
+         <!-- Cá»˜T PHáº¢I: Khung chat chÃ­nh -->
+         <BorderPane prefHeight="650.0" style="-fx-background-color: #e5e5ea;" HBox.hgrow="ALWAYS">
          <!-- Header Chat -->
          <top>
             <HBox alignment="CENTER_LEFT" prefHeight="70.0" prefWidth="655.0" style="-fx-background-color: white; -fx-border-color: #e0e0e0; -fx-border-width: 0 0 1 0; -fx-padding: 0 20;" BorderPane.alignment="CENTER">
@@ -142,5 +140,6 @@
             </VBox>
          </bottom>
       </BorderPane>
-   </right>
+      </HBox>
+   </center>
 </BorderPane>
