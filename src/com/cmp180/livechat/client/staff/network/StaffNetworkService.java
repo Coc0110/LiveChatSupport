@@ -2,14 +2,14 @@ package com.cmp180.livechat.client.staff.network;
 
 import com.cmp180.livechat.common.Message;
 import com.cmp180.livechat.common.Protocol;
+import com.cmp180.livechat.client.staff.model.CustomerItem;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class StaffNetworkService {
@@ -28,10 +28,6 @@ public class StaffNetworkService {
         }
     }
     
-    public void removeListener(StaffNetworkListener listener) {
-        listeners.remove(listener);
-    }
-    
     public void connectAndLogin(String staffIdOrName) {
         new Thread(() -> {
             try {
@@ -39,13 +35,10 @@ public class StaffNetworkService {
                 out = new ObjectOutputStream(socket.getOutputStream());
                 in = new ObjectInputStream(socket.getInputStream());
                 
-                // Gửi lệnh đăng nhập
                 sendMessage(new Message(Protocol.CMD_STAFF_LOGIN, "Staff", staffIdOrName));
                 
-                // Báo UI login thành công
                 for (StaffNetworkListener l : listeners) l.onLoginSuccess();
                 
-                // Bắt đầu vòng lặp đọc dữ liệu từ server
                 readLoop();
                 
             } catch (IOException e) {
@@ -62,17 +55,16 @@ public class StaffNetworkService {
                 
                 switch (cmd) {
                     case Protocol.CMD_QUEUE_UPDATE:
-                        Map<String, String> queue = parseQueueData(msg.getContent());
+                        List<CustomerItem> queue = parseQueueData(msg.getContent());
                         for (StaffNetworkListener l : listeners) l.onQueueUpdated(queue);
                         break;
                         
                     case Protocol.CMD_PAIRED:
-                        // Nội dung từ server gửi về chứa thông báo đã kết nối
-                        for (StaffNetworkListener l : listeners) l.onPairedWithCustomer(msg.getContent());
+                        for (StaffNetworkListener l : listeners) l.onPairedWithCustomer(msg.getSenderId(), msg.getReceiverId());
                         break;
                         
                     case Protocol.CMD_CHAT:
-                        for (StaffNetworkListener l : listeners) l.onMessageReceived(msg.getSenderId(), msg.getContent());
+                        for (StaffNetworkListener l : listeners) l.onMessageReceived(msg.getSenderId(), msg.getReceiverId(), msg.getContent());
                         break;
                         
                     case Protocol.CMD_END:
@@ -89,40 +81,48 @@ public class StaffNetworkService {
         }
     }
     
-    // Parse chuỗi "ID1:Tên1;ID2:Tên2;" thành Map<UUID, Name>
-    private Map<String, String> parseQueueData(String data) {
-        Map<String, String> map = new HashMap<>();
-        if (data == null || data.isEmpty()) return map;
-        String[] entries = data.split(";");
-        for (String entry : entries) {
-            String[] parts = entry.split(":");
-            if (parts.length == 2) {
-                map.put(parts[0], parts[1]);
-            }
-        }
-        return map;
+    public void requestQueueUpdate() {
+        sendMessage(new Message(Protocol.CMD_GET_QUEUE, "Staff", ""));
     }
     
     public void acceptCustomer(String customerId) {
-        sendMessage(new Message(Protocol.CMD_ACCEPT_CUST, "Staff", customerId));
+        sendMessage(new Message(Protocol.CMD_ACCEPT_CUST, "Staff", null, customerId));
     }
     
-    public void sendChatMessage(String text) {
-        sendMessage(new Message(Protocol.CMD_CHAT, "Staff", text));
+    public void sendChatMessage(String text, String customerId) {
+        sendMessage(new Message(Protocol.CMD_CHAT, "Staff", customerId, text));
     }
     
-    public void endSession() {
-        sendMessage(new Message(Protocol.CMD_END_SESSION, "Staff", "Nhân viên đã đóng phiên."));
+    public void endSession(String customerId) {
+        sendMessage(new Message(Protocol.CMD_END_SESSION, "Staff", customerId, "Nhân viên đã đóng phiên."));
     }
     
     private void sendMessage(Message msg) {
         try {
             if (out != null) {
                 out.writeObject(msg);
-                out.flush(); // Luôn flush sau khi gửi Object
+                out.flush();
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private List<CustomerItem> parseQueueData(String data) {
+        List<CustomerItem> list = new ArrayList<>();
+        if (data == null || data.isEmpty()) return list;
+        
+        String[] parts = data.split(";");
+        for (String p : parts) {
+            String[] kv = p.split("\\|"); // pipe needs escaping in regex
+            if (kv.length >= 4) {
+                String id = kv[0];
+                String name = kv[1];
+                boolean isActive = "ACTIVE".equals(kv[2]);
+                long joinedTime = Long.parseLong(kv[3]);
+                list.add(new CustomerItem(id, name, isActive, joinedTime));
+            }
+        }
+        return list;
     }
 }

@@ -16,19 +16,21 @@ public class ClientHandler implements Runnable {
     private ObjectInputStream in;
     private ObjectOutputStream out;
     
-    private final String clientId; // ĐỊNH DANH DUY NHẤT
+    private final String clientId;
     private String name;
     private String role;
-    private ChatSession session;
+    
+    // Thêm thời gian tham gia hàng đợi
+    private final long joinedTime;
 
     public ClientHandler(Socket socket, ServerMain server, SessionManager sessionManager) {
         this.socket = socket;
         this.server = server;
         this.sessionManager = sessionManager;
-        this.clientId = UUID.randomUUID().toString(); // Khởi tạo UUID
+        this.clientId = UUID.randomUUID().toString();
+        this.joinedTime = System.currentTimeMillis();
         
         try {
-            // Lưu ý: Luôn khởi tạo OutputStream trước InputStream trong Object streams
             this.out = new ObjectOutputStream(socket.getOutputStream());
             this.in = new ObjectInputStream(socket.getInputStream());
         } catch (IOException e) {
@@ -40,7 +42,6 @@ public class ClientHandler implements Runnable {
     public void run() {
         try {
             Message message;
-            // Lắng nghe Object thay vì String
             while ((message = (Message) in.readObject()) != null) {
                 processMessage(message);
             }
@@ -57,7 +58,7 @@ public class ClientHandler implements Runnable {
 
         switch (cmd) {
             case Protocol.CMD_CUST_LOGIN:
-                this.name = msg.getContent(); // Nội dung là tên KH
+                this.name = msg.getContent();
                 this.role = Protocol.ROLE_CUSTOMER;
                 sessionManager.registerClient(this);
                 break;
@@ -70,25 +71,20 @@ public class ClientHandler implements Runnable {
 
             case Protocol.CMD_ACCEPT_CUST:
                 if (Protocol.ROLE_STAFF.equals(this.role)) {
-                    String targetUUID = msg.getContent(); // Truyền lên UUID của khách
-                    sessionManager.acceptCustomer(this, targetUUID);
+                    sessionManager.acceptCustomer(this, msg.getContent());
                 }
                 break;
 
             case Protocol.CMD_CHAT:
-                if (session != null) {
-                    ClientHandler partner = (this == session.getCustomer()) ? session.getStaff() : session.getCustomer();
-                    if (partner != null) {
-                        // Gửi Message qua bên kia
-                        partner.sendMessage(new Message(Protocol.CMD_CHAT, this.name, msg.getContent()));
-                    }
-                } else {
-                    sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Bạn chưa được kết nối với ai để chat."));
-                }
+                sessionManager.routeMessage(this, msg);
                 break;
                 
             case Protocol.CMD_END_SESSION:
-                sessionManager.closeSession(this.session, this.name + " đã kết thúc phiên chat.");
+                sessionManager.endSession(this, msg.getReceiverId(), this.name + " đã kết thúc phiên chat.");
+                break;
+                
+            case Protocol.CMD_GET_QUEUE:
+                sessionManager.sendQueueToStaff(this);
                 break;
                 
             default:
@@ -117,6 +113,5 @@ public class ClientHandler implements Runnable {
     public String getClientId() { return clientId; }
     public String getName() { return name; }
     public String getRole() { return role; }
-    public ChatSession getSession() { return session; }
-    public void setSession(ChatSession session) { this.session = session; }
+    public long getJoinedTime() { return joinedTime; }
 }

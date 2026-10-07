@@ -1,12 +1,13 @@
 package com.cmp180.livechat.client.staff.network;
 
-import java.util.Map;
+import com.cmp180.livechat.client.staff.model.CustomerItem;
+import java.util.List;
 
 public interface StaffNetworkListener {
     void onLoginSuccess();
-    void onQueueUpdated(Map<String, String> waitingCustomers); // Key: UUID, Value: Tên
-    void onPairedWithCustomer(String customerName);
-    void onMessageReceived(String senderName, String message);
+    void onQueueUpdated(List<CustomerItem> waitingCustomers);
+    void onPairedWithCustomer(String customerName, String customerId);
+    void onMessageReceived(String senderName, String senderId, String message);
     void onSessionEnded(String reason);
     void onError(String errorMessage);
 }

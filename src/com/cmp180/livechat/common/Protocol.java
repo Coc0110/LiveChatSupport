@@ -16,4 +16,5 @@ public class Protocol {
     public static final String CMD_QUEUE_UPDATE = "QUEUE_UPDATE";
     public static final String CMD_PAIRED = "PAIRED";
     public static final String CMD_ERROR = "ERROR";
+    public static final String CMD_GET_QUEUE = "GET_QUEUE";
 }
