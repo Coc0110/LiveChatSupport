@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.shape.SVGPath?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane stylesheets="@menu_style.css" prefHeight="650.0" prefWidth="1000.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cmp180.livechat.client.staff.ui.LCSChatController">
+   
+   <!-- Cá»˜T TRÃI: Thanh cÃ´ng cá»¥ -->
+   <left>
+      <VBox alignment="TOP_CENTER" prefWidth="65.0" style="-fx-background-color: #0084FF; -fx-padding: 15 0 15 0; -fx-spacing: 15;">
+         <children>
+            <!-- Avatar Button -->
+            <Button fx:id="btnAccount" onMouseClicked="#showAccountMenu" mnemonicParsing="false" style="-fx-background-color: transparent; -fx-cursor: hand;">
+               <graphic>
+                  <SVGPath content="M17.2166 19.3323C15.9349 17.9008 14.0727 17 12 17C9.92734 17 8.06492 17.9008 6.7832 19.3323M12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21ZM12 14C10.3431 14 9 12.6569 9 11C9 9.34315 10.3431 8 12 8C13.6569 8 15 9.34315 15 11C15 12.6569 13.6569 14 12 14Z" fill="transparent" stroke="white" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+               </graphic>
+            </Button>
+            
+            <!-- Message Button -->
+            <Button mnemonicParsing="false" style="-fx-background-color: rgba(255, 255, 255, 0.2); -fx-background-radius: 10; -fx-cursor: hand; -fx-padding: 10;">
+               <graphic>
+                  <SVGPath content="M9.33814 15.9905C12.4946 15.8151 15 13.2003 15 10C15 6.68629 12.3137 4 9 4C5.68629 4 3 6.68629 3 10C3 11.1807 3.34094 12.2817 3.92989 13.21L3.50586 14.482L3.50518 14.4839C3.34278 14.9711 3.26154 15.2149 3.31938 15.3771C3.36979 15.5184 3.48169 15.6299 3.62305 15.6803C3.78472 15.7379 4.02675 15.6573 4.51069 15.4959L4.51758 15.4939L5.79004 15.0698C6.7183 15.6588 7.81935 15.9998 9.00006 15.9998C9.11352 15.9998 9.22624 15.9967 9.33814 15.9905ZM9.33814 15.9905C9.33822 15.9907 9.33806 15.9902 9.33814 15.9905ZM9.33814 15.9905C10.1591 18.3259 12.3841 20.0002 15.0001 20.0002C16.1808 20.0002 17.2817 19.6588 18.2099 19.0698L19.482 19.4939L19.4845 19.4944C19.9717 19.6567 20.2158 19.7381 20.378 19.6803C20.5194 19.6299 20.6299 19.5184 20.6803 19.3771C20.7382 19.2146 20.6572 18.9706 20.4943 18.4821L20.0703 17.21L20.2123 16.9746C20.7138 16.0979 20.9995 15.0823 20.9995 14C20.9995 10.6863 18.3137 8 15 8L14.7754 8.00414L14.6621 8.00967" fill="transparent" stroke="white" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+               </graphic>
+            </Button>
+            
+            <Region VBox.vgrow="ALWAYS" /> <!-- Äáº©y cÃ¡c nÃºt dÆ°á»›i xuá»‘ng Ä‘Ã¡y -->
+            
+            <!-- Settings Button -->
+            <Button fx:id="btnSettings" onMouseClicked="#showSettingsMenu" mnemonicParsing="false" style="-fx-background-color: transparent; -fx-cursor: hand;">
+               <graphic>
+                  <SVGPath content="M19.0608 17.9236L13.6006 21.0761C13.0177 21.4126 12.7259 21.5806 12.416 21.6465C12.1419 21.7047 11.8584 21.7047 11.5843 21.6465C11.2744 21.5806 10.9826 21.4126 10.3997 21.0761L4.93945 17.9236C4.35657 17.5871 4.06548 17.4188 3.85352 17.1834C3.66597 16.9751 3.52434 16.7297 3.43773 16.4632C3.33984 16.1619 3.33984 15.8254 3.33984 15.1524V8.84742C3.33984 8.17436 3.33984 7.83765 3.43773 7.53638C3.52434 7.26982 3.66597 7.02428 3.85352 6.816C4.06535 6.58073 4.35623 6.41279 4.93843 6.07666L10.3997 2.92359C10.9826 2.58706 11.2744 2.41914 11.5843 2.35328C11.8584 2.295 12.1419 2.295 12.416 2.35328C12.7259 2.41913 13.0167 2.58706 13.5996 2.92359L19.0674 6.08043C19.6453 6.41405 19.9355 6.58161 20.1465 6.816C20.3341 7.02428 20.4759 7.26982 20.5625 7.53638C20.6602 7.83694 20.6602 8.17277 20.6602 8.84268V15.1568C20.6602 15.8267 20.6602 16.1626 20.5625 16.4632C20.4759 16.7297 20.3341 16.9751 20.1465 17.1834C19.9346 17.4188 19.6437 17.5871 19.0608 17.9236ZM12 14.9998C10.3431 14.9998 9 13.6566 9 11.9998C9 10.3429 10.3431 8.99976 12 8.99976C13.6569 8.99976 15 10.3429 15 11.9998C15 13.6566 13.6569 14.9998 12 14.9998Z" fill="transparent" stroke="white" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+               </graphic>
+            </Button>
+            
+            <!-- Logout Button Removed (Moved to Account Menu) -->
+         </children>
+      </VBox>
+   </left>
+   
+   <center>
+      <HBox BorderPane.alignment="CENTER">
+         <!-- CÃ¡Â»ËœT GIÃ¡Â»Â®A: Danh sÃƒÂ¡ch hÃ¡Â»â„¢i thoÃ¡ÂºÂ¡i -->
+         <VBox prefHeight="650.0" prefWidth="280.0" minWidth="280.0" maxWidth="280.0" style=" -fx-border-width: 0 1 0 0; " styleClass="bg-white bordered" >
+         <children>
+            <HBox alignment="CENTER" prefHeight="70.0" prefWidth="280.0" style="-fx-padding: 15;">
+               <children>
+                  <!-- Ã” tÃ¬m kiáº¿m bo trÃ²n giá»‘ng Zalo -->
+                  <TextField prefHeight="35.0" prefWidth="250.0" promptText="Tìm kiếm..." style="-fx-background-radius: 20;  -fx-padding: 0 15 0 15;" styleClass="bg-input" HBox.hgrow="ALWAYS" />
+               </children>
+            </HBox>
+            <!-- Border 0 Ä‘á»ƒ máº¥t viá»n ListView, táº¡o cáº£m giÃ¡c pháº³ng -->
+            <ListView fx:id="listClients" prefHeight="580.0" prefWidth="280.0" style="-fx-border-width: 0; -fx-background-color: transparent;" VBox.vgrow="ALWAYS" styleClass="bordered" />
+         </children>
+      </VBox>
+         <!-- CÃ¡Â»ËœT PHÃ¡ÂºÂ¢I: Khung chat chÃƒÂ­nh -->
+         <BorderPane prefHeight="650.0"  styleClass="bg-gray" HBox.hgrow="ALWAYS">
+         <!-- Header Chat -->
+         <top>
+            <HBox alignment="CENTER_LEFT" prefHeight="70.0" prefWidth="655.0" style="  -fx-border-width: 0 0 1 0; -fx-padding: 0 20;" styleClass="bg-white bordered" BorderPane.alignment="CENTER" >
+               <children>
+                  <VBox alignment="CENTER_LEFT" spacing="2">
+                     <Label text="Đang hỗ trợ khách hàng:" styleClass="text-sub" style="-fx-font-size: 12px;"/>
+                     <HBox alignment="CENTER_LEFT" spacing="10">
+                        <Label fx:id="lblCurrentClient" text="Chưa chọn khách hàng">
+                           <font>
+                              <Font name="Segoe UI Bold" size="18.0" />
+                           </font>
+                        </Label>
+                        <Label fx:id="lblIssue" text="" styleClass="text-sub">
+                           <font>
+                              <Font name="Segoe UI" size="14.0" />
+                           </font>
+                        </Label>
+                     </HBox>
+                     <HBox alignment="CENTER_LEFT" spacing="5">
+                        <javafx.scene.shape.Circle fx:id="statusDot" radius="4" fill="#888888" />
+                        <Label fx:id="lblStatus" text="Hãy chọn một khách hàng bên trái để chat" styleClass="text-sub">
+                           <font>
+                              <Font name="Segoe UI" size="13.0" />
+                           </font>
+                        </Label>
+                     </HBox>
+                  </VBox>
+               </children>
+            </HBox>
+         </top>
+         
+         <!-- Khung hiá»ƒn thá»‹ tin nháº¯n -->
+         <center>
+            <ListView fx:id="listMessages" prefHeight="200.0" prefWidth="200.0" style=" -fx-border-width: 0;" styleClass="bg-gray bordered" BorderPane.alignment="CENTER" />
+         </center>
+         
+         <!-- Khu vá»±c soáº¡n tin nháº¯n -->
+         <bottom>
+            <VBox style="  -fx-border-width: 1 0 0 0;" styleClass="bg-white bordered" BorderPane.alignment="CENTER" >
+               <children>
+                  <!-- Thanh cÃ´ng cá»¥ (Ä‘Ã­nh kÃ¨m) -->
+                  <HBox alignment="CENTER_LEFT" spacing="15" style="-fx-padding: 10 20 0 20;">
+                     <!-- Attach Image Button -->
+                     <Button mnemonicParsing="false" style="-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 0;">
+                        <graphic>
+                           <SVGPath content="M3.00005 17.0001C3 16.9355 3 16.8689 3 16.8002V7.2002C3 6.08009 3 5.51962 3.21799 5.0918C3.40973 4.71547 3.71547 4.40973 4.0918 4.21799C4.51962 4 5.08009 4 6.2002 4H17.8002C18.9203 4 19.4801 4 19.9079 4.21799C20.2842 4.40973 20.5905 4.71547 20.7822 5.0918C21 5.5192 21 6.07899 21 7.19691V16.8031C21 17.2881 21 17.6679 20.9822 17.9774M3.00005 17.0001C3.00082 17.9884 3.01337 18.5058 3.21799 18.9074C3.40973 19.2837 3.71547 19.5905 4.0918 19.7822C4.5192 20 5.07899 20 6.19691 20H17.8036C18.9215 20 19.4805 20 19.9079 19.7822C20.2842 19.5905 20.5905 19.2837 20.7822 18.9074C20.9055 18.6654 20.959 18.3813 20.9822 17.9774M3.00005 17.0001L7.76798 11.4375L7.76939 11.436C8.19227 10.9426 8.40406 10.6955 8.65527 10.6064C8.87594 10.5282 9.11686 10.53 9.33643 10.6113C9.58664 10.704 9.79506 10.9539 10.2119 11.4541L12.8831 14.6595C13.269 15.1226 13.463 15.3554 13.6986 15.4489C13.9065 15.5313 14.1357 15.5406 14.3501 15.4773C14.5942 15.4053 14.8091 15.1904 15.2388 14.7607L15.7358 14.2637C16.1733 13.8262 16.3921 13.6076 16.6397 13.5361C16.8571 13.4734 17.0896 13.4869 17.2988 13.5732C17.537 13.6716 17.7302 13.9124 18.1167 14.3955L20.9822 17.9774M20.9822 17.9774L21 17.9996M15 10C14.4477 10 14 9.55228 14 9C14 8.44772 14.4477 8 15 8C15.5523 8 16 8.44772 16 9C16 9.55228 15.5523 10 15 10Z" fill="transparent" stroke="#72808e" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                        </graphic>
+                     </Button>
+                     <!-- Attach File Button -->
+                     <Button mnemonicParsing="false" style="-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 0;">
+                        <graphic>
+                           <SVGPath content="M4.53564 11.4647L11.4299 4.5704C13.4802 2.52015 16.8044 2.52015 18.8546 4.5704C20.9049 6.62066 20.9046 9.94496 18.8544 11.9952L10.8994 19.9502C9.53258 21.317 7.31688 21.3168 5.95004 19.95C4.58321 18.5831 4.58287 16.3673 5.94971 15.0005L13.9047 7.0455C14.5881 6.36208 15.6967 6.36208 16.3801 7.0455C17.0635 7.72892 17.0631 8.83669 16.3796 9.52011L9.48535 16.4144" fill="transparent" stroke="#72808e" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                        </graphic>
+                     </Button>
+                  </HBox>
+                  <!-- VÃ¹ng Text vÃ  NÃºt Gá»­i -->
+                  <HBox alignment="CENTER" prefHeight="70.0" prefWidth="655.0" style="-fx-padding: 10 20 20 20; -fx-spacing: 15;">
+                     <children>
+                        <TextField fx:id="txtMessage" prefHeight="45.0" promptText="Nhập tin nhắn..." style=" -fx-background-radius: 20; -fx-padding: 0 20; -fx-font-size: 15;" styleClass="bg-input" HBox.hgrow="ALWAYS" />
+                        <!-- Send Button -->
+                        <Button fx:id="btnSend" onAction="#handleSend" mnemonicParsing="false" prefHeight="45.0" prefWidth="45.0" style="-fx-background-color: #0084FF; -fx-background-radius: 50; -fx-cursor: hand;">
+                           <graphic>
+                              <SVGPath content="M10.3078 13.6923L15.1539 8.84619M20.1113 5.88867L16.0207 19.1833C15.6541 20.3747 15.4706 20.9707 15.1544 21.1683C14.8802 21.3396 14.5406 21.3683 14.2419 21.2443C13.8975 21.1014 13.618 20.5433 13.0603 19.428L10.4694 14.2461C10.3809 14.0691 10.3366 13.981 10.2775 13.9043C10.225 13.8363 10.1645 13.7749 10.0965 13.7225C10.0215 13.6647 9.93486 13.6214 9.76577 13.5369L4.57192 10.9399C3.45662 10.3823 2.89892 10.1032 2.75601 9.75879C2.63207 9.4601 2.66033 9.12023 2.83169 8.84597C3.02928 8.52974 3.62523 8.34603 4.81704 7.97932L18.1116 3.88867C19.0486 3.60038 19.5173 3.45635 19.8337 3.57253C20.1094 3.67373 20.3267 3.89084 20.4279 4.16651C20.544 4.48283 20.3999 4.95126 20.1119 5.88729L20.1113 5.88867Z" fill="transparent" stroke="white" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                           </graphic>
+                        </Button>
+                     </children>
+                  </HBox>
+               </children>
+            </VBox>
+         </bottom>
+      </BorderPane>
+      </HBox>
+   </center>
+</BorderPane>
+

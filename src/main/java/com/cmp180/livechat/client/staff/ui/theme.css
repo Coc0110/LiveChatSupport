@@ -1,0 +1,24 @@
+.root {
+    -fx-base-bg: #e5e5ea;
+    -fx-panel-bg: white;
+    -fx-border-color: #e0e0e0;
+    -fx-input-bg: #f0f2f5;
+    -fx-text-main: black;
+    -fx-text-sub: #888888;
+}
+
+.dark-mode {
+    -fx-base-bg: #121212;
+    -fx-panel-bg: #1e1e1e;
+    -fx-border-color: #333333;
+    -fx-input-bg: #333333;
+    -fx-text-main: white;
+    -fx-text-sub: #aaaaaa;
+}
+
+.theme-bg-base { -fx-background-color: -fx-base-bg; }
+.theme-bg-panel { -fx-background-color: -fx-panel-bg; }
+.theme-border { -fx-border-color: -fx-border-color; }
+.theme-input { -fx-background-color: -fx-input-bg; -fx-text-fill: -fx-text-main; }
+.theme-text-main { -fx-text-fill: -fx-text-main; }
+.theme-text-sub { -fx-text-fill: -fx-text-sub; }
