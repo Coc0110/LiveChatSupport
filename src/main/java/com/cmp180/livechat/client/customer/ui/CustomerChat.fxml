@@ -14,7 +14,7 @@
 
 <BorderPane prefHeight="650.0" prefWidth="565.0"  styleClass="bg-gray" stylesheets="@menu_style.css" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cmp180.livechat.client.customer.ui.CustomerChatController">
    <left>
-      <VBox alignment="TOP_CENTER" prefWidth="65.0" style="-fx-background-color: #0084FF; -fx-padding: 15 0 15 0; -fx-spacing: 15;">
+      <VBox alignment="TOP_CENTER" prefWidth="65.0" style="-fx-padding: 15 0 15 0; -fx-spacing: 15;" styleClass="sidebar">
          <children>
             <!-- Avatar Button -->
             <Button fx:id="btnAccount" onMouseClicked="#showAccountMenu" mnemonicParsing="false" style="-fx-background-color: transparent; -fx-cursor: hand;">
@@ -47,7 +47,7 @@
       <BorderPane>
          <!-- Header Chat -->
    <top>
-      <HBox alignment="CENTER_LEFT" prefHeight="70.0" prefWidth="500.0" style="  -fx-border-width: 0 0 1 0; -fx-padding: 0 20;" styleClass="bg-white bordered" BorderPane.alignment="CENTER" >
+      <HBox alignment="CENTER_LEFT" prefHeight="70.0" prefWidth="500.0" style="-fx-border-width: 0 0 1 0; -fx-padding: 0 20;" styleClass="bg-white, bordered, chat-header" BorderPane.alignment="CENTER">
          <children>
             <VBox alignment="CENTER_LEFT" spacing="2">
                <Label fx:id="lblTitle" text="Trung tâm Hỗ trợ">
@@ -67,12 +67,12 @@
    
    <!-- Khung hiển thị tin nhắn -->
    <center>
-      <ListView fx:id="listMessages" prefHeight="200.0" prefWidth="200.0" style=" -fx-border-width: 0;" styleClass="bg-gray bordered" BorderPane.alignment="CENTER" />
+      <ListView fx:id="listMessages" focusTraversable="false" prefHeight="200.0" prefWidth="200.0" style="-fx-border-width: 0;" styleClass="bg-gray, chat-list" BorderPane.alignment="CENTER" />
    </center>
    
    <!-- Khu vực soạn tin nhắn -->
    <bottom>
-      <VBox style="  -fx-border-width: 1 0 0 0;" styleClass="bg-white bordered" BorderPane.alignment="CENTER" >
+      <VBox style="-fx-border-width: 1 0 0 0;" styleClass="bg-white, bordered, chat-footer" BorderPane.alignment="CENTER">
          <children>
             <!-- Thanh công cụ (đính kèm) -->
             <HBox alignment="CENTER_LEFT" spacing="15" style="-fx-padding: 10 20 0 20;">

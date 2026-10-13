@@ -88,7 +88,8 @@ public class LCSChatController implements StaffNetworkListener {
         themeBox.setPrefWidth(180);
         themeBox.setAlignment(Pos.CENTER_LEFT);
         Label lblTheme = new Label("Giao diện sáng/tối");
-        lblTheme.setStyle("-fx-font-size: 14px; -fx-font-family: 'Segoe UI';");
+        lblTheme.getStyleClass().add("theme-label");
+        lblTheme.setStyle("-fx-text-fill: #1c1e21; -fx-font-size: 14px; -fx-font-family: 'Segoe UI';");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -117,19 +118,33 @@ public class LCSChatController implements StaffNetworkListener {
             if (isDark) {
                 switchIcon.setTranslateX(-4);
                 switchIcon.setContent("M12 4V2M12 20V22M6.41421 6.41421L5 5M17.728 17.728L19.1422 19.1422M4 12H2M20 12H22M17.7285 6.41421L19.1427 5M6.4147 17.728L5.00049 19.1422M12 17C9.23858 17 7 14.7614 7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12C17 14.7614 14.7614 17 12 17Z");
+                lblTheme.setStyle("-fx-text-fill: #1c1e21; -fx-font-size: 14px; -fx-font-family: 'Segoe UI';");
+                switchBg.setStroke(Color.web("#888888"));
+                switchIcon.setStroke(Color.web("#888888"));
                 if (btnAccount != null && btnAccount.getScene() != null) {
                     btnAccount.getScene().getRoot().getStyleClass().remove("dark-mode");
-                    accountMenu.getStyleClass().remove("dark-mode");
-                    settingsMenu.getStyleClass().remove("dark-mode");
                 }
+                accountMenu.getStyleClass().removeAll("dark-mode", "dark-menu");
+                settingsMenu.getStyleClass().removeAll("dark-mode", "dark-menu");
+                listMessages.refresh();
+                listClients.refresh();
             } else {
                 switchIcon.setTranslateX(4);
                 switchIcon.setContent("M18 15C13.0294 15 9 10.9706 9 6C9 5.09074 9.13484 4.21311 9.38561 3.38574C5.69007 4.50583 3 7.93883 3 12.0001C3 16.9707 7.02944 20.9999 12 20.9999C16.0613 20.9999 19.4943 18.3103 20.6144 14.6147C19.787 14.8655 18.9093 15 18 15Z");
+                lblTheme.setStyle("-fx-text-fill: #e4e6eb; -fx-font-size: 14px; -fx-font-family: 'Segoe UI';");
+                switchBg.setStroke(Color.web("#b0b3b8"));
+                switchIcon.setStroke(Color.web("#b0b3b8"));
                 if (btnAccount != null && btnAccount.getScene() != null) {
                     btnAccount.getScene().getRoot().getStyleClass().add("dark-mode");
-                    accountMenu.getStyleClass().add("dark-mode");
-                    settingsMenu.getStyleClass().add("dark-mode");
                 }
+                if (!accountMenu.getStyleClass().contains("dark-menu")) {
+                    accountMenu.getStyleClass().addAll("dark-mode", "dark-menu");
+                }
+                if (!settingsMenu.getStyleClass().contains("dark-menu")) {
+                    settingsMenu.getStyleClass().addAll("dark-mode", "dark-menu");
+                }
+                listMessages.refresh();
+                listClients.refresh();
             }
         });
         themeBox.getChildren().addAll(lblTheme, spacer, themeSwitch);
@@ -146,6 +161,7 @@ public class LCSChatController implements StaffNetworkListener {
         listClients.setCellFactory(param -> new CustomerListCell());
 
         listClients.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (isUpdatingSelection) return;
             if (newVal != null && newVal.isActive()) {
                 if (newVal.hasUnread()) {
                     newVal.setUnread(false);
@@ -159,24 +175,41 @@ public class LCSChatController implements StaffNetworkListener {
         refreshTimer.setCycleCount(Timeline.INDEFINITE);
         refreshTimer.play();
     }
+
+    private boolean isUpdatingSelection = false;
     
     private void sortAndRefreshQueue() {
-        Collections.sort(localQueue, (a, b) -> {
-            // Group 1: Unread
-            if (a.hasUnread() != b.hasUnread()) return a.hasUnread() ? -1 : 1;
-            
-            // Group 2: Active vs Waiting
-            if (a.isActive() != b.isActive()) return a.isActive() ? -1 : 1;
-            
-            if (a.isActive()) {
-                // Both active: sort by last message time (descending)
-                return Long.compare(b.getLastMessageTime(), a.getLastMessageTime());
-            } else {
-                // Both waiting: sort by joined time (ascending - oldest first)
-                return Long.compare(a.getJoinedTime(), b.getJoinedTime());
+        isUpdatingSelection = true;
+        try {
+            Collections.sort(localQueue, (a, b) -> {
+                // Group 1: Unread
+                if (a.hasUnread() != b.hasUnread()) return a.hasUnread() ? -1 : 1;
+                
+                // Group 2: Active vs Waiting
+                if (a.isActive() != b.isActive()) return a.isActive() ? -1 : 1;
+                
+                if (a.isActive()) {
+                    // Both active: sort by last message time (descending)
+                    return Long.compare(b.getLastMessageTime(), a.getLastMessageTime());
+                } else {
+                    // Group 3: Waiting - prioritize interrupted ("Đang tư vấn dở") customers first
+                    if (a.isInterrupted() != b.isInterrupted()) return a.isInterrupted() ? -1 : 1;
+                    // Both waiting: sort by joined time (ascending - oldest first)
+                    return Long.compare(a.getJoinedTime(), b.getJoinedTime());
+                }
+            });
+            if (currentCustomerId != null) {
+                for (CustomerItem c : localQueue) {
+                    if (c.getId().equals(currentCustomerId)) {
+                        listClients.getSelectionModel().select(c);
+                        break;
+                    }
+                }
             }
-        });
-        listClients.refresh();
+            listClients.refresh();
+        } finally {
+            isUpdatingSelection = false;
+        }
     }
     
     private void selectCustomer(String customerId, String fullDisplayName) {
@@ -199,6 +232,19 @@ public class LCSChatController implements StaffNetworkListener {
         }
         if (listMessages.getItems().size() > 0) {
             listMessages.scrollTo(listMessages.getItems().size() - 1);
+        }
+
+        isUpdatingSelection = true;
+        try {
+            for (CustomerItem c : localQueue) {
+                if (c.getId().equals(customerId)) {
+                    listClients.getSelectionModel().select(c);
+                    break;
+                }
+            }
+            listClients.refresh();
+        } finally {
+            isUpdatingSelection = false;
         }
     }
 
@@ -238,6 +284,7 @@ public class LCSChatController implements StaffNetworkListener {
                 for (CustomerItem locItem : localQueue) {
                     if (locItem.getId().equals(srvItem.getId())) {
                         locItem.setActive(srvItem.isActive());
+                        locItem.setInterrupted(srvItem.isInterrupted());
                         locItem.setFullName(srvItem.getFullName());
                         toRemove.remove(locItem);
                         found = true;
@@ -254,6 +301,32 @@ public class LCSChatController implements StaffNetworkListener {
     }
 
     @Override
+    public void onChatHistoryReceived(String customerId, String senderRole, String senderName, long timestamp, String message) {
+        Platform.runLater(() -> {
+            ChatMessage.Type type;
+            String displayText = message;
+            if ("STAFF".equalsIgnoreCase(senderRole)) {
+                type = ChatMessage.Type.MY_MSG;
+                displayText = "[" + senderName + "]: " + message;
+            } else if ("SYSTEM".equalsIgnoreCase(senderRole)) {
+                type = ChatMessage.Type.SYSTEM_MSG;
+            } else {
+                type = ChatMessage.Type.CUSTOMER_MSG;
+            }
+            ChatMessage historyMsg = new ChatMessage(displayText, type, senderName, timestamp);
+            List<ChatMessage> historyList = chatHistories.computeIfAbsent(customerId, k -> new ArrayList<>());
+            if (historyList.isEmpty()) {
+                historyList.add(new ChatMessage("--- Lịch sử tư vấn trước đó ---", ChatMessage.Type.SYSTEM_MSG, "Hệ thống", timestamp));
+            }
+            historyList.add(historyMsg);
+            if (customerId.equals(currentCustomerId)) {
+                listMessages.getItems().setAll(historyList);
+                listMessages.scrollTo(listMessages.getItems().size() - 1);
+            }
+        });
+    }
+
+    @Override
     public void onPairedWithCustomer(String customerName, String customerId) {
         Platform.runLater(() -> {
             ChatMessage msg = new ChatMessage("Bạn đã được kết nối với " + customerName, ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
@@ -262,10 +335,12 @@ public class LCSChatController implements StaffNetworkListener {
             for (CustomerItem c : localQueue) {
                 if (c.getId().equals(customerId)) {
                     c.setActive(true);
+                    c.setInterrupted(false);
                     c.setLastMessageTime(System.currentTimeMillis());
                     break;
                 }
             }
+            currentCustomerId = customerId;
             sortAndRefreshQueue();
             selectCustomer(customerId, customerName);
         });
@@ -371,7 +446,12 @@ public class LCSChatController implements StaffNetworkListener {
                     root.setAlignment(Pos.CENTER);
                     root.getChildren().add(lblText);
                 } else {
-                    lblText.setStyle("-fx-background-color: white; -fx-text-fill: black; -fx-background-radius: 15 15 15 0; -fx-font-size: 14px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);");
+                    boolean isDarkTheme = getScene() != null && getScene().getRoot().getStyleClass().contains("dark-mode");
+                    if (isDarkTheme) {
+                        lblText.setStyle("-fx-background-color: #242526; -fx-text-fill: #e4e6eb; -fx-background-radius: 15 15 15 0; -fx-font-size: 14px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+                    } else {
+                        lblText.setStyle("-fx-background-color: white; -fx-text-fill: black; -fx-background-radius: 15 15 15 0; -fx-font-size: 14px; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);");
+                    }
                     timeAndBubble.setAlignment(Pos.BOTTOM_LEFT);
                     timeAndBubble.getChildren().addAll(lblText, lblTime);
                     
@@ -410,11 +490,11 @@ public class LCSChatController implements StaffNetworkListener {
             avatar.setStyle("-fx-background-color: #0084FF; -fx-text-fill: white; -fx-background-radius: 50; -fx-font-weight: bold; -fx-font-size: 16;");
             
             nameLabel.setStyle("-fx-font-size: 14; -fx-text-fill: black;");
-            nameLabel.setMaxWidth(130);
+            nameLabel.setMaxWidth(155);
             nameLabel.setEllipsisString("...");
             nameLabel.setWrapText(false);
             
-            issueLabel.setMaxWidth(130);
+            issueLabel.setMaxWidth(155);
             issueLabel.setEllipsisString("...");
             issueLabel.setWrapText(false);
             
@@ -464,8 +544,20 @@ public class LCSChatController implements StaffNetworkListener {
                     issue = displayName.substring(idx + 2, displayName.length() - 1);
                 }
                 
+                boolean isDarkTheme = getScene() != null && getScene().getRoot().getStyleClass().contains("dark-mode");
                 nameLabel.setText(name);
-                issueLabel.setText(issue);
+                nameLabel.setStyle("-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: " + (isDarkTheme ? "#e4e6eb;" : "#1c1e21;"));
+                if (!item.isActive() && item.isInterrupted()) {
+                    issueLabel.setText("⚠ Đang tư vấn dở • " + issue);
+                    issueLabel.setStyle("-fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: " + (isDarkTheme ? "#FFB74D;" : "#E65100;"));
+                    btnAccept.setText("Tiếp nhận");
+                    btnAccept.setStyle("-fx-background-color: #F57C00; -fx-text-fill: white; -fx-font-size: 12; -fx-font-weight: bold; -fx-padding: 3 10; -fx-background-radius: 10; -fx-cursor: hand;");
+                } else {
+                    issueLabel.setText(issue);
+                    issueLabel.setStyle("-fx-font-size: 12; -fx-text-fill: " + (isDarkTheme ? "#b0b3b8;" : "#888888;"));
+                    btnAccept.setText("Nhận");
+                    btnAccept.setStyle("-fx-background-color: #0084FF; -fx-text-fill: white; -fx-font-size: 12; -fx-padding: 3 10; -fx-background-radius: 10; -fx-cursor: hand;");
+                }
                 
                 root.getChildren().addAll(avatar, textContainer, spacer);
                 
@@ -478,7 +570,7 @@ public class LCSChatController implements StaffNetworkListener {
                     long waitMinutes = waitTimeMillis / 60000;
                     
                     Color iconColor = Color.web("#00C853");
-                    if (waitMinutes >= 5) iconColor = Color.web("#F44336");
+                    if (waitMinutes >= 5 || item.isInterrupted()) iconColor = Color.web("#F44336");
                     else if (waitMinutes >= 2) iconColor = Color.web("#FF9800");
                     
                     clockIcon.setStroke(iconColor);
@@ -495,8 +587,9 @@ public class LCSChatController implements StaffNetworkListener {
                 setGraphic(root);
                 setText(null);
                 
-                if (isSelected()) {
-                    setStyle("-fx-background-color: #e5e5ea;");
+                boolean isCurrentSelected = (currentCustomerId != null && currentCustomerId.equals(item.getId())) || (item.isActive() && isSelected());
+                if (isCurrentSelected) {
+                    setStyle("-fx-background-color: " + (isDarkTheme ? "#2e3033;" : "#e5e5ea;"));
                 } else {
                     setStyle("-fx-background-color: transparent;");
                 }

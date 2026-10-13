@@ -62,6 +62,25 @@ public class StaffNetworkService {
                     case Protocol.CMD_PAIRED:
                         for (StaffNetworkListener l : listeners) l.onPairedWithCustomer(msg.getSenderId(), msg.getReceiverId());
                         break;
+
+                    case Protocol.CMD_CHAT_HISTORY:
+                        String decryptedHistory = com.cmp180.livechat.common.SecurityManager.decrypt(msg.getContent());
+                        String meta = msg.getSenderId();
+                        String role = "CUSTOMER";
+                        String senderName = "Khách hàng";
+                        long ts = System.currentTimeMillis();
+                        if (meta != null) {
+                            String[] parts = meta.split("\\|");
+                            if (parts.length >= 1) role = parts[0];
+                            if (parts.length >= 2) senderName = parts[1];
+                            if (parts.length >= 3) {
+                                try { ts = Long.parseLong(parts[2]); } catch (NumberFormatException ignored) {}
+                            }
+                        }
+                        for (StaffNetworkListener l : listeners) {
+                            l.onChatHistoryReceived(msg.getReceiverId(), role, senderName, ts, decryptedHistory);
+                        }
+                        break;
                         
                     case Protocol.CMD_CHAT:
                         String decryptedContent = com.cmp180.livechat.common.SecurityManager.decrypt(msg.getContent());
@@ -121,8 +140,9 @@ public class StaffNetworkService {
                 String id = kv[0];
                 String name = kv[1];
                 boolean isActive = "ACTIVE".equals(kv[2]);
+                boolean isInterrupted = Protocol.STATUS_INTERRUPTED.equals(kv[2]);
                 long joinedTime = Long.parseLong(kv[3]);
-                list.add(new CustomerItem(id, name, isActive, joinedTime));
+                list.add(new CustomerItem(id, name, isActive, isInterrupted, joinedTime));
             }
         }
         return list;

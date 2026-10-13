@@ -6,9 +6,25 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ClientHandler implements Runnable {
+    public static class HistoryEntry {
+        public final String senderRole;
+        public final String senderName;
+        public final String encryptedContent;
+        public final long timestamp;
+
+        public HistoryEntry(String senderRole, String senderName, String encryptedContent, long timestamp) {
+            this.senderRole = senderRole;
+            this.senderName = senderName;
+            this.encryptedContent = encryptedContent;
+            this.timestamp = timestamp;
+        }
+    }
+
     private final Socket socket;
     private final ServerMain server;
     private final SessionManager sessionManager;
@@ -22,6 +38,10 @@ public class ClientHandler implements Runnable {
     
     // Thêm thời gian tham gia hàng đợi
     private final long joinedTime;
+
+    // Cờ đánh dấu "Đang tư vấn dở" và lịch sử chat của khách hàng
+    private volatile boolean interrupted = false;
+    private final List<HistoryEntry> chatHistory = new CopyOnWriteArrayList<>();
 
     public ClientHandler(Socket socket, ServerMain server, SessionManager sessionManager) {
         this.socket = socket;
@@ -114,4 +134,11 @@ public class ClientHandler implements Runnable {
     public String getName() { return name; }
     public String getRole() { return role; }
     public long getJoinedTime() { return joinedTime; }
+
+    public boolean isInterrupted() { return interrupted; }
+    public void setInterrupted(boolean interrupted) { this.interrupted = interrupted; }
+    public List<HistoryEntry> getChatHistory() { return chatHistory; }
+    public void addHistory(String senderRole, String senderName, String encryptedContent) {
+        chatHistory.add(new HistoryEntry(senderRole, senderName, encryptedContent, System.currentTimeMillis()));
+    }
 }

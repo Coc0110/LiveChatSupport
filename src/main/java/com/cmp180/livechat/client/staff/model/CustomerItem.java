@@ -4,6 +4,7 @@ public class CustomerItem {
     private String id;
     private String fullName;
     private boolean isActive;
+    private boolean isInterrupted;
     private long joinedTime;
     
     // Local UI states
@@ -11,9 +12,14 @@ public class CustomerItem {
     private long lastMessageTime;
 
     public CustomerItem(String id, String fullName, boolean isActive, long joinedTime) {
+        this(id, fullName, isActive, false, joinedTime);
+    }
+
+    public CustomerItem(String id, String fullName, boolean isActive, boolean isInterrupted, long joinedTime) {
         this.id = id;
         this.fullName = fullName;
         this.isActive = isActive;
+        this.isInterrupted = isInterrupted;
         this.joinedTime = joinedTime;
         this.hasUnread = false;
         this.lastMessageTime = 0; // 0 means no messages yet
@@ -22,9 +28,11 @@ public class CustomerItem {
     public String getId() { return id; }
     public String getFullName() { return fullName; }
     public boolean isActive() { return isActive; }
+    public boolean isInterrupted() { return isInterrupted; }
     public long getJoinedTime() { return joinedTime; }
     
     public void setActive(boolean active) { this.isActive = active; }
+    public void setInterrupted(boolean interrupted) { this.isInterrupted = interrupted; }
     public void setFullName(String name) { this.fullName = name; }
     
     public boolean hasUnread() { return hasUnread; }

@@ -15,10 +15,14 @@ public class ChatMessage {
     private String status; // "Đã gửi", "Đã đọc", etc.
 
     public ChatMessage(String text, Type type, String senderName) {
+        this(text, type, senderName, System.currentTimeMillis());
+    }
+
+    public ChatMessage(String text, Type type, String senderName, long timestamp) {
         this.text = text;
         this.type = type;
         this.senderName = senderName;
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = timestamp;
         this.status = (type == Type.MY_MSG) ? "Đã gửi" : ""; // Default status
     }
 

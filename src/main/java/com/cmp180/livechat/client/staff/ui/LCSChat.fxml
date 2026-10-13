@@ -17,7 +17,7 @@
    
    <!-- Cá»˜T TRÃI: Thanh cÃ´ng cá»¥ -->
    <left>
-      <VBox alignment="TOP_CENTER" prefWidth="65.0" style="-fx-background-color: #0084FF; -fx-padding: 15 0 15 0; -fx-spacing: 15;">
+      <VBox alignment="TOP_CENTER" prefWidth="65.0" style="-fx-padding: 15 0 15 0; -fx-spacing: 15;" styleClass="sidebar">
          <children>
             <!-- Avatar Button -->
             <Button fx:id="btnAccount" onMouseClicked="#showAccountMenu" mnemonicParsing="false" style="-fx-background-color: transparent; -fx-cursor: hand;">
@@ -49,24 +49,24 @@
    
    <center>
       <HBox BorderPane.alignment="CENTER">
-         <!-- CÃ¡Â»ËœT GIÃ¡Â»Â®A: Danh sÃƒÂ¡ch hÃ¡Â»â„¢i thoÃ¡ÂºÂ¡i -->
-         <VBox prefHeight="650.0" prefWidth="280.0" minWidth="280.0" maxWidth="280.0" style=" -fx-border-width: 0 1 0 0; " styleClass="bg-white bordered" >
+         <!-- CỘT GIỮA: Danh sách hội thoại -->
+         <VBox prefHeight="650.0" prefWidth="280.0" minWidth="280.0" maxWidth="280.0" style="-fx-border-width: 0 1 0 0;" styleClass="bg-white, bordered">
          <children>
-            <HBox alignment="CENTER" prefHeight="70.0" prefWidth="280.0" style="-fx-padding: 15;">
+            <HBox alignment="CENTER" prefHeight="70.0" prefWidth="280.0" style="-fx-padding: 15; -fx-border-width: 0 0 1 0;" styleClass="bg-white, bordered">
                <children>
-                  <!-- Ã” tÃ¬m kiáº¿m bo trÃ²n giá»‘ng Zalo -->
-                  <TextField prefHeight="35.0" prefWidth="250.0" promptText="Tìm kiếm..." style="-fx-background-radius: 20;  -fx-padding: 0 15 0 15;" styleClass="bg-input" HBox.hgrow="ALWAYS" />
+                  <!-- Ô tìm kiếm bo tròn có viền -->
+                  <TextField fx:id="txtSearch" prefHeight="36.0" prefWidth="250.0" promptText="Tìm kiếm..." style="-fx-background-radius: 20; -fx-padding: 0 15 0 15;" styleClass="bg-input" HBox.hgrow="ALWAYS" />
                </children>
             </HBox>
-            <!-- Border 0 Ä‘á»ƒ máº¥t viá»n ListView, táº¡o cáº£m giÃ¡c pháº³ng -->
-            <ListView fx:id="listClients" prefHeight="580.0" prefWidth="280.0" style="-fx-border-width: 0; -fx-background-color: transparent;" VBox.vgrow="ALWAYS" styleClass="bordered" />
+            <!-- Danh sách khách hàng -->
+            <ListView fx:id="listClients" focusTraversable="false" prefHeight="580.0" prefWidth="280.0" style="-fx-border-width: 0;" VBox.vgrow="ALWAYS" styleClass="client-list" />
          </children>
       </VBox>
-         <!-- CÃ¡Â»ËœT PHÃ¡ÂºÂ¢I: Khung chat chÃƒÂ­nh -->
-         <BorderPane prefHeight="650.0"  styleClass="bg-gray" HBox.hgrow="ALWAYS">
+         <!-- CỘT PHẢI: Khung chat chính -->
+         <BorderPane prefHeight="650.0" styleClass="bg-gray" HBox.hgrow="ALWAYS">
          <!-- Header Chat -->
          <top>
-            <HBox alignment="CENTER_LEFT" prefHeight="70.0" prefWidth="655.0" style="  -fx-border-width: 0 0 1 0; -fx-padding: 0 20;" styleClass="bg-white bordered" BorderPane.alignment="CENTER" >
+            <HBox alignment="CENTER_LEFT" prefHeight="70.0" prefWidth="655.0" style="-fx-border-width: 0 0 1 0; -fx-padding: 0 20;" styleClass="bg-white, bordered, chat-header" BorderPane.alignment="CENTER">
                <children>
                   <VBox alignment="CENTER_LEFT" spacing="2">
                      <Label text="Đang hỗ trợ khách hàng:" styleClass="text-sub" style="-fx-font-size: 12px;"/>
@@ -95,14 +95,14 @@
             </HBox>
          </top>
          
-         <!-- Khung hiá»ƒn thá»‹ tin nháº¯n -->
+         <!-- Khung hiển thị tin nhắn -->
          <center>
-            <ListView fx:id="listMessages" prefHeight="200.0" prefWidth="200.0" style=" -fx-border-width: 0;" styleClass="bg-gray bordered" BorderPane.alignment="CENTER" />
+            <ListView fx:id="listMessages" focusTraversable="false" prefHeight="200.0" prefWidth="200.0" style="-fx-border-width: 0;" styleClass="bg-gray, chat-list" BorderPane.alignment="CENTER" />
          </center>
          
-         <!-- Khu vá»±c soáº¡n tin nháº¯n -->
+         <!-- Khu vực soạn tin nhắn -->
          <bottom>
-            <VBox style="  -fx-border-width: 1 0 0 0;" styleClass="bg-white bordered" BorderPane.alignment="CENTER" >
+            <VBox style="-fx-border-width: 1 0 0 0;" styleClass="bg-white, bordered, chat-footer" BorderPane.alignment="CENTER">
                <children>
                   <!-- Thanh cÃ´ng cá»¥ (Ä‘Ã­nh kÃ¨m) -->
                   <HBox alignment="CENTER_LEFT" spacing="15" style="-fx-padding: 10 20 0 20;">

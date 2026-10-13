@@ -53,6 +53,10 @@ public class CustomerNetworkService {
                 String cmd = msg.getCommand();
                 
                 switch (cmd) {
+                    case Protocol.CMD_WAITING:
+                        for (CustomerNetworkListener l : listeners) l.onReturnedToQueue(msg.getContent());
+                        break;
+
                     case Protocol.CMD_PAIRED:
                         for (CustomerNetworkListener l : listeners) l.onPairedWithStaff(msg.getSenderId(), msg.getReceiverId());
                         break;

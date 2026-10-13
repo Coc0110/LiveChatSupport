@@ -1,17 +1,24 @@
+/* ===================================================
+   LiveChat Global Stylesheet (Light & Dark Mode)
+   =================================================== */
+
+/* --- Context Menu (Light Mode Default) --- */
 .context-menu {
-    -fx-background-color: white;
-    -fx-background-radius: 8;
-    -fx-border-radius: 8;
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
     -fx-border-color: #e0e0e0;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 10, 0, 0, 5);
-    -fx-padding: 8 0 8 0;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.15), 12, 0, 0, 4);
+    -fx-padding: 6 0 6 0;
     -fx-min-width: 220px;
 }
 .menu-item {
+    -fx-background-color: transparent;
     -fx-padding: 10 20 10 20;
 }
 .menu-item > .label {
-    -fx-text-fill: #333333;
+    -fx-text-fill: #1c1e21;
     -fx-font-size: 14px;
     -fx-font-family: "Segoe UI";
 }
@@ -19,45 +26,255 @@
     -fx-background-color: #f0f2f5;
 }
 .menu-item:focused > .label {
-    -fx-text-fill: #000000;
+    -fx-text-fill: #050505;
 }
 .separator {
-    -fx-padding: 5 0 5 0;
+    -fx-padding: 4 0 4 0;
 }
 .separator *.line {
-    -fx-border-color: #eeeeee;
+    -fx-border-color: #e4e6eb;
     -fx-border-width: 1 0 0 0;
 }
 
-/* Theme Classes */
-.bg-white { -fx-background-color: white; }
-.bg-gray { -fx-background-color: #e5e5ea; }
-.bg-input { -fx-background-color: #f0f2f5; -fx-text-inner-color: black; }
-.text-main { -fx-text-fill: black; }
-.text-sub { -fx-text-fill: #888888; }
-
-.dark-mode, .dark-mode .bg-white { -fx-background-color: #1e1e1e; }
-.dark-mode .bg-gray { -fx-background-color: #121212; }
-.dark-mode .bg-input { -fx-background-color: #333333; -fx-text-inner-color: white; }
-.dark-mode .text-main, .dark-mode .label { -fx-text-fill: #e0e0e0; }
-.dark-mode .text-sub { -fx-text-fill: #aaaaaa; }
-.dark-mode .list-cell { -fx-text-fill: #e0e0e0; }
-
-/* Borders */
-.bordered { -fx-border-color: #e0e0e0; }
-.dark-mode .bordered { -fx-border-color: #333333; }
-
-/* Dark Mode Context Menu */
-.dark-mode.context-menu {
-    -fx-background-color: #2b2b2b;
-    -fx-border-color: #444444;
+/* --- Context Menu (Dark Mode) --- */
+.dark-mode .context-menu,
+.dark-mode.context-menu,
+.context-menu.dark-menu {
+    -fx-background-color: #242526;
+    -fx-border-color: #393a3b;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 14, 0, 0, 5);
 }
-.dark-mode.context-menu .menu-item:focused {
-    -fx-background-color: #3d3d3d;
+.dark-mode .menu-item,
+.dark-mode.context-menu .menu-item,
+.context-menu.dark-menu .menu-item {
+    -fx-background-color: transparent;
 }
-.dark-mode.context-menu .menu-item > .label {
-    -fx-text-fill: #e0e0e0;
+.dark-mode .menu-item > .label,
+.dark-mode.context-menu .menu-item > .label,
+.context-menu.dark-menu .menu-item > .label {
+    -fx-text-fill: #e4e6eb;
+    -fx-font-size: 14px;
+    -fx-font-family: "Segoe UI";
 }
-.dark-mode.context-menu .separator *.line {
-    -fx-border-color: #444444;
+.dark-mode .menu-item:focused,
+.dark-mode.context-menu .menu-item:focused,
+.context-menu.dark-menu .menu-item:focused {
+    -fx-background-color: #3a3b3c;
+}
+.dark-mode .menu-item:focused > .label,
+.dark-mode.context-menu .menu-item:focused > .label,
+.context-menu.dark-menu .menu-item:focused > .label {
+    -fx-text-fill: #ffffff;
+}
+.dark-mode .separator *.line,
+.dark-mode.context-menu .separator *.line,
+.context-menu.dark-menu .separator *.line {
+    -fx-border-color: #393a3b;
+}
+
+.theme-label {
+    -fx-text-fill: #1c1e21;
+    -fx-font-size: 14px;
+    -fx-font-family: "Segoe UI";
+}
+.dark-mode .theme-label,
+.context-menu.dark-menu .theme-label {
+    -fx-text-fill: #e4e6eb;
+}
+
+/* --- Left Sidebar --- */
+.sidebar {
+    -fx-background-color: #0084FF;
+}
+.dark-mode .sidebar {
+    -fx-background-color: #1e1f22;
+    -fx-border-color: #2b2d31;
+    -fx-border-width: 0 1 0 0;
+}
+
+/* --- General Backgrounds --- */
+.bg-white {
+    -fx-background-color: #ffffff;
+}
+.bg-gray {
+    -fx-background-color: #e5e5ea;
+}
+.text-main {
+    -fx-text-fill: #050505;
+}
+.text-sub {
+    -fx-text-fill: #65676b;
+}
+
+.dark-mode,
+.dark-mode .bg-white {
+    -fx-background-color: #1e1e1e;
+}
+.dark-mode .bg-gray {
+    -fx-background-color: #121212;
+}
+.dark-mode .text-main,
+.dark-mode .label {
+    -fx-text-fill: #e4e6eb;
+}
+.dark-mode .text-sub {
+    -fx-text-fill: #b0b3b8;
+}
+
+/* --- Borders & Header/Footer Separation --- */
+.bordered {
+    -fx-border-color: #d0d4dc;
+}
+.dark-mode .bordered {
+    -fx-border-color: #2f3031;
+}
+.chat-header {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d4dc;
+    -fx-border-width: 0 0 1 0;
+}
+.dark-mode .chat-header {
+    -fx-background-color: #1e1e1e;
+    -fx-border-color: #2f3031;
+    -fx-border-width: 0 0 1 0;
+}
+.chat-footer {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d0d4dc;
+    -fx-border-width: 1 0 0 0;
+}
+.dark-mode .chat-footer {
+    -fx-background-color: #1e1e1e;
+    -fx-border-color: #2f3031;
+    -fx-border-width: 1 0 0 0;
+}
+
+/* --- Input Box (Search Field & Message TextField) with Border --- */
+.bg-input {
+    -fx-background-color: #f2f4f7;
+    -fx-background-radius: 20;
+    -fx-border-color: #c4c9d0;
+    -fx-border-radius: 20;
+    -fx-border-width: 1px;
+    -fx-background-insets: 0;
+    -fx-padding: 0 18;
+    -fx-font-size: 14px;
+    -fx-text-fill: #050505;
+    -fx-prompt-text-fill: #757a82;
+    -fx-highlight-fill: #0084FF;
+    -fx-highlight-text-fill: white;
+}
+.dark-mode .bg-input {
+    -fx-background-color: #2a2b2e;
+    -fx-background-radius: 20;
+    -fx-border-color: #484b51;
+    -fx-border-radius: 20;
+    -fx-border-width: 1px;
+    -fx-background-insets: 0;
+    -fx-padding: 0 18;
+    -fx-font-size: 14px;
+    -fx-text-fill: #e4e6eb;
+    -fx-prompt-text-fill: #8e9297;
+    -fx-highlight-fill: #0084FF;
+    -fx-highlight-text-fill: white;
+}
+.bg-input:focused {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #0084FF;
+    -fx-border-radius: 20;
+    -fx-border-width: 1.5px;
+}
+.dark-mode .bg-input:focused {
+    -fx-background-color: #323438;
+    -fx-border-color: #0084FF;
+    -fx-border-radius: 20;
+    -fx-border-width: 1.5px;
+}
+
+/* --- ListView & VirtualFlow (No Blue Selection Ring, Distinct Client List vs Chat List) --- */
+.list-view,
+.list-view:focused {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-border-width: 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+.client-list,
+.client-list:focused {
+    -fx-background-color: #ffffff;
+    -fx-control-inner-background: #ffffff;
+}
+.dark-mode .client-list,
+.dark-mode .client-list:focused {
+    -fx-background-color: #1e1e1e;
+    -fx-control-inner-background: #1e1e1e;
+}
+.chat-list,
+.chat-list:focused {
+    -fx-background-color: #e5e5ea;
+    -fx-control-inner-background: #e5e5ea;
+}
+.dark-mode .chat-list,
+.dark-mode .chat-list:focused {
+    -fx-background-color: #121212;
+    -fx-control-inner-background: #121212;
+}
+.list-view .virtual-flow,
+.list-view:focused .virtual-flow,
+.list-view .virtual-flow .clipped-container,
+.list-view:focused .virtual-flow .clipped-container {
+    -fx-background-color: transparent;
+}
+.list-cell {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 5px;
+}
+.list-cell:empty {
+    -fx-background-color: transparent;
+}
+.list-cell:filled:selected,
+.list-cell:filled:selected:focused {
+    -fx-background-color: transparent;
+}
+
+/* --- Chat Bubbles --- */
+.bubble-incoming {
+    -fx-background-color: white;
+    -fx-text-fill: #050505;
+    -fx-background-radius: 15 15 15 0;
+    -fx-font-size: 14px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);
+}
+.dark-mode .bubble-incoming {
+    -fx-background-color: #242526;
+    -fx-text-fill: #e4e6eb;
+    -fx-background-radius: 15 15 15 0;
+    -fx-font-size: 14px;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);
+}
+.bubble-outgoing {
+    -fx-background-color: #0084FF;
+    -fx-text-fill: white;
+    -fx-background-radius: 15 15 0 15;
+    -fx-font-size: 14px;
+}
+.dark-mode .bubble-outgoing {
+    -fx-background-color: #0084FF;
+    -fx-text-fill: white;
+    -fx-background-radius: 15 15 0 15;
+    -fx-font-size: 14px;
+}
+.bubble-system {
+    -fx-background-color: transparent;
+    -fx-text-fill: #888888;
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
+}
+.dark-mode .bubble-system {
+    -fx-background-color: transparent;
+    -fx-text-fill: #aaaaaa;
+    -fx-font-size: 12px;
+    -fx-font-style: italic;
 }
