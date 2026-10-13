@@ -61,8 +61,8 @@ public class SessionManager {
         // Nếu khách hàng đang tư vấn dở và có lịch sử chat trước đó, gửi toàn bộ lịch sử cho nhân viên mới trước
         if (!customer.getChatHistory().isEmpty()) {
             for (ClientHandler.HistoryEntry entry : customer.getChatHistory()) {
-                String meta = entry.senderRole + "|" + entry.senderName + "|" + entry.timestamp;
-                staff.sendMessage(new Message(Protocol.CMD_CHAT_HISTORY, meta, customer.getClientId(), entry.encryptedContent));
+                String meta = entry.senderRole + "|" + entry.senderName + "|" + entry.timestamp + "|" + (entry.isRecalled ? "RECALLED" : "NORMAL");
+                staff.sendMessage(new Message(Protocol.CMD_CHAT_HISTORY, meta, customer.getClientId(), entry.encryptedContent, entry.messageId, entry.replyToSender, entry.replyToText));
             }
         }
         
@@ -76,20 +76,43 @@ public class SessionManager {
     
     public void routeMessage(ClientHandler sender, Message msg) {
         String receiverId = msg.getReceiverId();
+
+        // 1. Xử lý thu hồi tin nhắn
+        if (Protocol.CMD_RECALL_MSG.equals(msg.getCommand())) {
+            if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
+                for (ChatSession session : activeSessionsList) {
+                    if (session.getCustomer() == sender) {
+                        sender.recallHistory(msg.getMessageId());
+                        session.getStaff().sendMessage(msg);
+                        return;
+                    }
+                }
+            } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
+                for (ChatSession session : activeSessionsList) {
+                    if (session.getStaff() == sender && session.getCustomer().getClientId().equals(receiverId)) {
+                        session.getCustomer().recallHistory(msg.getMessageId());
+                        session.getCustomer().sendMessage(msg);
+                        return;
+                    }
+                }
+            }
+            return;
+        }
         
+        // 2. Xử lý tin nhắn chat thông thường (kèm reply)
         if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
             for (ChatSession session : activeSessionsList) {
                 if (session.getCustomer() == sender) {
-                    sender.addHistory("CUSTOMER", sender.getName(), msg.getContent());
-                    session.getStaff().sendMessage(new Message(Protocol.CMD_CHAT, sender.getName(), sender.getClientId(), msg.getContent()));
+                    sender.addHistory(msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText());
+                    session.getStaff().sendMessage(new Message(Protocol.CMD_CHAT, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText()));
                     return;
                 }
             }
         } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
             for (ChatSession session : activeSessionsList) {
                 if (session.getStaff() == sender && session.getCustomer().getClientId().equals(receiverId)) {
-                    session.getCustomer().addHistory("STAFF", sender.getName(), msg.getContent());
-                    session.getCustomer().sendMessage(new Message(Protocol.CMD_CHAT, sender.getName(), sender.getClientId(), msg.getContent()));
+                    session.getCustomer().addHistory(msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText());
+                    session.getCustomer().sendMessage(new Message(Protocol.CMD_CHAT, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText()));
                     return;
                 }
             }

@@ -19,6 +19,8 @@ public class CustomerLoginController {
 
     @FXML private TextField txtName;
     @FXML private ComboBox<String> cbIssue;
+    @FXML private TextField txtHost;
+    @FXML private TextField txtPort;
     @FXML private Label lblError;
     @FXML private Button btnConnect;
 
@@ -46,9 +48,20 @@ public class CustomerLoginController {
             return;
         }
 
+        String host = (txtHost != null && !txtHost.getText().trim().isEmpty()) ? txtHost.getText().trim() : "127.0.0.1";
+        int port = 5000;
+        if (txtPort != null && !txtPort.getText().trim().isEmpty()) {
+            try {
+                port = Integer.parseInt(txtPort.getText().trim());
+            } catch (NumberFormatException e) {
+                lblError.setText("Cổng (Port) phải là số!");
+                return;
+            }
+        }
+
         String combinedName = name + " (" + issue + ")";
         CustomerContext.getInstance().setCustomerName(combinedName);
-        CustomerContext.getInstance().getNetworkService().connectAndLogin(combinedName);
+        CustomerContext.getInstance().getNetworkService().connectAndLogin(host, port, combinedName);
 
         try {
             Stage stage = (Stage) btnConnect.getScene().getWindow();

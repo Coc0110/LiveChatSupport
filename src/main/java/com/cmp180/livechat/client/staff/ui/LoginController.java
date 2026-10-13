@@ -23,6 +23,12 @@ public class LoginController {
     private PasswordField txtPassword;
 
     @FXML
+    private TextField txtHost;
+
+    @FXML
+    private TextField txtPort;
+
+    @FXML
     private Label lblError;
 
     @FXML
@@ -37,9 +43,20 @@ public class LoginController {
             return;
         }
 
+        String host = (txtHost != null && !txtHost.getText().trim().isEmpty()) ? txtHost.getText().trim() : "127.0.0.1";
+        int port = 5000;
+        if (txtPort != null && !txtPort.getText().trim().isEmpty()) {
+            try {
+                port = Integer.parseInt(txtPort.getText().trim());
+            } catch (NumberFormatException e) {
+                lblError.setText("Cổng (Port) phải là số!");
+                return;
+            }
+        }
+
         // Logic kết nối Server
         StaffContext.getInstance().setStaffName(username);
-        StaffContext.getInstance().getNetworkService().connectAndLogin(username);
+        StaffContext.getInstance().getNetworkService().connectAndLogin(host, port, username);
 
         // Chuyển sang màn hình Chat
         try {

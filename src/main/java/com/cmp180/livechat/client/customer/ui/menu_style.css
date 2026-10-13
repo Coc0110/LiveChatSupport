@@ -278,3 +278,76 @@
     -fx-font-size: 12px;
     -fx-font-style: italic;
 }
+
+/* --- Reply Preview Bar --- */
+.reply-bar {
+    -fx-background-color: #f0f2f5;
+    -fx-padding: 8 15 8 15;
+    -fx-border-color: #0084FF;
+    -fx-border-width: 0 0 0 3;
+}
+.dark-mode .reply-bar {
+    -fx-background-color: #242526;
+    -fx-border-color: #0084FF;
+    -fx-border-width: 0 0 0 3;
+}
+.reply-btn-cancel {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+    -fx-font-size: 13px;
+    -fx-text-fill: #65676b;
+    -fx-padding: 2 6 2 6;
+    -fx-background-radius: 12;
+}
+.reply-btn-cancel:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.08);
+}
+.dark-mode .reply-btn-cancel {
+    -fx-text-fill: #b0b3b8;
+}
+.dark-mode .reply-btn-cancel:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* --- Message Hover Action Button (...) --- */
+.msg-action-btn {
+    -fx-background-color: transparent;
+    -fx-text-fill: #888888;
+    -fx-font-size: 12px;
+    -fx-font-weight: bold;
+    -fx-cursor: hand;
+    -fx-padding: 2 6 2 6;
+    -fx-background-radius: 12;
+}
+.msg-action-btn:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.08);
+    -fx-text-fill: #1c1e21;
+}
+.dark-mode .msg-action-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.12);
+    -fx-text-fill: #e4e6eb;
+}
+
+/* --- Recalled Message Bubble --- */
+.bubble-recalled {
+    -fx-background-color: transparent;
+    -fx-border-color: #c4c9d0;
+    -fx-border-style: dashed;
+    -fx-border-radius: 14;
+    -fx-text-fill: #888888;
+    -fx-font-style: italic;
+    -fx-font-size: 13px;
+    -fx-padding: 8 14 8 14;
+}
+.dark-mode .bubble-recalled {
+    -fx-background-color: transparent;
+    -fx-border-color: #55575a;
+    -fx-border-style: dashed;
+    -fx-border-radius: 14;
+    -fx-text-fill: #999999;
+    -fx-font-style: italic;
+    -fx-font-size: 13px;
+    -fx-padding: 8 14 8 14;
+}
+

@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class StaffNetworkService {
-    private static final String SERVER_IP = "127.0.0.1";
-    private static final int SERVER_PORT = 5000;
+    private String serverHost = "127.0.0.1";
+    private int serverPort = 5000;
     
     private Socket socket;
     private ObjectOutputStream out;
@@ -27,11 +27,23 @@ public class StaffNetworkService {
             listeners.add(listener);
         }
     }
+
+    public void setServerAddress(String host, int port) {
+        if (host != null && !host.trim().isEmpty()) this.serverHost = host.trim();
+        if (port > 0) this.serverPort = port;
+    }
     
     public void connectAndLogin(String staffIdOrName) {
+        connectAndLogin(this.serverHost, this.serverPort, staffIdOrName);
+    }
+
+    public void connectAndLogin(String host, int port, String staffIdOrName) {
+        if (host != null && !host.trim().isEmpty()) this.serverHost = host.trim();
+        if (port > 0) this.serverPort = port;
+
         new Thread(() -> {
             try {
-                socket = new Socket(SERVER_IP, SERVER_PORT);
+                socket = new Socket(this.serverHost, this.serverPort);
                 out = new ObjectOutputStream(socket.getOutputStream());
                 in = new ObjectInputStream(socket.getInputStream());
                 
@@ -42,7 +54,7 @@ public class StaffNetworkService {
                 readLoop();
                 
             } catch (IOException e) {
-                for (StaffNetworkListener l : listeners) l.onError("Không thể kết nối Server: " + e.getMessage());
+                for (StaffNetworkListener l : listeners) l.onError("Không thể kết nối Server (" + this.serverHost + ":" + this.serverPort + "): " + e.getMessage());
             }
         }).start();
     }
@@ -69,6 +81,7 @@ public class StaffNetworkService {
                         String role = "CUSTOMER";
                         String senderName = "Khách hàng";
                         long ts = System.currentTimeMillis();
+                        boolean isRecalled = false;
                         if (meta != null) {
                             String[] parts = meta.split("\\|");
                             if (parts.length >= 1) role = parts[0];
@@ -76,15 +89,26 @@ public class StaffNetworkService {
                             if (parts.length >= 3) {
                                 try { ts = Long.parseLong(parts[2]); } catch (NumberFormatException ignored) {}
                             }
+                            if (parts.length >= 4 && "RECALLED".equals(parts[3])) {
+                                isRecalled = true;
+                            }
                         }
                         for (StaffNetworkListener l : listeners) {
-                            l.onChatHistoryReceived(msg.getReceiverId(), role, senderName, ts, decryptedHistory);
+                            l.onChatHistoryReceived(msg.getReceiverId(), role, senderName, ts, decryptedHistory, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), isRecalled);
                         }
                         break;
                         
                     case Protocol.CMD_CHAT:
                         String decryptedContent = com.cmp180.livechat.common.SecurityManager.decrypt(msg.getContent());
-                        for (StaffNetworkListener l : listeners) l.onMessageReceived(msg.getSenderId(), msg.getReceiverId(), decryptedContent);
+                        for (StaffNetworkListener l : listeners) {
+                            l.onMessageReceived(msg.getSenderId(), msg.getReceiverId(), decryptedContent, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText());
+                        }
+                        break;
+
+                    case Protocol.CMD_RECALL_MSG:
+                        for (StaffNetworkListener l : listeners) {
+                            l.onMessageRecalled(msg.getMessageId());
+                        }
                         break;
                         
                     case Protocol.CMD_END:
@@ -110,8 +134,16 @@ public class StaffNetworkService {
     }
     
     public void sendChatMessage(String text, String customerId) {
+        sendChatMessage(text, customerId, java.util.UUID.randomUUID().toString(), null, null);
+    }
+
+    public void sendChatMessage(String text, String customerId, String messageId, String replyToSender, String replyToText) {
         String encryptedContent = com.cmp180.livechat.common.SecurityManager.encrypt(text);
-        sendMessage(new Message(Protocol.CMD_CHAT, "Staff", customerId, encryptedContent));
+        sendMessage(new Message(Protocol.CMD_CHAT, "Staff", customerId, encryptedContent, messageId, replyToSender, replyToText));
+    }
+
+    public void recallMessage(String messageId, String customerId) {
+        sendMessage(new Message(Protocol.CMD_RECALL_MSG, "Staff", customerId, "", messageId, null, null));
     }
     
     public void endSession(String customerId) {

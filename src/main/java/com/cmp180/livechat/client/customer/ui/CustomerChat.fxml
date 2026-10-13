@@ -74,6 +74,19 @@
    <bottom>
       <VBox style="-fx-border-width: 1 0 0 0;" styleClass="bg-white, bordered, chat-footer" BorderPane.alignment="CENTER">
          <children>
+            <!-- Reply preview bar -->
+            <HBox fx:id="replyBar" alignment="CENTER_LEFT" managed="false" spacing="10" styleClass="reply-bar" visible="false">
+               <children>
+                  <VBox alignment="CENTER_LEFT" spacing="2" HBox.hgrow="ALWAYS">
+                     <children>
+                        <Label fx:id="lblReplySender" style="-fx-font-weight: bold; -fx-text-fill: #0084FF; -fx-font-size: 12px;" text="Đang trả lời: " />
+                        <Label fx:id="lblReplyText" maxWidth="420" style="-fx-text-fill: #65676b; -fx-font-size: 12px;" text="Nội dung tin nhắn" textOverrun="ELLIPSIS" />
+                     </children>
+                  </VBox>
+                  <Button fx:id="btnCancelReply" mnemonicParsing="false" onAction="#handleCancelReply" styleClass="reply-btn-cancel" text="✕" />
+               </children>
+            </HBox>
+
             <!-- Thanh công cụ (đính kèm) -->
             <HBox alignment="CENTER_LEFT" spacing="15" style="-fx-padding: 10 20 0 20;">
                <!-- Attach Image Button -->
@@ -93,7 +106,7 @@
             <!-- Vùng Text và Nút Gửi -->
             <HBox alignment="CENTER" prefHeight="70.0" prefWidth="500.0" style="-fx-padding: 10 20 20 20; -fx-spacing: 15;">
                <children>
-                  <TextField fx:id="txtMessage" disable="true" prefHeight="45.0" promptText="Nhập tin nhắn..." style=" -fx-background-radius: 20; -fx-padding: 0 20; -fx-font-size: 15;" styleClass="bg-input" HBox.hgrow="ALWAYS" />
+                  <TextField fx:id="txtMessage" disable="true" onAction="#handleSend" prefHeight="45.0" promptText="Nhập tin nhắn..." style=" -fx-background-radius: 20; -fx-padding: 0 20; -fx-font-size: 15;" styleClass="bg-input" HBox.hgrow="ALWAYS" />
                   <!-- Send Button -->
                   <Button fx:id="btnSend" disable="true" mnemonicParsing="false" onAction="#handleSend" prefHeight="45.0" prefWidth="45.0" style="-fx-background-color: #0084FF; -fx-background-radius: 50; -fx-cursor: hand;">
                      <graphic>

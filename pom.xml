@@ -62,6 +62,21 @@
                     <target>${maven.compiler.target}</target>
                 </configuration>
             </plugin>
+
+            <!-- Maven JAR Plugin for Server -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <configuration>
+                    <finalName>server</finalName>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.cmp180.livechat.server.ServerMain</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
             
             <!-- Exec Maven Plugin for running different profiles -->
             <plugin>

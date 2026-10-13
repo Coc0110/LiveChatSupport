@@ -12,16 +12,24 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ClientHandler implements Runnable {
     public static class HistoryEntry {
+        public final String messageId;
         public final String senderRole;
         public final String senderName;
         public final String encryptedContent;
+        public final String replyToSender;
+        public final String replyToText;
         public final long timestamp;
+        public volatile boolean isRecalled;
 
-        public HistoryEntry(String senderRole, String senderName, String encryptedContent, long timestamp) {
+        public HistoryEntry(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, long timestamp) {
+            this.messageId = messageId;
             this.senderRole = senderRole;
             this.senderName = senderName;
             this.encryptedContent = encryptedContent;
+            this.replyToSender = replyToSender;
+            this.replyToText = replyToText;
             this.timestamp = timestamp;
+            this.isRecalled = false;
         }
     }
 
@@ -96,6 +104,7 @@ public class ClientHandler implements Runnable {
                 break;
 
             case Protocol.CMD_CHAT:
+            case Protocol.CMD_RECALL_MSG:
                 sessionManager.routeMessage(this, msg);
                 break;
                 
@@ -138,7 +147,22 @@ public class ClientHandler implements Runnable {
     public boolean isInterrupted() { return interrupted; }
     public void setInterrupted(boolean interrupted) { this.interrupted = interrupted; }
     public List<HistoryEntry> getChatHistory() { return chatHistory; }
+
+    public void addHistory(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText) {
+        chatHistory.add(new HistoryEntry(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, System.currentTimeMillis()));
+    }
+
     public void addHistory(String senderRole, String senderName, String encryptedContent) {
-        chatHistory.add(new HistoryEntry(senderRole, senderName, encryptedContent, System.currentTimeMillis()));
+        addHistory(UUID.randomUUID().toString(), senderRole, senderName, encryptedContent, null, null);
+    }
+
+    public void recallHistory(String messageId) {
+        if (messageId == null) return;
+        for (HistoryEntry e : chatHistory) {
+            if (messageId.equals(e.messageId)) {
+                e.isRecalled = true;
+                break;
+            }
+        }
     }
 }
