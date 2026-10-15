@@ -14,15 +14,18 @@ import javafx.stage.Stage;
 import java.io.IOException;
 
 import javafx.scene.control.ComboBox;
+import javafx.application.Platform;
+import com.cmp180.livechat.client.ui.ThemeManager;
+import com.cmp180.livechat.client.ui.ServerConfig;
+import com.cmp180.livechat.client.ui.SettingsDialog;
 
 public class CustomerLoginController {
 
     @FXML private TextField txtName;
     @FXML private ComboBox<String> cbIssue;
-    @FXML private TextField txtHost;
-    @FXML private TextField txtPort;
     @FXML private Label lblError;
     @FXML private Button btnConnect;
+    @FXML private Button btnSettings;
 
     @FXML
     public void initialize() {
@@ -32,6 +35,27 @@ public class CustomerLoginController {
             "Bảo hành & Đổi trả",
             "Thắc mắc Chung"
         );
+        Platform.runLater(() -> {
+            if (btnConnect != null && btnConnect.getScene() != null) {
+                ThemeManager.applyTheme(btnConnect.getScene());
+                btnConnect.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-background-radius: 8; -fx-cursor: hand;");
+            }
+        });
+        ThemeManager.addListener(() -> {
+            Platform.runLater(() -> {
+                if (btnConnect != null && btnConnect.getScene() != null) {
+                    ThemeManager.applyTheme(btnConnect.getScene());
+                    btnConnect.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-background-radius: 8; -fx-cursor: hand;");
+                }
+            });
+        });
+    }
+
+    @FXML
+    private void handleOpenSettings(ActionEvent event) {
+        if (btnConnect != null && btnConnect.getScene() != null) {
+            SettingsDialog.show(btnConnect.getScene().getWindow());
+        }
     }
 
     @FXML
@@ -48,16 +72,8 @@ public class CustomerLoginController {
             return;
         }
 
-        String host = (txtHost != null && !txtHost.getText().trim().isEmpty()) ? txtHost.getText().trim() : "127.0.0.1";
-        int port = 5000;
-        if (txtPort != null && !txtPort.getText().trim().isEmpty()) {
-            try {
-                port = Integer.parseInt(txtPort.getText().trim());
-            } catch (NumberFormatException e) {
-                lblError.setText("Cổng (Port) phải là số!");
-                return;
-            }
-        }
+        String host = ServerConfig.getHost();
+        int port = ServerConfig.getPort();
 
         String combinedName = name + " (" + issue + ")";
         CustomerContext.getInstance().setCustomerName(combinedName);

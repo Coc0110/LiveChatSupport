@@ -18,6 +18,10 @@ public class ChatMessage {
     private String replyToSender;
     private String replyToText;
     private boolean recalled;
+    private String fileName;
+    private long fileSize;
+    private byte[] fileData;
+    private boolean isImage;
 
     public ChatMessage(String text, Type type, String senderName) {
         this(UUID.randomUUID().toString(), text, type, senderName, System.currentTimeMillis(), null, null);
@@ -28,6 +32,10 @@ public class ChatMessage {
     }
 
     public ChatMessage(String id, String text, Type type, String senderName, long timestamp, String replyToSender, String replyToText) {
+        this(id, text, type, senderName, timestamp, replyToSender, replyToText, null, 0, null, false);
+    }
+
+    public ChatMessage(String id, String text, Type type, String senderName, long timestamp, String replyToSender, String replyToText, String fileName, long fileSize, byte[] fileData, boolean isImage) {
         this.id = (id != null && !id.isEmpty()) ? id : UUID.randomUUID().toString();
         this.text = text;
         this.type = type;
@@ -37,6 +45,10 @@ public class ChatMessage {
         this.replyToSender = replyToSender;
         this.replyToText = replyToText;
         this.recalled = false;
+        this.fileName = fileName;
+        this.fileSize = fileSize;
+        this.fileData = fileData;
+        this.isImage = isImage;
     }
 
     public String getId() { return id; }
@@ -51,6 +63,23 @@ public class ChatMessage {
     public String getReplyToText() { return replyToText; }
     public boolean isRecalled() { return recalled; }
     public void setRecalled(boolean recalled) { this.recalled = recalled; }
+    public String getFileName() { return fileName; }
+    public long getFileSize() { return fileSize; }
+    public byte[] getFileData() { return fileData; }
+    public boolean isImage() { return isImage; }
+    public boolean isFile() { return fileName != null && !fileName.isEmpty(); }
+
+    public String getFormattedFileSize() {
+        if (fileSize <= 0) return "";
+        if (fileSize < 1024) return fileSize + " B";
+        if (fileSize < 1024 * 1024) return String.format("%.1f KB", fileSize / 1024.0);
+        return String.format("%.1f MB", fileSize / (1024.0 * 1024.0));
+    }
+
+    public String getFileExtension() {
+        if (fileName == null || !fileName.contains(".")) return "";
+        return fileName.substring(fileName.lastIndexOf('.') + 1).toUpperCase();
+    }
 
     public String getFormattedTime() {
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");

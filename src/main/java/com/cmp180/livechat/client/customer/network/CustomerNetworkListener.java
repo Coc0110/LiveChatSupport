@@ -8,6 +8,7 @@ public interface CustomerNetworkListener {
     default void onMessageReceived(String senderName, String message, String messageId, String replyToSender, String replyToText) {
         onMessageReceived(senderName, message);
     }
+    default void onFileReceived(String senderName, String messageId, String caption, String replyToSender, String replyToText, String fileName, long fileSize, byte[] fileData, boolean isImage) {}
     default void onMessageRecalled(String messageId) {}
     void onSessionEnded(String reason);
     void onError(String errorMessage);

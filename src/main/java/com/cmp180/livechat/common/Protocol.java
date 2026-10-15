@@ -10,6 +10,7 @@ public class Protocol {
     public static final String CMD_STAFF_LOGIN = "STAFF_LOGIN";
     public static final String CMD_ACCEPT_CUST = "ACCEPT_CUST";
     public static final String CMD_CHAT = "CHAT_MSG";
+    public static final String CMD_FILE = "FILE_MSG";
     public static final String CMD_END = "END_SESSION";
     public static final String CMD_END_SESSION = "END_SESSION";
     public static final String CMD_WAITING = "WAITING";
@@ -20,4 +21,5 @@ public class Protocol {
     public static final String CMD_CHAT_HISTORY = "CHAT_HISTORY";
     public static final String CMD_RECALL_MSG = "RECALL_MSG";
     public static final String STATUS_INTERRUPTED = "INTERRUPTED";
+    public static final long MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 }

@@ -36,4 +36,30 @@ public class SecurityManager {
             return encryptedData; 
         }
     }
+
+    public static byte[] encryptBytes(byte[] data) {
+        if (data == null) return null;
+        try {
+            SecretKeySpec key = new SecretKeySpec(SECRET_KEY.getBytes("UTF-8"), ALGORITHM);
+            Cipher cipher = Cipher.getInstance(ALGORITHM);
+            cipher.init(Cipher.ENCRYPT_MODE, key);
+            return cipher.doFinal(data);
+        } catch (Exception e) {
+            System.err.println("Lỗi mã hóa byte: " + e.getMessage());
+            return data;
+        }
+    }
+
+    public static byte[] decryptBytes(byte[] encryptedData) {
+        if (encryptedData == null) return null;
+        try {
+            SecretKeySpec key = new SecretKeySpec(SECRET_KEY.getBytes("UTF-8"), ALGORITHM);
+            Cipher cipher = Cipher.getInstance(ALGORITHM);
+            cipher.init(Cipher.DECRYPT_MODE, key);
+            return cipher.doFinal(encryptedData);
+        } catch (Exception e) {
+            System.err.println("Lỗi giải mã byte: " + e.getMessage());
+            return encryptedData;
+        }
+    }
 }

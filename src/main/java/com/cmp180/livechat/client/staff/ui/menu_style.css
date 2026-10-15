@@ -2,8 +2,15 @@
    LiveChat Global Stylesheet (Light & Dark Mode)
    =================================================== */
 
+.root {
+    -fx-brand-color: #00838F;
+    -fx-brand-light: rgba(0, 131, 143, 0.15);
+    -fx-brand-bg: #e8f4f5;
+}
+
 /* --- Context Menu (Light Mode Default) --- */
 .context-menu {
+    -fx-font-weight: normal;
     -fx-background-color: #ffffff;
     -fx-background-radius: 10;
     -fx-border-radius: 10;
@@ -14,6 +21,7 @@
     -fx-min-width: 220px;
 }
 .menu-item {
+    -fx-font-weight: normal;
     -fx-background-color: transparent;
     -fx-padding: 10 20 10 20;
 }
@@ -21,12 +29,14 @@
     -fx-text-fill: #1c1e21;
     -fx-font-size: 14px;
     -fx-font-family: "Segoe UI";
+    -fx-font-weight: normal;
 }
 .menu-item:focused {
     -fx-background-color: #f0f2f5;
 }
 .menu-item:focused > .label {
     -fx-text-fill: #050505;
+    -fx-font-weight: normal;
 }
 .separator {
     -fx-padding: 4 0 4 0;
@@ -40,6 +50,7 @@
 .dark-mode .context-menu,
 .dark-mode.context-menu,
 .context-menu.dark-menu {
+    -fx-font-weight: normal;
     -fx-background-color: #242526;
     -fx-border-color: #393a3b;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.5), 14, 0, 0, 5);
@@ -47,6 +58,7 @@
 .dark-mode .menu-item,
 .dark-mode.context-menu .menu-item,
 .context-menu.dark-menu .menu-item {
+    -fx-font-weight: normal;
     -fx-background-color: transparent;
 }
 .dark-mode .menu-item > .label,
@@ -55,6 +67,7 @@
     -fx-text-fill: #e4e6eb;
     -fx-font-size: 14px;
     -fx-font-family: "Segoe UI";
+    -fx-font-weight: normal;
 }
 .dark-mode .menu-item:focused,
 .dark-mode.context-menu .menu-item:focused,
@@ -84,7 +97,7 @@
 
 /* --- Left Sidebar --- */
 .sidebar {
-    -fx-background-color: #0084FF;
+    -fx-background-color: -fx-brand-color;
 }
 .dark-mode .sidebar {
     -fx-background-color: #1e1f22;
@@ -97,7 +110,7 @@
     -fx-background-color: #ffffff;
 }
 .bg-gray {
-    -fx-background-color: #e5e5ea;
+    -fx-background-color: -fx-brand-bg;
 }
 .text-main {
     -fx-text-fill: #050505;
@@ -161,7 +174,7 @@
     -fx-font-size: 14px;
     -fx-text-fill: #050505;
     -fx-prompt-text-fill: #757a82;
-    -fx-highlight-fill: #0084FF;
+    -fx-highlight-fill: -fx-brand-color;
     -fx-highlight-text-fill: white;
 }
 .dark-mode .bg-input {
@@ -175,23 +188,23 @@
     -fx-font-size: 14px;
     -fx-text-fill: #e4e6eb;
     -fx-prompt-text-fill: #8e9297;
-    -fx-highlight-fill: #0084FF;
+    -fx-highlight-fill: -fx-brand-color;
     -fx-highlight-text-fill: white;
 }
 .bg-input:focused {
     -fx-background-color: #ffffff;
-    -fx-border-color: #0084FF;
+    -fx-border-color: -fx-brand-color;
     -fx-border-radius: 20;
     -fx-border-width: 1.5px;
 }
 .dark-mode .bg-input:focused {
     -fx-background-color: #323438;
-    -fx-border-color: #0084FF;
+    -fx-border-color: -fx-brand-color;
     -fx-border-radius: 20;
     -fx-border-width: 1.5px;
 }
 
-/* --- ListView & VirtualFlow (No Blue Selection Ring, Distinct Client List vs Chat List) --- */
+/* --- ListView & VirtualFlow --- */
 .list-view,
 .list-view:focused {
     -fx-background-insets: 0;
@@ -212,8 +225,8 @@
 }
 .chat-list,
 .chat-list:focused {
-    -fx-background-color: #e5e5ea;
-    -fx-control-inner-background: #e5e5ea;
+    -fx-background-color: -fx-brand-bg;
+    -fx-control-inner-background: -fx-brand-bg;
 }
 .dark-mode .chat-list,
 .dark-mode .chat-list:focused {
@@ -255,13 +268,13 @@
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);
 }
 .bubble-outgoing {
-    -fx-background-color: #0084FF;
+    -fx-background-color: -fx-brand-color;
     -fx-text-fill: white;
     -fx-background-radius: 15 15 0 15;
     -fx-font-size: 14px;
 }
 .dark-mode .bubble-outgoing {
-    -fx-background-color: #0084FF;
+    -fx-background-color: -fx-brand-color;
     -fx-text-fill: white;
     -fx-background-radius: 15 15 0 15;
     -fx-font-size: 14px;
@@ -281,14 +294,14 @@
 
 /* --- Reply Preview Bar --- */
 .reply-bar {
-    -fx-background-color: #f0f2f5;
+    -fx-background-color: -fx-brand-light;
     -fx-padding: 8 15 8 15;
-    -fx-border-color: #0084FF;
+    -fx-border-color: -fx-brand-color;
     -fx-border-width: 0 0 0 3;
 }
 .dark-mode .reply-bar {
     -fx-background-color: #242526;
-    -fx-border-color: #0084FF;
+    -fx-border-color: -fx-brand-color;
     -fx-border-width: 0 0 0 3;
 }
 .reply-btn-cancel {
@@ -308,6 +321,24 @@
 }
 .dark-mode .reply-btn-cancel:hover {
     -fx-background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* --- Send Button & Reply Sender Label --- */
+.btn-send {
+    -fx-background-color: -fx-brand-color;
+    -fx-background-radius: 50;
+    -fx-cursor: hand;
+}
+.btn-send:hover {
+    -fx-opacity: 0.9;
+}
+.btn-send:disabled {
+    -fx-opacity: 0.5;
+}
+.reply-sender-label {
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-brand-color;
+    -fx-font-size: 12px;
 }
 
 /* --- Message Hover Action Button (...) --- */
@@ -351,3 +382,28 @@
     -fx-padding: 8 14 8 14;
 }
 
+/* --- Emoji Picker Button inside TextField --- */
+.emoji-btn {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-background-radius: 50;
+    -fx-padding: 0;
+}
+.emoji-btn SVGPath {
+    -fx-fill: #72808e;
+}
+.emoji-btn:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.06);
+}
+.emoji-btn:hover SVGPath {
+    -fx-fill: -fx-brand-color;
+}
+.dark-mode .emoji-btn SVGPath {
+    -fx-fill: #999999;
+}
+.dark-mode .emoji-btn:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.1);
+}
+.dark-mode .emoji-btn:hover SVGPath {
+    -fx-fill: -fx-brand-color;
+}

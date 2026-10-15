@@ -20,8 +20,16 @@ public class ClientHandler implements Runnable {
         public final String replyToText;
         public final long timestamp;
         public volatile boolean isRecalled;
+        public final String fileName;
+        public final long fileSize;
+        public final byte[] fileData;
+        public final boolean isImage;
 
         public HistoryEntry(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, long timestamp) {
+            this(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, timestamp, null, 0, null, false);
+        }
+
+        public HistoryEntry(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, long timestamp, String fileName, long fileSize, byte[] fileData, boolean isImage) {
             this.messageId = messageId;
             this.senderRole = senderRole;
             this.senderName = senderName;
@@ -30,6 +38,10 @@ public class ClientHandler implements Runnable {
             this.replyToText = replyToText;
             this.timestamp = timestamp;
             this.isRecalled = false;
+            this.fileName = fileName;
+            this.fileSize = fileSize;
+            this.fileData = fileData;
+            this.isImage = isImage;
         }
     }
 
@@ -40,7 +52,7 @@ public class ClientHandler implements Runnable {
     private ObjectInputStream in;
     private ObjectOutputStream out;
     
-    private final String clientId;
+    private String clientId;
     private String name;
     private String role;
     
@@ -86,12 +98,21 @@ public class ClientHandler implements Runnable {
 
         switch (cmd) {
             case Protocol.CMD_CUST_LOGIN:
+                if (msg.getSenderId() != null && !msg.getSenderId().isEmpty() && !"Customer".equalsIgnoreCase(msg.getSenderId())) {
+                    this.clientId = msg.getSenderId();
+                }
+                if ("RECONNECT".equalsIgnoreCase(msg.getReceiverId())) {
+                    this.interrupted = true;
+                }
                 this.name = msg.getContent();
                 this.role = Protocol.ROLE_CUSTOMER;
                 sessionManager.registerClient(this);
                 break;
 
             case Protocol.CMD_STAFF_LOGIN:
+                if (msg.getSenderId() != null && !msg.getSenderId().isEmpty() && !"Staff".equalsIgnoreCase(msg.getSenderId())) {
+                    this.clientId = msg.getSenderId();
+                }
                 this.name = msg.getContent();
                 this.role = Protocol.ROLE_STAFF;
                 sessionManager.registerClient(this);
@@ -104,6 +125,7 @@ public class ClientHandler implements Runnable {
                 break;
 
             case Protocol.CMD_CHAT:
+            case Protocol.CMD_FILE:
             case Protocol.CMD_RECALL_MSG:
                 sessionManager.routeMessage(this, msg);
                 break;
@@ -150,6 +172,10 @@ public class ClientHandler implements Runnable {
 
     public void addHistory(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText) {
         chatHistory.add(new HistoryEntry(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, System.currentTimeMillis()));
+    }
+
+    public void addFileHistory(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, String fileName, long fileSize, byte[] fileData, boolean isImage) {
+        chatHistory.add(new HistoryEntry(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, System.currentTimeMillis(), fileName, fileSize, fileData, isImage));
     }
 
     public void addHistory(String senderRole, String senderName, String encryptedContent) {

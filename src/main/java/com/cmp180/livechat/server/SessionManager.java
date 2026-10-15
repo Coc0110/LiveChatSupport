@@ -20,12 +20,14 @@ public class SessionManager {
 
     public void registerClient(ClientHandler client) {
         if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(client.getRole())) {
+            waitingCustomers.removeIf(c -> c.getClientId().equals(client.getClientId()));
             waitingCustomers.add(client);
             client.sendMessage(new Message(Protocol.CMD_WAITING, "Server", "Đang chờ nhân viên CSKH tiếp nhận..."));
-            server.log("[HÀNG CHỜ] Khách hàng '" + client.getName() + "' đã vào hàng chờ.");
+            server.log("[HÀNG CHỜ] Khách hàng '" + client.getName() + "' đã vào hàng chờ." + (client.isInterrupted() ? " (Đang tư vấn dở)" : ""));
             broadcastQueueToStaff();
             
         } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(client.getRole())) {
+            allStaffs.removeIf(s -> s.getClientId().equals(client.getClientId()));
             allStaffs.add(client);
             client.sendMessage(new Message(Protocol.CMD_WAITING, "Server", "Đã kết nối. Vui lòng chọn khách hàng từ danh sách chờ."));
             server.log("[CSKH ONLINE] Nhân viên '" + client.getName() + "' đang sẵn sàng.");
@@ -62,7 +64,7 @@ public class SessionManager {
         if (!customer.getChatHistory().isEmpty()) {
             for (ClientHandler.HistoryEntry entry : customer.getChatHistory()) {
                 String meta = entry.senderRole + "|" + entry.senderName + "|" + entry.timestamp + "|" + (entry.isRecalled ? "RECALLED" : "NORMAL");
-                staff.sendMessage(new Message(Protocol.CMD_CHAT_HISTORY, meta, customer.getClientId(), entry.encryptedContent, entry.messageId, entry.replyToSender, entry.replyToText));
+                staff.sendMessage(new Message(Protocol.CMD_CHAT_HISTORY, meta, customer.getClientId(), entry.encryptedContent, entry.messageId, entry.replyToSender, entry.replyToText, entry.fileName, entry.fileSize, entry.fileData, entry.isImage));
             }
         }
         
@@ -98,8 +100,31 @@ public class SessionManager {
             }
             return;
         }
+
+        // 2. Xử lý gửi tệp đính kèm / hình ảnh
+        if (Protocol.CMD_FILE.equals(msg.getCommand())) {
+            if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
+                for (ChatSession session : activeSessionsList) {
+                    if (session.getCustomer() == sender) {
+                        sender.addFileHistory(msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage());
+                        session.getStaff().sendMessage(new Message(Protocol.CMD_FILE, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage()));
+                        return;
+                    }
+                }
+            } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
+                for (ChatSession session : activeSessionsList) {
+                    if (session.getStaff() == sender && session.getCustomer().getClientId().equals(receiverId)) {
+                        session.getCustomer().addFileHistory(msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage());
+                        session.getCustomer().sendMessage(new Message(Protocol.CMD_FILE, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage()));
+                        return;
+                    }
+                }
+            }
+            sender.sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Không thể gửi tệp đính kèm."));
+            return;
+        }
         
-        // 2. Xử lý tin nhắn chat thông thường (kèm reply)
+        // 3. Xử lý tin nhắn chat thông thường (kèm reply)
         if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
             for (ChatSession session : activeSessionsList) {
                 if (session.getCustomer() == sender) {

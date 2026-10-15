@@ -25,12 +25,41 @@ import javafx.scene.Cursor;
 import javafx.scene.layout.StackPane;
 import javafx.scene.shape.SVGPath;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.ImagePattern;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import java.util.UUID;
+import java.util.List;
+import java.util.Optional;
+import java.io.File;
+import java.io.ByteArrayInputStream;
+import java.nio.file.Files;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.control.OverrunStyle;
+import javafx.scene.control.Alert;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.shape.Rectangle;
+import javafx.stage.FileChooser;
+import javafx.stage.Window;
+import com.cmp180.livechat.common.Protocol;
+import com.cmp180.livechat.client.ui.EmojiPickerPopup;
+import com.cmp180.livechat.client.ui.EmojiManager;
+import com.cmp180.livechat.client.ui.ThemeManager;
+import com.cmp180.livechat.client.ui.SettingsDialog;
+import com.cmp180.livechat.client.ui.FilePreviewDialog;
+import com.cmp180.livechat.client.ui.ImageViewerDialog;
+import javafx.scene.Node;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.Stage;
 
 
 public class CustomerChatController implements CustomerNetworkListener {
@@ -38,6 +67,9 @@ public class CustomerChatController implements CustomerNetworkListener {
     @FXML private ListView<ChatMessage> listMessages;
     @FXML private TextField txtMessage;
     @FXML private Button btnSend;
+    @FXML private Button btnEmoji;
+    @FXML private Button btnAttachImage;
+    @FXML private Button btnAttachFile;
     @FXML private Label lblTitle;
     @FXML private Label lblStatus;
 
@@ -63,89 +95,97 @@ public class CustomerChatController implements CustomerNetworkListener {
         accountMenu = new ContextMenu();
         MenuItem itemProfile = new MenuItem("Hồ sơ của bạn");
         MenuItem itemAccSettings = new MenuItem("Cài đặt");
+        itemAccSettings.setOnAction(e -> {
+            if (btnAccount != null && btnAccount.getScene() != null) {
+                SettingsDialog.show(btnAccount.getScene().getWindow());
+            }
+        });
         MenuItem itemLogout = new MenuItem("Đăng xuất");
         itemLogout.setOnAction(e -> {
-            Platform.exit();
-            System.exit(0);
+            CustomerContext.getInstance().getNetworkService().disconnect();
+            try {
+                Stage stage = (Stage) btnAccount.getScene().getWindow();
+                FXMLLoader loader = new FXMLLoader(getClass().getResource("CustomerLogin.fxml"));
+                Parent root = loader.load();
+                Scene scene = new Scene(root);
+                ThemeManager.applyTheme(scene);
+                stage.setScene(scene);
+                stage.setTitle("LiveChat - Hỗ trợ trực tuyến");
+                stage.centerOnScreen();
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         });
         accountMenu.getItems().addAll(itemProfile, itemAccSettings, new SeparatorMenuItem(), itemLogout);
 
-        // --- Settings Menu Setup ---
-        settingsMenu = new ContextMenu();
-        MenuItem itemExit = new MenuItem("Thoát ứng dụng");
-        itemExit.setOnAction(e -> System.exit(0));
-
-        CustomMenuItem themeItem = new CustomMenuItem();
-        themeItem.setHideOnClick(false);
-        themeItem.getStyleClass().add("menu-item");
-        HBox themeBox = new HBox(10);
-        themeBox.setPrefWidth(180);
-        themeBox.setAlignment(Pos.CENTER_LEFT);
-        Label lblTheme = new Label("Giao diện sáng/tối");
-        lblTheme.getStyleClass().add("theme-label");
-        lblTheme.setStyle("-fx-text-fill: #1c1e21; -fx-font-size: 14px; -fx-font-family: 'Segoe UI';");
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        StackPane themeSwitch = new StackPane();
-        themeSwitch.setCursor(Cursor.HAND);
-        themeSwitch.setScaleX(1.3);
-        themeSwitch.setScaleY(1.3);
-        SVGPath switchBg = new SVGPath();
-        switchBg.setContent("M16 18H8C4.68629 18 2 15.3137 2 12C2 8.68629 4.68629 6 8 6H16C19.3137 6 22 8.68629 22 12C22 15.3137 19.3137 18 16 18Z");
-        switchBg.setStroke(Color.GRAY);
-        switchBg.setStrokeWidth(2);
-        switchBg.setFill(Color.TRANSPARENT);
-
-        SVGPath switchIcon = new SVGPath();
-        switchIcon.setContent("M12 4V2M12 20V22M6.41421 6.41421L5 5M17.728 17.728L19.1422 19.1422M4 12H2M20 12H22M17.7285 6.41421L19.1427 5M6.4147 17.728L5.00049 19.1422M12 17C9.23858 17 7 14.7614 7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12C17 14.7614 14.7614 17 12 17Z");
-        switchIcon.setStroke(Color.GRAY);
-        switchIcon.setStrokeWidth(2);
-        switchIcon.setFill(Color.TRANSPARENT);
-        switchIcon.setScaleX(0.5);
-        switchIcon.setScaleY(0.5);
-        switchIcon.setTranslateX(-4);
-
-        themeSwitch.getChildren().addAll(switchBg, switchIcon);
-        themeSwitch.setOnMouseClicked(e -> {
-            boolean isDark = switchIcon.getTranslateX() > 0;
-            if (isDark) {
-                switchIcon.setTranslateX(-4);
-                switchIcon.setContent("M12 4V2M12 20V22M6.41421 6.41421L5 5M17.728 17.728L19.1422 19.1422M4 12H2M20 12H22M17.7285 6.41421L19.1427 5M6.4147 17.728L5.00049 19.1422M12 17C9.23858 17 7 14.7614 7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12C17 14.7614 14.7614 17 12 17Z");
-                lblTheme.setStyle("-fx-text-fill: #1c1e21; -fx-font-size: 14px; -fx-font-family: 'Segoe UI';");
-                switchBg.setStroke(Color.web("#888888"));
-                switchIcon.setStroke(Color.web("#888888"));
-                if (btnAccount != null && btnAccount.getScene() != null) {
-                    btnAccount.getScene().getRoot().getStyleClass().remove("dark-mode");
+        Platform.runLater(() -> {
+            if (btnAccount != null && btnAccount.getScene() != null) {
+                ThemeManager.applyTheme(btnAccount.getScene());
+                if (btnAccount.getScene().getWindow() != null) {
+                    btnAccount.getScene().getWindow().setOnCloseRequest(ev -> {
+                        CustomerContext.getInstance().getNetworkService().disconnect();
+                        Platform.exit();
+                        System.exit(0);
+                    });
                 }
-                accountMenu.getStyleClass().removeAll("dark-mode", "dark-menu");
-                settingsMenu.getStyleClass().removeAll("dark-mode", "dark-menu");
-                listMessages.refresh();
-            } else {
-                switchIcon.setTranslateX(4);
-                switchIcon.setContent("M18 15C13.0294 15 9 10.9706 9 6C9 5.09074 9.13484 4.21311 9.38561 3.38574C5.69007 4.50583 3 7.93883 3 12.0001C3 16.9707 7.02944 20.9999 12 20.9999C16.0613 20.9999 19.4943 18.3103 20.6144 14.6147C19.787 14.8655 18.9093 15 18 15Z");
-                lblTheme.setStyle("-fx-text-fill: #e4e6eb; -fx-font-size: 14px; -fx-font-family: 'Segoe UI';");
-                switchBg.setStroke(Color.web("#b0b3b8"));
-                switchIcon.setStroke(Color.web("#b0b3b8"));
-                if (btnAccount != null && btnAccount.getScene() != null) {
-                    btnAccount.getScene().getRoot().getStyleClass().add("dark-mode");
-                }
-                if (!accountMenu.getStyleClass().contains("dark-menu")) {
-                    accountMenu.getStyleClass().addAll("dark-mode", "dark-menu");
-                }
-                if (!settingsMenu.getStyleClass().contains("dark-menu")) {
-                    settingsMenu.getStyleClass().addAll("dark-mode", "dark-menu");
-                }
-                listMessages.refresh();
             }
         });
-        themeBox.getChildren().addAll(lblTheme, spacer, themeSwitch);
-        themeItem.setContent(themeBox);
 
-        settingsMenu.getItems().addAll(themeItem, new SeparatorMenuItem(), itemExit);
+        ThemeManager.addListener(() -> {
+            Platform.runLater(() -> {
+                if (btnAccount != null && btnAccount.getScene() != null) {
+                    ThemeManager.applyTheme(btnAccount.getScene());
+                    if (ThemeManager.isDarkMode()) {
+                        if (!accountMenu.getStyleClass().contains("dark-menu")) {
+                            accountMenu.getStyleClass().addAll("dark-mode", "dark-menu");
+                        }
+                    } else {
+                        accountMenu.getStyleClass().removeAll("dark-mode", "dark-menu");
+                    }
+                    listMessages.refresh();
+                }
+            });
+        });
 
         
         listMessages.setCellFactory(param -> new MessageListCell());
+
+        if (btnEmoji != null && txtMessage != null) {
+            btnEmoji.disableProperty().bind(txtMessage.disableProperty());
+            EmojiPickerPopup.attach(btnEmoji, txtMessage);
+        }
+
+        if (txtMessage != null) {
+            txtMessage.setOnKeyPressed(event -> {
+                if (new KeyCodeCombination(KeyCode.V, KeyCombination.CONTROL_DOWN).match(event)) {
+                    if (currentStaffId == null || !CustomerContext.getInstance().getNetworkService().isConnected()) return;
+                    Clipboard cb = Clipboard.getSystemClipboard();
+                    if (cb.hasFiles()) {
+                        List<File> files = cb.getFiles();
+                        if (!files.isEmpty()) {
+                            File f = files.get(0);
+                            processAndSendFile(f, isImageExtension(f.getName()));
+                            event.consume();
+                        }
+                    } else if (cb.hasImage()) {
+                        Image img = cb.getImage();
+                        byte[] png = imageToPngBytes(img);
+                        if (png != null) {
+                            String name = "screenshot_" + System.currentTimeMillis() + ".png";
+                            String initialCaption = txtMessage.getText().trim();
+                            Window owner = txtMessage.getScene().getWindow();
+                            Optional<FilePreviewDialog.FilePreviewResult> opt = FilePreviewDialog.show(owner, name, png, true, initialCaption);
+                            if (opt.isPresent()) {
+                                FilePreviewDialog.FilePreviewResult res = opt.get();
+                                sendFilePayload(res.fileName, res.fileSize, res.fileData, res.isImage, res.caption);
+                                txtMessage.clear();
+                            }
+                            event.consume();
+                        }
+                    }
+                }
+            });
+        }
     }
 
     @FXML
@@ -157,7 +197,9 @@ public class CustomerChatController implements CustomerNetworkListener {
             String replyText = null;
             if (replyingTo != null) {
                 replySender = (replyingTo.getType() == ChatMessage.Type.MY_MSG) ? "Bạn" : replyingTo.getSenderName();
-                replyText = replyingTo.getText();
+                replyText = replyingTo.isFile() 
+                        ? ("[" + (replyingTo.isImage() ? "Hình ảnh" : "Tệp") + "] " + replyingTo.getFileName()) 
+                        : replyingTo.getText();
             }
 
             CustomerContext.getInstance().getNetworkService().sendChatMessage(content, currentStaffId, msgId, replySender, replyText);
@@ -169,6 +211,103 @@ public class CustomerChatController implements CustomerNetworkListener {
         }
     }
 
+    @FXML
+    private void handleAttachImage() {
+        if (currentStaffId == null || !CustomerContext.getInstance().getNetworkService().isConnected()) return;
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Chọn hình ảnh để gửi");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Hình ảnh (*.png, *.jpg, *.jpeg, *.gif, *.bmp, *.webp)", "*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.webp"),
+                new FileChooser.ExtensionFilter("Tất cả tệp (*.*)", "*.*")
+        );
+        Window owner = btnAttachImage.getScene().getWindow();
+        File file = chooser.showOpenDialog(owner);
+        if (file != null) {
+            processAndSendFile(file, true);
+        }
+    }
+
+    @FXML
+    private void handleAttachFile() {
+        if (currentStaffId == null || !CustomerContext.getInstance().getNetworkService().isConnected()) return;
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Chọn tệp đính kèm để gửi");
+        chooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("Tất cả tệp (*.*)", "*.*"),
+                new FileChooser.ExtensionFilter("Tài liệu (*.pdf, *.docx, *.xlsx, *.pptx, *.txt, *.zip, *.rar)", "*.pdf", "*.docx", "*.xlsx", "*.pptx", "*.txt", "*.zip", "*.rar")
+        );
+        Window owner = btnAttachFile.getScene().getWindow();
+        File file = chooser.showOpenDialog(owner);
+        if (file != null) {
+            boolean isImg = isImageExtension(file.getName());
+            processAndSendFile(file, isImg);
+        }
+    }
+
+    private boolean isImageExtension(String name) {
+        if (name == null) return false;
+        String lower = name.toLowerCase();
+        return lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg")
+                || lower.endsWith(".gif") || lower.endsWith(".bmp") || lower.endsWith(".webp");
+    }
+
+    private void processAndSendFile(File file, boolean isImage) {
+        if (file.length() > Protocol.MAX_FILE_SIZE) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.initOwner(btnAttachFile.getScene().getWindow());
+            alert.setTitle("Dung lượng vượt giới hạn");
+            alert.setHeaderText("Không thể đính kèm tệp");
+            alert.setContentText("Dung lượng tệp (" + String.format("%.1f MB", file.length() / (1024.0 * 1024.0)) + ") vượt quá giới hạn cho phép là 25 MB.");
+            alert.showAndWait();
+            return;
+        }
+
+        try {
+            byte[] bytes = Files.readAllBytes(file.toPath());
+            String initialCaption = txtMessage.getText().trim();
+            Window owner = btnAttachFile.getScene().getWindow();
+
+            Optional<FilePreviewDialog.FilePreviewResult> opt = FilePreviewDialog.show(owner, file.getName(), bytes, isImage, initialCaption);
+            if (opt.isPresent()) {
+                FilePreviewDialog.FilePreviewResult res = opt.get();
+                sendFilePayload(res.fileName, res.fileSize, res.fileData, res.isImage, res.caption);
+                txtMessage.clear();
+            }
+        } catch (Exception ex) {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.initOwner(btnAttachFile.getScene().getWindow());
+            alert.setTitle("Lỗi");
+            alert.setHeaderText("Không thể đọc tệp");
+            alert.setContentText(ex.getMessage());
+            alert.showAndWait();
+        }
+    }
+
+    private byte[] imageToPngBytes(Image fxImage) {
+        if (fxImage == null) return null;
+        try {
+            java.awt.image.BufferedImage bImage = javafx.embed.swing.SwingFXUtils.fromFXImage(fxImage, null);
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(bImage, "png", baos);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void sendFilePayload(String fileName, long fileSize, byte[] fileData, boolean isImage, String caption) {
+        String msgId = UUID.randomUUID().toString();
+        String replySender = (replyingTo != null) ? (replyingTo.getType() == ChatMessage.Type.MY_MSG ? "chính mình" : replyingTo.getSenderName()) : null;
+        String replyText = (replyingTo != null) ? (replyingTo.isFile() ? ("[" + (replyingTo.isImage() ? "Hình ảnh" : "Tệp") + "] " + replyingTo.getFileName()) : replyingTo.getText()) : null;
+
+        CustomerContext.getInstance().getNetworkService().sendFileMessage(fileName, fileSize, fileData, isImage, caption, currentStaffId, msgId, replySender, replyText);
+
+        ChatMessage msg = new ChatMessage(msgId, caption, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, fileName, fileSize, fileData, isImage);
+        listMessages.getItems().add(msg);
+        listMessages.scrollTo(listMessages.getItems().size() - 1);
+        handleCancelReply();
+    }
+
     public void startReply(ChatMessage msg) {
         if (msg == null || msg.isRecalled()) return;
         this.replyingTo = msg;
@@ -178,7 +317,10 @@ public class CustomerChatController implements CustomerNetworkListener {
         }
         String sender = (msg.getType() == ChatMessage.Type.MY_MSG) ? "chính mình" : msg.getSenderName();
         if (lblReplySender != null) lblReplySender.setText("Đang trả lời " + sender + ":");
-        if (lblReplyText != null) lblReplyText.setText(msg.getText());
+        String replyDisplay = msg.isFile() 
+                ? ("[" + (msg.isImage() ? "Hình ảnh" : "Tệp") + "] " + msg.getFileName() + (msg.getText() != null && !msg.getText().isEmpty() ? (" - " + msg.getText()) : ""))
+                : msg.getText();
+        if (lblReplyText != null) lblReplyText.setText(replyDisplay);
         txtMessage.requestFocus();
     }
 
@@ -216,7 +358,10 @@ public class CustomerChatController implements CustomerNetworkListener {
     public void onConnectedToQueue() {
         Platform.runLater(() -> {
             lblStatus.setText("Đang chờ nhân viên kết nối...");
-            listMessages.getItems().add(new ChatMessage("Bạn đang ở trong hàng đợi. Vui lòng chờ...", ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
+            if (listMessages.getItems().isEmpty() || 
+                !listMessages.getItems().get(listMessages.getItems().size() - 1).getText().contains("hàng đợi")) {
+                listMessages.getItems().add(new ChatMessage("Bạn đang ở trong hàng đợi. Vui lòng chờ...", ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
+            }
         });
     }
 
@@ -228,6 +373,8 @@ public class CustomerChatController implements CustomerNetworkListener {
                 currentStaffId = null;
                 txtMessage.setDisable(true);
                 btnSend.setDisable(true);
+                if (btnAttachImage != null) btnAttachImage.setDisable(true);
+                if (btnAttachFile != null) btnAttachFile.setDisable(true);
                 lblStatus.setText("Đang chờ nhân viên khác tiếp nhận...");
                 listMessages.getItems().add(new ChatMessage(message, ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
                 listMessages.scrollTo(listMessages.getItems().size() - 1);
@@ -244,6 +391,8 @@ public class CustomerChatController implements CustomerNetworkListener {
             lblStatus.setText("Đã kết nối thành công");
             txtMessage.setDisable(false);
             btnSend.setDisable(false);
+            if (btnAttachImage != null) btnAttachImage.setDisable(false);
+            if (btnAttachFile != null) btnAttachFile.setDisable(false);
             listMessages.getItems().add(new ChatMessage("Bạn đang chat với " + staffName, ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
             listMessages.scrollTo(listMessages.getItems().size() - 1);
         });
@@ -258,6 +407,15 @@ public class CustomerChatController implements CustomerNetworkListener {
     public void onMessageReceived(String senderName, String message, String messageId, String replyToSender, String replyToText) {
         Platform.runLater(() -> {
             ChatMessage msg = new ChatMessage(messageId, message, ChatMessage.Type.STAFF_MSG, senderName, System.currentTimeMillis(), replyToSender, replyToText);
+            listMessages.getItems().add(msg);
+            listMessages.scrollTo(listMessages.getItems().size() - 1);
+        });
+    }
+
+    @Override
+    public void onFileReceived(String senderName, String messageId, String caption, String replyToSender, String replyToText, String fileName, long fileSize, byte[] fileData, boolean isImage) {
+        Platform.runLater(() -> {
+            ChatMessage msg = new ChatMessage(messageId, caption, ChatMessage.Type.STAFF_MSG, senderName, System.currentTimeMillis(), replyToSender, replyToText, fileName, fileSize, fileData, isImage);
             listMessages.getItems().add(msg);
             listMessages.scrollTo(listMessages.getItems().size() - 1);
         });
@@ -287,6 +445,8 @@ public class CustomerChatController implements CustomerNetworkListener {
             listMessages.getItems().add(new ChatMessage(reason, ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
             txtMessage.setDisable(true);
             btnSend.setDisable(true);
+            if (btnAttachImage != null) btnAttachImage.setDisable(true);
+            if (btnAttachFile != null) btnAttachFile.setDisable(true);
             lblStatus.setText("Phiên đã kết thúc");
             currentStaffId = null;
         });
@@ -295,7 +455,11 @@ public class CustomerChatController implements CustomerNetworkListener {
     @Override
     public void onError(String errorMessage) {
         Platform.runLater(() -> {
-            lblStatus.setText("Lỗi: " + errorMessage);
+            lblStatus.setText(errorMessage);
+            txtMessage.setDisable(true);
+            btnSend.setDisable(true);
+            if (btnAttachImage != null) btnAttachImage.setDisable(true);
+            if (btnAttachFile != null) btnAttachFile.setDisable(true);
         });
     }
     
@@ -309,8 +473,8 @@ public class CustomerChatController implements CustomerNetworkListener {
 
     @FXML
     private void showSettingsMenu(MouseEvent event) {
-        if (btnSettings != null) {
-            settingsMenu.show(btnSettings, Side.RIGHT, 10, 0);
+        if (btnSettings != null && btnSettings.getScene() != null) {
+            SettingsDialog.show(btnSettings.getScene().getWindow());
         }
     }
 
@@ -376,18 +540,43 @@ public class CustomerChatController implements CustomerNetworkListener {
             }
 
             if (!item.isRecalled()) {
+                if (item.isFile()) {
+                    if (item.isImage()) {
+                        MenuItem itemOpenImg = new MenuItem("Xem hình ảnh");
+                        itemOpenImg.setOnAction(ev -> ImageViewerDialog.show(getScene().getWindow(), item.getFileName(), item.getFileData()));
+                        menu.getItems().add(itemOpenImg);
+
+                        MenuItem itemCopyImg = new MenuItem("Sao chép hình ảnh");
+                        itemCopyImg.setOnAction(ev -> {
+                            try {
+                                Image img = new Image(new ByteArrayInputStream(item.getFileData()));
+                                Clipboard clipboard = Clipboard.getSystemClipboard();
+                                ClipboardContent cc = new ClipboardContent();
+                                cc.putImage(img);
+                                clipboard.setContent(cc);
+                            } catch (Exception ignored) {}
+                        });
+                        menu.getItems().add(itemCopyImg);
+                    }
+                    MenuItem itemSaveFile = new MenuItem("Lưu về máy...");
+                    itemSaveFile.setOnAction(ev -> saveFileToDisk(item));
+                    menu.getItems().add(itemSaveFile);
+                }
+
                 MenuItem itemReply = new MenuItem("Trả lời");
                 itemReply.setOnAction(ev -> startReply(item));
                 menu.getItems().add(itemReply);
 
-                MenuItem itemCopy = new MenuItem("Sao chép");
-                itemCopy.setOnAction(ev -> {
-                    Clipboard clipboard = Clipboard.getSystemClipboard();
-                    ClipboardContent cc = new ClipboardContent();
-                    cc.putString(item.getText());
-                    clipboard.setContent(cc);
-                });
-                menu.getItems().add(itemCopy);
+                if (!item.isFile() && item.getText() != null && !item.getText().isEmpty()) {
+                    MenuItem itemCopy = new MenuItem("Sao chép nội dung");
+                    itemCopy.setOnAction(ev -> {
+                        Clipboard clipboard = Clipboard.getSystemClipboard();
+                        ClipboardContent cc = new ClipboardContent();
+                        cc.putString(item.getText());
+                        clipboard.setContent(cc);
+                    });
+                    menu.getItems().add(itemCopy);
+                }
             }
 
             boolean canRecall = (item.getType() == ChatMessage.Type.MY_MSG)
@@ -409,6 +598,89 @@ public class CustomerChatController implements CustomerNetworkListener {
             } else {
                 menu.show(anchor, Side.BOTTOM, 0, 0);
             }
+        }
+
+        private void saveFileToDisk(ChatMessage item) {
+            if (item == null || item.getFileData() == null) return;
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Lưu tệp về máy");
+            chooser.setInitialFileName(item.getFileName());
+            File dest = chooser.showSaveDialog(getScene().getWindow());
+            if (dest != null) {
+                try {
+                    Files.write(dest.toPath(), item.getFileData());
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.initOwner(getScene().getWindow());
+                    alert.setTitle("Thành công");
+                    alert.setHeaderText(null);
+                    alert.setContentText("Đã lưu tệp về: " + dest.getAbsolutePath());
+                    alert.showAndWait();
+                } catch (Exception ex) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+                    alert.initOwner(getScene().getWindow());
+                    alert.setTitle("Lỗi");
+                    alert.setHeaderText("Không thể lưu tệp");
+                    alert.setContentText(ex.getMessage());
+                    alert.showAndWait();
+                }
+            }
+        }
+
+        private HBox createFileCard(ChatMessage item, boolean dark, boolean isMine) {
+            HBox card = new HBox(10);
+            card.setAlignment(Pos.CENTER_LEFT);
+            card.setPadding(new Insets(8, 12, 8, 10));
+            card.setCursor(Cursor.HAND);
+            card.setPrefWidth(240);
+            card.setMaxWidth(260);
+
+            String cardBg = isMine 
+                    ? "rgba(0, 0, 0, 0.15)" 
+                    : (dark ? "rgba(255, 255, 255, 0.08)" : "#f0f2f5");
+            card.setStyle("-fx-background-color: " + cardBg + "; -fx-background-radius: 10;");
+
+            // Document icon
+            SVGPath icon = new SVGPath();
+            icon.setContent("M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2ZM18 20H6V4H13V9H18V20ZM12 18L7 13H10V10H14V13H17L12 18Z");
+            icon.setFill(Color.web(isMine ? "#ffffff" : ThemeManager.getPrimaryColor()));
+            icon.setScaleX(1.3);
+            icon.setScaleY(1.3);
+
+            StackPane iconHolder = new StackPane(icon);
+            iconHolder.setPrefSize(36, 36);
+            iconHolder.setStyle("-fx-background-color: " + (isMine ? "rgba(255,255,255,0.2)" : ThemeManager.getLightTint(ThemeManager.getPrimaryColor())) + "; -fx-background-radius: 8;");
+
+            VBox infoBox = new VBox(2);
+            infoBox.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(infoBox, Priority.ALWAYS);
+
+            Label lblName = new Label(item.getFileName());
+            lblName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12.5));
+            lblName.setStyle("-fx-text-fill: " + (isMine ? "#ffffff" : (dark ? "#ffffff" : "#1c1e21")) + ";");
+            lblName.setMaxWidth(140);
+            lblName.setTextOverrun(OverrunStyle.CENTER_ELLIPSIS);
+
+            String metaText = item.getFileExtension() + " • " + item.getFormattedFileSize();
+            Label lblMeta = new Label(metaText);
+            lblMeta.setFont(Font.font("Segoe UI", 11));
+            lblMeta.setStyle("-fx-text-fill: " + (isMine ? "rgba(255,255,255,0.8)" : (dark ? "#b0b3b8" : "#65676b")) + ";");
+
+            infoBox.getChildren().addAll(lblName, lblMeta);
+
+            // Download icon
+            SVGPath dlIcon = new SVGPath();
+            dlIcon.setContent("M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z");
+            dlIcon.setFill(Color.web(isMine ? "#ffffff" : (dark ? "#b0b3b8" : "#65676b")));
+            dlIcon.setScaleX(0.9);
+            dlIcon.setScaleY(0.9);
+            StackPane dlBtn = new StackPane(dlIcon);
+            dlBtn.setPrefSize(28, 28);
+            dlBtn.setStyle("-fx-background-color: " + (isMine ? "rgba(255,255,255,0.15)" : (dark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)")) + "; -fx-background-radius: 14;");
+
+            card.getChildren().addAll(iconHolder, infoBox, dlBtn);
+
+            card.setOnMouseClicked(e -> saveFileToDisk(item));
+            return card;
         }
 
         @Override
@@ -457,9 +729,9 @@ public class CustomerChatController implements CustomerNetworkListener {
                             lblQuoteText.setStyle("-fx-font-size: 11px; -fx-text-fill: rgba(255, 255, 255, 0.85);");
                         } else {
                             quoteBox.setStyle(isDarkTheme 
-                                ? "-fx-background-color: rgba(255, 255, 255, 0.08); -fx-background-radius: 8; -fx-padding: 4 8 4 8; -fx-border-color: #0084FF; -fx-border-width: 0 0 0 3;" 
-                                : "-fx-background-color: rgba(0, 0, 0, 0.05); -fx-background-radius: 8; -fx-padding: 4 8 4 8; -fx-border-color: #0084FF; -fx-border-width: 0 0 0 3;" );
-                            lblQuoteSender.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: #0084FF;");
+                                ? "-fx-background-color: rgba(255, 255, 255, 0.08); -fx-background-radius: 8; -fx-padding: 4 8 4 8; -fx-border-color: " + ThemeManager.getPrimaryColor() + "; -fx-border-width: 0 0 0 3;" 
+                                : "-fx-background-color: rgba(0, 0, 0, 0.05); -fx-background-radius: 8; -fx-padding: 4 8 4 8; -fx-border-color: " + ThemeManager.getPrimaryColor() + "; -fx-border-width: 0 0 0 3;" );
+                            lblQuoteSender.setStyle("-fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: " + ThemeManager.getPrimaryColor() + ";");
                             lblQuoteText.setStyle(isDarkTheme 
                                 ? "-fx-font-size: 11px; -fx-text-fill: #b0b3b8;" 
                                 : "-fx-font-size: 11px; -fx-text-fill: #65676b;");
@@ -467,20 +739,86 @@ public class CustomerChatController implements CustomerNetworkListener {
                         bubbleBox.getChildren().add(quoteBox);
                     }
 
-                    lblText.setText(item.getText());
+                    boolean hasCaption = item.getText() != null && !item.getText().trim().isEmpty();
+                    boolean hasReply = item.getReplyToText() != null && !item.getReplyToText().trim().isEmpty();
+                    boolean isSoloImage = item.isFile() && item.isImage() && !hasCaption && !hasReply;
+
+                    String textColor;
                     if (item.getType() == ChatMessage.Type.MY_MSG) {
-                        lblText.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 0;");
-                        bubbleBox.setStyle("-fx-background-color: #0084FF; -fx-background-radius: 15 15 0 15; -fx-padding: 8 14 8 14;");
-                    } else {
-                        if (isDarkTheme) {
-                            lblText.setStyle("-fx-background-color: transparent; -fx-text-fill: #e4e6eb; -fx-font-size: 14px; -fx-padding: 0;");
-                            bubbleBox.setStyle("-fx-background-color: #242526; -fx-background-radius: 15 15 15 0; -fx-padding: 8 14 8 14; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+                        textColor = "#ffffff";
+                        if (isSoloImage) {
+                            bubbleBox.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
                         } else {
-                            lblText.setStyle("-fx-background-color: transparent; -fx-text-fill: #050505; -fx-font-size: 14px; -fx-padding: 0;");
-                            bubbleBox.setStyle("-fx-background-color: white; -fx-background-radius: 15 15 15 0; -fx-padding: 8 14 8 14; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);");
+                            bubbleBox.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-background-radius: 15 15 0 15; -fx-padding: " + (item.isImage() ? "4 4 6 4" : "8 14 8 14") + ";");
+                        }
+                    } else {
+                        textColor = isDarkTheme ? "#e4e6eb" : "#050505";
+                        if (isSoloImage) {
+                            bubbleBox.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
+                        } else {
+                            if (isDarkTheme) {
+                                bubbleBox.setStyle("-fx-background-color: #242526; -fx-background-radius: 15 15 15 0; -fx-padding: " + (item.isImage() ? "4 4 6 4" : "8 14 8 14") + "; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+                            } else {
+                                bubbleBox.setStyle("-fx-background-color: white; -fx-background-radius: 15 15 15 0; -fx-padding: " + (item.isImage() ? "4 4 6 4" : "8 14 8 14") + "; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);");
+                            }
                         }
                     }
-                    bubbleBox.getChildren().add(lblText);
+
+                    if (item.isFile()) {
+                        if (item.isImage()) {
+                            try {
+                                Image img = new Image(new ByteArrayInputStream(item.getFileData()));
+                                if (img.isError() || img.getWidth() <= 0) {
+                                    try {
+                                        java.awt.image.BufferedImage bimg = javax.imageio.ImageIO.read(new ByteArrayInputStream(item.getFileData()));
+                                        if (bimg != null) {
+                                            img = javafx.embed.swing.SwingFXUtils.toFXImage(bimg, null);
+                                        }
+                                    } catch (Exception ignored) {}
+                                }
+
+                                if (img != null && !img.isError() && img.getWidth() > 0 && img.getHeight() > 0) {
+                                    double maxW = 260;
+                                    double maxH = 260;
+                                    double scale = Math.min(maxW / img.getWidth(), maxH / img.getHeight());
+                                    if (scale > 1.0) scale = 1.0;
+                                    double w = Math.max(1, Math.round(img.getWidth() * scale));
+                                    double h = Math.max(1, Math.round(img.getHeight() * scale));
+
+                                    Rectangle imgView = new Rectangle(w, h);
+                                    imgView.setArcWidth(16);
+                                    imgView.setArcHeight(16);
+                                    imgView.setFill(new ImagePattern(img));
+                                    imgView.setCursor(Cursor.HAND);
+
+                                    imgView.setOnMouseClicked(ev -> {
+                                        ImageViewerDialog.show(getScene().getWindow(), item.getFileName(), item.getFileData());
+                                    });
+                                    bubbleBox.getChildren().add(imgView);
+                                } else {
+                                    Label lblErr = new Label("Lỗi hiển thị ảnh");
+                                    lblErr.setStyle("-fx-text-fill: " + textColor + "; -fx-font-style: italic;");
+                                    bubbleBox.getChildren().add(lblErr);
+                                }
+                            } catch (Exception ex) {
+                                Label lblErr = new Label("Lỗi hiển thị ảnh: " + ex.getMessage());
+                                lblErr.setStyle("-fx-text-fill: " + textColor + "; -fx-font-style: italic;");
+                                bubbleBox.getChildren().add(lblErr);
+                            }
+                        } else {
+                            HBox fileCard = createFileCard(item, isDarkTheme, item.getType() == ChatMessage.Type.MY_MSG);
+                            bubbleBox.getChildren().add(fileCard);
+                        }
+
+                        if (hasCaption) {
+                            Node captionNode = EmojiManager.createEmojiTextFlow(item.getText(), textColor, 13.5);
+                            VBox.setMargin(captionNode, new Insets(2, 6, 2, 6));
+                            bubbleBox.getChildren().add(captionNode);
+                        }
+                    } else {
+                        Node textNode = EmojiManager.createEmojiTextFlow(item.getText(), textColor, 14);
+                        bubbleBox.getChildren().add(textNode);
+                    }
                 }
 
                 if (item.getType() == ChatMessage.Type.MY_MSG) {

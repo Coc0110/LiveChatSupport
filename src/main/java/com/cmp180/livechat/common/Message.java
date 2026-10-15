@@ -12,6 +12,10 @@ public class Message implements Serializable {
     private String messageId;
     private String replyToSender;
     private String replyToText;
+    private String fileName;
+    private long fileSize;
+    private byte[] fileData;
+    private boolean isImage;
 
     public Message(String command, String senderId, String content) {
         this.command = command;
@@ -34,6 +38,10 @@ public class Message implements Serializable {
     }
 
     public Message(String command, String senderId, String receiverId, String content, String messageId, String replyToSender, String replyToText) {
+        this(command, senderId, receiverId, content, messageId, replyToSender, replyToText, null, 0, null, false);
+    }
+
+    public Message(String command, String senderId, String receiverId, String content, String messageId, String replyToSender, String replyToText, String fileName, long fileSize, byte[] fileData, boolean isImage) {
         this.command = command;
         this.senderId = senderId;
         this.receiverId = receiverId;
@@ -41,6 +49,10 @@ public class Message implements Serializable {
         this.messageId = messageId;
         this.replyToSender = replyToSender;
         this.replyToText = replyToText;
+        this.fileName = fileName;
+        this.fileSize = fileSize;
+        this.fileData = fileData;
+        this.isImage = isImage;
     }
 
     public String getCommand() { return command; }
@@ -50,4 +62,8 @@ public class Message implements Serializable {
     public String getMessageId() { return messageId; }
     public String getReplyToSender() { return replyToSender; }
     public String getReplyToText() { return replyToText; }
+    public String getFileName() { return fileName; }
+    public long getFileSize() { return fileSize; }
+    public byte[] getFileData() { return fileData; }
+    public boolean isImage() { return isImage; }
 }
