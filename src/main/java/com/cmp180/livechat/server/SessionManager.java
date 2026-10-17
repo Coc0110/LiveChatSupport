@@ -12,10 +12,22 @@ public class SessionManager {
     private final ServerMain server;
     private final Queue<ClientHandler> waitingCustomers = new ConcurrentLinkedQueue<>();
     private final Queue<ClientHandler> allStaffs = new ConcurrentLinkedQueue<>();
+    public static final int MAX_ACTIVE_SESSIONS_PER_STAFF = 3;
     private final List<ChatSession> activeSessionsList = new CopyOnWriteArrayList<>();
 
     public SessionManager(ServerMain server) {
         this.server = server;
+    }
+
+    public int getActiveSessionCount(ClientHandler staff) {
+        if (staff == null) return 0;
+        int count = 0;
+        for (ChatSession session : activeSessionsList) {
+            if (session.getStaff() == staff) {
+                count++;
+            }
+        }
+        return count;
     }
 
     public synchronized void registerClient(ClientHandler client) {
@@ -25,6 +37,7 @@ public class SessionManager {
             client.sendMessage(new Message(Protocol.CMD_WAITING, "Server", "Đang chờ nhân viên CSKH tiếp nhận..."));
             server.log("[HÀNG CHỜ] Khách hàng '" + client.getName() + "' (SĐT: " + client.getCustomerPhone() + ") đã vào hàng chờ." + (client.isInterrupted() ? " (Đang tư vấn dở)" : ""));
             broadcastQueueToStaff();
+            tryAutoDispatch();
             
         } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(client.getRole())) {
             for (ClientHandler existingStaff : allStaffs) {
@@ -38,10 +51,16 @@ public class SessionManager {
             client.sendMessage(new Message(Protocol.CMD_WAITING, "Server", "Đã kết nối. Vui lòng chọn khách hàng từ danh sách chờ."));
             server.log("[CSKH ONLINE] Nhân viên '" + client.getName() + "' đang sẵn sàng.");
             broadcastQueueToStaff();
+            tryAutoDispatch();
         }
     }
 
     public synchronized void acceptCustomer(ClientHandler staff, String customerId) {
+        if (getActiveSessionCount(staff) >= MAX_ACTIVE_SESSIONS_PER_STAFF) {
+            staff.sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Bạn đang tiếp nhận tối đa " + MAX_ACTIVE_SESSIONS_PER_STAFF + " khách hàng cùng lúc. Vui lòng hoàn thành phiên hiện tại trước!"));
+            return;
+        }
+
         ClientHandler targetCustomer = null;
         for (ClientHandler c : waitingCustomers) {
             if (c.getClientId().equals(customerId)) {
@@ -56,6 +75,103 @@ public class SessionManager {
             broadcastQueueToStaff();
         } else {
             staff.sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Khách hàng này không còn trong hàng chờ."));
+        }
+    }
+
+    private boolean isSkillMatch(String staffSkill, String customerTopic) {
+        if (staffSkill == null || staffSkill.trim().isEmpty() || "Tất cả".equalsIgnoreCase(staffSkill.trim())) {
+            return true;
+        }
+        if (customerTopic == null || customerTopic.trim().isEmpty()) {
+            return true;
+        }
+        String s = staffSkill.toLowerCase();
+        String t = customerTopic.toLowerCase();
+        if (s.contains(t) || t.contains(s)) return true;
+
+        if ((t.contains("laptop") || t.contains("pc") || t.contains("mua")) &&
+            (s.contains("laptop") || s.contains("pc") || s.contains("mua"))) {
+            return true;
+        }
+        if ((t.contains("kỹ thuật") || t.contains("cài đặt")) &&
+            (s.contains("kỹ thuật") || s.contains("cài đặt"))) {
+            return true;
+        }
+        if ((t.contains("bảo hành") || t.contains("đổi trả")) &&
+            (s.contains("bảo hành") || s.contains("đổi trả"))) {
+            return true;
+        }
+        if ((t.contains("đơn hàng") || t.contains("giao vận")) &&
+            (s.contains("đơn hàng") || s.contains("giao vận"))) {
+            return true;
+        }
+        return false;
+    }
+
+    private ClientHandler findBestStaffForCustomer(ClientHandler customer) {
+        if (allStaffs.isEmpty()) return null;
+
+        // Tầng 1: Ưu tiên Nhân viên quen (Preferred Staff) từng hỗ trợ tốt và đang rảnh
+        String preferredStaffId = DatabaseManager.getInstance().getPreferredStaffIdForCustomer(customer.getDbCustomerId());
+        if (preferredStaffId != null) {
+            for (ClientHandler staff : allStaffs) {
+                if (staff.getClientId().equals(preferredStaffId) && getActiveSessionCount(staff) < MAX_ACTIVE_SESSIONS_PER_STAFF) {
+                    return staff;
+                }
+            }
+        }
+
+        // Tầng 2: Ưu tiên Nhân viên có Chuyên môn chính (Primary Skill) trùng với Chủ đề của khách
+        ClientHandler bestMatchedStaff = null;
+        int minSessionsMatched = Integer.MAX_VALUE;
+        for (ClientHandler staff : allStaffs) {
+            int activeCount = getActiveSessionCount(staff);
+            if (activeCount < MAX_ACTIVE_SESSIONS_PER_STAFF) {
+                if (isSkillMatch(staff.getPrimarySkill(), customer.getIssueTopic())) {
+                    if (activeCount < minSessionsMatched) {
+                        minSessionsMatched = activeCount;
+                        bestMatchedStaff = staff;
+                    }
+                }
+            }
+        }
+        if (bestMatchedStaff != null) return bestMatchedStaff;
+
+        // Tầng 3: Fallback - Nhân viên đa nhiệm có ít phiên nhất (Least Connections)
+        ClientHandler fallbackStaff = null;
+        int minSessionsGeneral = Integer.MAX_VALUE;
+        for (ClientHandler staff : allStaffs) {
+            int activeCount = getActiveSessionCount(staff);
+            if (activeCount < MAX_ACTIVE_SESSIONS_PER_STAFF) {
+                if (activeCount < minSessionsGeneral) {
+                    minSessionsGeneral = activeCount;
+                    fallbackStaff = staff;
+                }
+            }
+        }
+        return fallbackStaff;
+    }
+
+    public synchronized void tryAutoDispatch() {
+        if (waitingCustomers.isEmpty() || allStaffs.isEmpty()) return;
+
+        List<ClientHandler> queueCopy = new ArrayList<>(waitingCustomers);
+        boolean dispatchedAny = false;
+
+        for (ClientHandler customer : queueCopy) {
+            if (!waitingCustomers.contains(customer)) continue;
+
+            ClientHandler staff = findBestStaffForCustomer(customer);
+            if (staff != null) {
+                waitingCustomers.remove(customer);
+                createSession(customer, staff);
+                dispatchedAny = true;
+                server.log("-> [TỰ ĐỘNG ĐIỀU PHỐI] Khách hàng '" + customer.getName() + "' (Chủ đề: " + customer.getIssueTopic() + ") -> CSKH '" + staff.getName() + "' (Chuyên môn: " + staff.getPrimarySkill() + ")");
+            }
+        }
+
+        if (dispatchedAny) {
+            broadcastQueueToStaff();
         }
     }
 
@@ -194,6 +310,7 @@ public class SessionManager {
         activeSessionsList.remove(session);
         broadcastQueueToStaff();
         updateDashboard();
+        tryAutoDispatch();
     }
 
     public synchronized void handleDisconnect(ClientHandler client) {
@@ -229,6 +346,7 @@ public class SessionManager {
         }
         
         broadcastQueueToStaff();
+        tryAutoDispatch();
     }
     
     public void sendQueueToStaff(ClientHandler staff) {
@@ -273,5 +391,90 @@ public class SessionManager {
         if (server.getGui() != null) {
             server.getGui().updateDashboard(waitingCustomers.size(), allStaffs.size(), activeSessionsList.size());
         }
+    }
+
+    public void sendOnlineStaffList(ClientHandler requestingStaff) {
+        if (requestingStaff == null) return;
+        StringBuilder sb = new StringBuilder();
+        for (ClientHandler staff : allStaffs) {
+            if (!staff.getClientId().equals(requestingStaff.getClientId())) {
+                int activeCount = getActiveSessionCount(staff);
+                // format: staffId|fullName|primarySkill|activeSessionCount;
+                sb.append(staff.getClientId()).append("|")
+                  .append(staff.getName()).append("|")
+                  .append(staff.getPrimarySkill() != null ? staff.getPrimarySkill() : "Tất cả").append("|")
+                  .append(activeCount).append(";");
+            }
+        }
+        requestingStaff.sendMessage(new Message(Protocol.CMD_ONLINE_STAFF_LIST, "Server", sb.toString()));
+    }
+
+    public synchronized void transferSession(ClientHandler requestingStaff, String customerId, String content) {
+        if (requestingStaff == null || customerId == null) return;
+
+        String targetStaffId = content;
+        String transferNote = "";
+        if (content != null && content.contains("|")) {
+            String[] parts = content.split("\\|", 2);
+            targetStaffId = parts[0];
+            transferNote = parts[1];
+        }
+
+        ChatSession targetSession = null;
+        for (ChatSession session : activeSessionsList) {
+            if (session.getStaff() == requestingStaff && session.getCustomer().getClientId().equals(customerId)) {
+                targetSession = session;
+                break;
+            }
+        }
+
+        if (targetSession == null) {
+            requestingStaff.sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Không tìm thấy phiên chat với khách hàng này!"));
+            return;
+        }
+
+        ClientHandler targetStaff = null;
+        for (ClientHandler staff : allStaffs) {
+            if (staff.getClientId().equals(targetStaffId)) {
+                targetStaff = staff;
+                break;
+            }
+        }
+
+        if (targetStaff == null) {
+            requestingStaff.sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Nhân viên nhận chuyển tiếp hiện không trực tuyến!"));
+            return;
+        }
+
+        if (getActiveSessionCount(targetStaff) >= MAX_ACTIVE_SESSIONS_PER_STAFF) {
+            requestingStaff.sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Nhân viên '" + targetStaff.getName() + "' đã nhận tối đa " + MAX_ACTIVE_SESSIONS_PER_STAFF + " khách hàng cùng lúc!"));
+            return;
+        }
+
+        ClientHandler customer = targetSession.getCustomer();
+
+        // 1. Ghi nhận đóng phiên cũ với lý do chuyển tiếp
+        activeSessionsList.remove(targetSession);
+        DatabaseManager.getInstance().closeSession(targetSession.getSessionId(), 0, "Chuyển tiếp cho CSKH " + targetStaff.getName());
+
+        // 2. Thông báo kết thúc phiên phía nhân viên cũ
+        requestingStaff.sendMessage(new Message(Protocol.CMD_END, "Server", customer.getClientId(), "Đã chuyển phiên cho " + targetStaff.getName(), targetSession.getSessionId(), null, null));
+
+        // 3. Nếu có ghi chú bàn giao, lưu vào lịch sử của khách hàng
+        if (transferNote != null && !transferNote.trim().isEmpty()) {
+            String noteText = "[Chuyển tiếp từ NV " + requestingStaff.getName() + "]: " + transferNote.trim();
+            String encNote = com.cmp180.livechat.common.SecurityManager.encrypt(noteText);
+            customer.addHistory("SYSTEM", "Hệ thống", encNote);
+        }
+
+        // 4. Tạo phiên mới với nhân viên đích (toàn bộ lịch sử bao gồm ghi chú bàn giao sẽ được gửi tới nhân viên đích)
+        createSession(customer, targetStaff);
+
+        // 5. Thông báo cho khách hàng
+        String notice = "Bạn đã được chuyển tiếp đến hỗ trợ viên " + targetStaff.getName() + " (Chuyên môn: " + targetStaff.getPrimarySkill() + ").";
+        customer.sendMessage(new Message(Protocol.CMD_CHAT, "Hệ thống", targetStaff.getClientId(), com.cmp180.livechat.common.SecurityManager.encrypt(notice), java.util.UUID.randomUUID().toString(), null, null));
+
+        server.log("-> [CHUYỂN PHIÊN THÀNH CÔNG] CSKH '" + requestingStaff.getName() + "' -> CSKH '" + targetStaff.getName() + "' (Khách: '" + customer.getName() + "', Ghi chú: " + transferNote + ")");
+        broadcastQueueToStaff();
     }
 }

@@ -72,6 +72,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import java.io.File;
@@ -93,6 +94,8 @@ public class LCSChatController implements StaffNetworkListener {
     @FXML private Label lblIssue;
     @FXML private Label lblStatus;
     @FXML private Circle statusDot;
+    @FXML private Button btnEndSession;
+    @FXML private Button btnTransferSession;
     
     @FXML private HBox replyBar;
     @FXML private Label lblReplySender;
@@ -272,6 +275,8 @@ public class LCSChatController implements StaffNetworkListener {
         statusDot.setFill(Color.web("#00C853"));
         if (btnAttachImage != null) btnAttachImage.setDisable(false);
         if (btnAttachFile != null) btnAttachFile.setDisable(false);
+        if (btnEndSession != null) btnEndSession.setDisable(false);
+        if (btnTransferSession != null) btnTransferSession.setDisable(false);
         
         listMessages.getItems().clear();
         if (chatHistories.containsKey(customerId)) {
@@ -705,12 +710,49 @@ public class LCSChatController implements StaffNetworkListener {
         });
     }
 
+    @FXML
+    private void handleEndSession(ActionEvent event) {
+        if (currentCustomerId == null || !StaffContext.getInstance().getNetworkService().isConnected()) return;
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Xác nhận");
+        alert.setHeaderText("Kết thúc hỗ trợ");
+        alert.setContentText("Bạn có chắc chắn muốn kết thúc phiên hỗ trợ cho khách hàng này không?");
+        ButtonType btnYes = new ButtonType("Kết thúc", javafx.scene.control.ButtonBar.ButtonData.YES);
+        ButtonType btnNo = new ButtonType("Hủy", javafx.scene.control.ButtonBar.ButtonData.NO);
+        alert.getButtonTypes().setAll(btnYes, btnNo);
+
+        if (btnEndSession != null && btnEndSession.getScene() != null && btnEndSession.getScene().getWindow() != null) {
+            alert.initOwner(btnEndSession.getScene().getWindow());
+        }
+        if (alert.getDialogPane().getScene() != null) {
+            ThemeManager.applyTheme(alert.getDialogPane().getScene());
+        }
+
+        alert.showAndWait().ifPresent(res -> {
+            if (res == btnYes) {
+                StaffContext.getInstance().getNetworkService().endSession(currentCustomerId);
+            }
+        });
+    }
+
+    @FXML
+    private void handleTransferSession(ActionEvent event) {
+        if (currentCustomerId == null || !StaffContext.getInstance().getNetworkService().isConnected()) return;
+
+        String displayName = lblCurrentClient.getText();
+        Window owner = btnTransferSession != null && btnTransferSession.getScene() != null ? btnTransferSession.getScene().getWindow() : null;
+        TransferSessionDialog.show(owner, currentCustomerId, displayName, StaffContext.getInstance().getNetworkService());
+    }
+
     @Override
     public void onSessionEnded(String reason) {
         Platform.runLater(() -> {
             handleCancelReply();
             if (btnAttachImage != null) btnAttachImage.setDisable(true);
             if (btnAttachFile != null) btnAttachFile.setDisable(true);
+            if (btnEndSession != null) btnEndSession.setDisable(true);
+            if (btnTransferSession != null) btnTransferSession.setDisable(true);
             if (currentCustomerId != null) {
                 ChatMessage msg = new ChatMessage(reason, ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
                 chatHistories.computeIfAbsent(currentCustomerId, k -> new ArrayList<>()).add(msg);
@@ -718,6 +760,14 @@ public class LCSChatController implements StaffNetworkListener {
                 listMessages.scrollTo(listMessages.getItems().size() - 1);
                 lblStatus.setText("Phiên đã kết thúc");
                 statusDot.setFill(Color.web("#888888"));
+
+                for (CustomerItem c : localQueue) {
+                    if (c.getId().equals(currentCustomerId)) {
+                        c.setActive(false);
+                        break;
+                    }
+                }
+                sortAndRefreshQueue();
             }
         });
     }
@@ -1223,13 +1273,29 @@ public class LCSChatController implements StaffNetworkListener {
                 if (!item.isActive() && item.isInterrupted()) {
                     issueLabel.setText("⚠ Đang tư vấn dở • " + issue);
                     issueLabel.setStyle("-fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: " + (isDarkTheme ? "#FFB74D;" : "#E65100;"));
-                    btnAccept.setText("Tiếp nhận");
-                    btnAccept.setStyle("-fx-background-color: #F57C00; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 8; -fx-cursor: hand;");
                 } else {
                     issueLabel.setText(issue);
                     issueLabel.setStyle("-fx-font-size: 12; -fx-text-fill: " + (isDarkTheme ? "#b0b3b8;" : "#888888;"));
-                    btnAccept.setText("Nhận");
-                    btnAccept.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 10; -fx-background-radius: 8; -fx-cursor: hand;");
+                }
+
+                long activeCount = localQueue.stream().filter(CustomerItem::isActive).count();
+                boolean isLimitReached = activeCount >= 3;
+
+                if (isLimitReached) {
+                    btnAccept.setDisable(true);
+                    btnAccept.setText(item.isInterrupted() ? "Tiếp nhận" : "Nhận");
+                    btnAccept.setStyle("-fx-background-color: #9E9E9E; -fx-text-fill: #E0E0E0; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 8; -fx-cursor: default;");
+                    btnAccept.setTooltip(new Tooltip("Đang phục vụ tối đa 3 khách hàng. Vui lòng kết thúc một phiên trước khi nhận thêm."));
+                } else {
+                    btnAccept.setDisable(false);
+                    btnAccept.setTooltip(null);
+                    if (item.isInterrupted()) {
+                        btnAccept.setText("Tiếp nhận");
+                        btnAccept.setStyle("-fx-background-color: #F57C00; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 8; -fx-cursor: hand;");
+                    } else {
+                        btnAccept.setText("Nhận");
+                        btnAccept.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 10; -fx-background-radius: 8; -fx-cursor: hand;");
+                    }
                 }
                 avatar.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-background-radius: 50; -fx-font-weight: bold; -fx-font-size: 15;");
                 root.getChildren().addAll(avatar, textContainer);

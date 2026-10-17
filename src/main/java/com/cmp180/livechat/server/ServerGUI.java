@@ -149,7 +149,7 @@ public class ServerGUI extends JFrame {
         panel.add(toolBar, BorderLayout.NORTH);
 
         // Bảng dữ liệu
-        String[] columns = {"Mã NV", "Tên đăng nhập", "Họ và Tên", "Vai trò", "Số phiên đã hỗ trợ", "Đánh giá TB (⭐)"};
+        String[] columns = {"Mã NV", "Tên đăng nhập", "Họ và Tên", "Vai trò", "Chuyên môn", "Số phiên đã hỗ trợ", "Đánh giá TB (⭐)"};
         staffTableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -180,6 +180,7 @@ public class ServerGUI extends JFrame {
                     s.username,
                     s.fullName,
                     s.role,
+                    s.primarySkill,
                     s.sessionCount,
                     ratingStr
             });
@@ -191,8 +192,16 @@ public class ServerGUI extends JFrame {
         JPasswordField txtPass = new JPasswordField(15);
         JTextField txtName = new JTextField(15);
         JComboBox<String> cbRole = new JComboBox<>(new String[]{"STAFF", "ADMIN"});
+        JComboBox<String> cbSkill = new JComboBox<>(new String[]{
+                "Tất cả",
+                "Tư vấn Mua Laptop & Build PC",
+                "Hỗ trợ Kỹ thuật & Cài đặt",
+                "Bảo hành & Đổi trả linh kiện",
+                "Tra cứu Đơn hàng & Giao vận",
+                "Thắc mắc & Dịch vụ khác"
+        });
 
-        JPanel form = new JPanel(new GridLayout(4, 2, 8, 8));
+        JPanel form = new JPanel(new GridLayout(5, 2, 8, 8));
         form.add(new JLabel("Tên đăng nhập:"));
         form.add(txtUser);
         form.add(new JLabel("Mật khẩu:"));
@@ -201,6 +210,8 @@ public class ServerGUI extends JFrame {
         form.add(txtName);
         form.add(new JLabel("Vai trò:"));
         form.add(cbRole);
+        form.add(new JLabel("Chuyên môn chính:"));
+        form.add(cbSkill);
 
         int result = JOptionPane.showConfirmDialog(this, form, "Thêm Nhân viên CSKH", JOptionPane.OK_CANCEL_OPTION);
         if (result == JOptionPane.OK_OPTION) {
@@ -208,13 +219,14 @@ public class ServerGUI extends JFrame {
             String p = new String(txtPass.getPassword()).trim();
             String n = txtName.getText().trim();
             String r = (String) cbRole.getSelectedItem();
+            String s = (String) cbSkill.getSelectedItem();
 
             if (u.isEmpty() || p.isEmpty() || n.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ thông tin!", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            boolean ok = DatabaseManager.getInstance().addStaff(u, p, n, r);
+            boolean ok = DatabaseManager.getInstance().addStaff(u, p, n, r, s);
             if (ok) {
                 JOptionPane.showMessageDialog(this, "Thêm nhân viên thành công!");
                 loadStaffData();

@@ -3,6 +3,7 @@ package com.cmp180.livechat.client.staff.network;
 import com.cmp180.livechat.common.Message;
 import com.cmp180.livechat.common.Protocol;
 import com.cmp180.livechat.client.staff.model.CustomerItem;
+import com.cmp180.livechat.client.staff.model.OnlineStaffItem;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -225,6 +226,13 @@ public class StaffNetworkService {
                 case Protocol.CMD_END:
                     for (StaffNetworkListener l : listeners) l.onSessionEnded(msg.getContent());
                     break;
+
+                case Protocol.CMD_ONLINE_STAFF_LIST:
+                    List<OnlineStaffItem> onlineStaff = parseOnlineStaffData(msg.getContent());
+                    for (StaffNetworkListener l : listeners) {
+                        l.onOnlineStaffListReceived(onlineStaff);
+                    }
+                    break;
                     
                 case Protocol.CMD_ERROR:
                     for (StaffNetworkListener l : listeners) l.onError(msg.getContent());
@@ -268,6 +276,17 @@ public class StaffNetworkService {
     public void endSession(String customerId) {
         if (!isConnected) return;
         sendMessage(new Message(Protocol.CMD_END_SESSION, "Staff", customerId, "Nhân viên đã đóng phiên."));
+    }
+
+    public void requestOnlineStaffList() {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_GET_ONLINE_STAFF, "Staff", ""));
+    }
+
+    public void transferSession(String customerId, String targetStaffId, String note) {
+        if (!isConnected) return;
+        String payload = targetStaffId + "|" + (note != null ? note.trim() : "");
+        sendMessage(new Message(Protocol.CMD_TRANSFER_SESSION, this.staffId, customerId, payload));
     }
     
     private synchronized void sendMessage(Message msg) {
@@ -322,6 +341,28 @@ public class StaffNetworkService {
                 boolean isInterrupted = Protocol.STATUS_INTERRUPTED.equals(kv[2]);
                 long joinedTime = Long.parseLong(kv[3]);
                 list.add(new CustomerItem(id, name, isActive, isInterrupted, joinedTime));
+            }
+        }
+        return list;
+    }
+
+    private List<OnlineStaffItem> parseOnlineStaffData(String data) {
+        List<OnlineStaffItem> list = new ArrayList<>();
+        if (data == null || data.trim().isEmpty()) return list;
+
+        String[] parts = data.split(";");
+        for (String p : parts) {
+            if (p.trim().isEmpty()) continue;
+            String[] kv = p.split("\\|");
+            if (kv.length >= 4) {
+                String id = kv[0];
+                String name = kv[1];
+                String skill = kv[2];
+                int activeCount = 0;
+                try {
+                    activeCount = Integer.parseInt(kv[3]);
+                } catch (Exception ignored) {}
+                list.add(new OnlineStaffItem(id, name, skill, activeCount));
             }
         }
         return list;

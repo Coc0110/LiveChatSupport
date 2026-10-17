@@ -1,12 +1,14 @@
 package com.cmp180.livechat.client.staff.network;
 
 import com.cmp180.livechat.client.staff.model.CustomerItem;
+import com.cmp180.livechat.client.staff.model.OnlineStaffItem;
 import java.util.List;
 
 public interface StaffNetworkListener {
     void onLoginSuccess();
     void onQueueUpdated(List<CustomerItem> waitingCustomers);
     void onPairedWithCustomer(String customerName, String customerId);
+    default void onOnlineStaffListReceived(List<OnlineStaffItem> staffList) {}
     default void onChatHistoryReceived(String customerId, String senderRole, String senderName, long timestamp, String message) {}
     default void onChatHistoryReceived(String customerId, String senderRole, String senderName, long timestamp, String message, String messageId, String replyToSender, String replyToText, boolean isRecalled) {
         onChatHistoryReceived(customerId, senderRole, senderName, timestamp, message);

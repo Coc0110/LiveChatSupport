@@ -27,6 +27,9 @@ public class Protocol {
     public static final String CMD_PHONE_RESULT = "PHONE_RESULT";
     public static final String CMD_GET_SESSION_MSGS = "GET_SESSION_MSGS";
     public static final String CMD_SESSION_MSGS = "SESSION_MSGS";
+    public static final String CMD_GET_ONLINE_STAFF = "GET_ONLINE_STAFF";
+    public static final String CMD_ONLINE_STAFF_LIST = "ONLINE_STAFF_LIST";
+    public static final String CMD_TRANSFER_SESSION = "TRANSFER_SESSION";
     public static final String STATUS_INTERRUPTED = "INTERRUPTED";
     public static final long MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 }

@@ -60,6 +60,7 @@ public class ClientHandler implements Runnable {
     private String customerPhone;
     private String dbCustomerId;
     private String issueTopic = "Tư vấn chung";
+    private String primarySkill = "Tất cả";
 
     // Thời gian tham gia hàng đợi
     private final long joinedTime;
@@ -145,6 +146,18 @@ public class ClientHandler implements Runnable {
             case Protocol.CMD_GET_SESSION_MSGS:
                 handleGetSessionMessages(msg);
                 break;
+
+            case Protocol.CMD_GET_ONLINE_STAFF:
+                if (Protocol.ROLE_STAFF.equals(this.role)) {
+                    sessionManager.sendOnlineStaffList(this);
+                }
+                break;
+
+            case Protocol.CMD_TRANSFER_SESSION:
+                if (Protocol.ROLE_STAFF.equals(this.role)) {
+                    sessionManager.transferSession(this, msg.getReceiverId(), msg.getContent());
+                }
+                break;
                 
             default:
                 server.log("Lệnh không hợp lệ từ " + name + ": " + cmd);
@@ -207,8 +220,9 @@ public class ClientHandler implements Runnable {
         this.clientId = staffRec.staffId;
         this.name = staffRec.fullName;
         this.role = Protocol.ROLE_STAFF;
+        this.primarySkill = (staffRec.primarySkill != null) ? staffRec.primarySkill : "Tất cả";
 
-        server.log("[ĐĂNG NHẬP THÀNH CÔNG] CSKH '" + staffRec.fullName + "' (Username: " + staffRec.username + ")");
+        server.log("[ĐĂNG NHẬP THÀNH CÔNG] CSKH '" + staffRec.fullName + "' (Username: " + staffRec.username + ", Chuyên môn: " + this.primarySkill + ")");
         sendMessage(new Message(Protocol.CMD_LOGIN_SUCCESS, staffRec.staffId, staffRec.fullName));
         sessionManager.registerClient(this);
     }
@@ -328,6 +342,7 @@ public class ClientHandler implements Runnable {
     public String getCustomerPhone() { return customerPhone; }
     public String getDbCustomerId() { return dbCustomerId != null ? dbCustomerId : clientId; }
     public String getIssueTopic() { return issueTopic; }
+    public String getPrimarySkill() { return primarySkill != null ? primarySkill : "Tất cả"; }
 
     public boolean isInterrupted() { return interrupted; }
     public void setInterrupted(boolean interrupted) { this.interrupted = interrupted; }

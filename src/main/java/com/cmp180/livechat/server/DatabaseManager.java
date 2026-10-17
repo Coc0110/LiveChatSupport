@@ -46,10 +46,15 @@ public class DatabaseManager {
                     password TEXT NOT NULL,
                     full_name TEXT NOT NULL,
                     role TEXT DEFAULT 'STAFF',
+                    primary_skill TEXT DEFAULT 'Tất cả',
                     is_active INTEGER DEFAULT 1,
                     created_at INTEGER
                 );
             """);
+
+            try {
+                stmt.execute("ALTER TABLE staff ADD COLUMN primary_skill TEXT DEFAULT 'Tất cả';");
+            } catch (SQLException ignored) {}
 
             // 2. Bảng Khách hàng (Customers)
             stmt.execute("""
@@ -117,10 +122,10 @@ public class DatabaseManager {
         String countSql = "SELECT COUNT(*) FROM staff";
         try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(countSql)) {
             if (rs.next() && rs.getInt(1) == 0) {
-                // Thêm 3 tài khoản mẫu với mật khẩu băm SHA-256
-                insertStaffDirect(conn, "staff01", com.cmp180.livechat.common.SecurityManager.hashPassword("123456"), "Nguyễn Văn An", "STAFF");
-                insertStaffDirect(conn, "staff02", com.cmp180.livechat.common.SecurityManager.hashPassword("123456"), "Trần Thị Bích", "STAFF");
-                insertStaffDirect(conn, "admin", com.cmp180.livechat.common.SecurityManager.hashPassword("admin123"), "Quản Trị Viên", "ADMIN");
+                // Thêm 3 tài khoản mẫu với mật khẩu băm SHA-256 kèm chuyên ngành
+                insertStaffDirect(conn, "staff01", com.cmp180.livechat.common.SecurityManager.hashPassword("123456"), "Nguyễn Văn An", "STAFF", "Tư vấn Mua Laptop & Build PC");
+                insertStaffDirect(conn, "staff02", com.cmp180.livechat.common.SecurityManager.hashPassword("123456"), "Trần Thị Bích", "STAFF", "Hỗ trợ Kỹ thuật & Cài đặt");
+                insertStaffDirect(conn, "admin", com.cmp180.livechat.common.SecurityManager.hashPassword("admin123"), "Quản Trị Viên", "ADMIN", "Tất cả");
                 System.out.println("-> [DATABASE] Đã nạp 3 tài khoản CSKH mặc định (staff01, staff02, admin).");
             }
         } catch (SQLException e) {
@@ -128,15 +133,16 @@ public class DatabaseManager {
         }
     }
 
-    private void insertStaffDirect(Connection conn, String username, String password, String fullName, String role) throws SQLException {
-        String sql = "INSERT INTO staff (staff_id, username, password, full_name, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)";
+    private void insertStaffDirect(Connection conn, String username, String password, String fullName, String role, String primarySkill) throws SQLException {
+        String sql = "INSERT INTO staff (staff_id, username, password, full_name, role, primary_skill, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, UUID.randomUUID().toString());
             ps.setString(2, username);
             ps.setString(3, password);
             ps.setString(4, fullName);
             ps.setString(5, role);
-            ps.setLong(6, System.currentTimeMillis());
+            ps.setString(6, primarySkill != null ? primarySkill : "Tất cả");
+            ps.setLong(7, System.currentTimeMillis());
             ps.executeUpdate();
         }
     }
@@ -150,21 +156,27 @@ public class DatabaseManager {
         public String username;
         public String fullName;
         public String role;
+        public String primarySkill;
         public int sessionCount;
         public double avgRating;
 
-        public StaffRecord(String staffId, String username, String fullName, String role, int sessionCount, double avgRating) {
+        public StaffRecord(String staffId, String username, String fullName, String role, String primarySkill, int sessionCount, double avgRating) {
             this.staffId = staffId;
             this.username = username;
             this.fullName = fullName;
             this.role = role;
+            this.primarySkill = (primarySkill != null && !primarySkill.isEmpty()) ? primarySkill : "Tất cả";
             this.sessionCount = sessionCount;
             this.avgRating = avgRating;
+        }
+
+        public StaffRecord(String staffId, String username, String fullName, String role, int sessionCount, double avgRating) {
+            this(staffId, username, fullName, role, "Tất cả", sessionCount, avgRating);
         }
     }
 
     public StaffRecord authenticateStaff(String username, String password) {
-        String sql = "SELECT staff_id, username, password, full_name, role FROM staff WHERE username = ? AND is_active = 1";
+        String sql = "SELECT staff_id, username, password, full_name, role, COALESCE(primary_skill, 'Tất cả') AS primary_skill FROM staff WHERE username = ? AND is_active = 1";
         try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, username);
             try (ResultSet rs = ps.executeQuery()) {
@@ -181,6 +193,7 @@ public class DatabaseManager {
                                 rs.getString("username"),
                                 rs.getString("full_name"),
                                 rs.getString("role"),
+                                rs.getString("primary_skill"),
                                 0, 0.0
                         );
                     }
@@ -195,13 +208,13 @@ public class DatabaseManager {
     public List<StaffRecord> getAllStaffWithStats() {
         List<StaffRecord> list = new ArrayList<>();
         String sql = """
-            SELECT s.staff_id, s.username, s.full_name, s.role,
+            SELECT s.staff_id, s.username, s.full_name, s.role, COALESCE(s.primary_skill, 'Tất cả') AS primary_skill,
                    COUNT(cs.session_id) AS total_sessions,
                    COALESCE(AVG(CASE WHEN cs.rating > 0 THEN cs.rating ELSE NULL END), 0.0) AS avg_rating
             FROM staff s
             LEFT JOIN chat_sessions cs ON s.staff_id = cs.staff_id
             WHERE s.is_active = 1
-            GROUP BY s.staff_id, s.username, s.full_name, s.role
+            GROUP BY s.staff_id, s.username, s.full_name, s.role, s.primary_skill
             ORDER BY s.full_name ASC
         """;
         try (Connection conn = getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
@@ -211,6 +224,7 @@ public class DatabaseManager {
                         rs.getString("username"),
                         rs.getString("full_name"),
                         rs.getString("role"),
+                        rs.getString("primary_skill"),
                         rs.getInt("total_sessions"),
                         rs.getDouble("avg_rating")
                 ));
@@ -221,20 +235,25 @@ public class DatabaseManager {
         return list;
     }
 
-    public boolean addStaff(String username, String password, String fullName, String role) {
-        String sql = "INSERT INTO staff (staff_id, username, password, full_name, role, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)";
+    public boolean addStaff(String username, String password, String fullName, String role, String primarySkill) {
+        String sql = "INSERT INTO staff (staff_id, username, password, full_name, role, primary_skill, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?)";
         try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, UUID.randomUUID().toString());
             ps.setString(2, username);
             ps.setString(3, com.cmp180.livechat.common.SecurityManager.hashPassword(password));
             ps.setString(4, fullName);
             ps.setString(5, (role != null && !role.isEmpty()) ? role : "STAFF");
-            ps.setLong(6, System.currentTimeMillis());
+            ps.setString(6, (primarySkill != null && !primarySkill.isEmpty()) ? primarySkill : "Tất cả");
+            ps.setLong(7, System.currentTimeMillis());
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("Lỗi thêm Staff: " + e.getMessage());
             return false;
         }
+    }
+
+    public boolean addStaff(String username, String password, String fullName, String role) {
+        return addStaff(username, password, fullName, role, "Tất cả");
     }
 
     public boolean updateStaffPassword(String staffId, String newPassword) {

@@ -76,6 +76,7 @@ public class CustomerChatController implements CustomerNetworkListener {
     @FXML private Button btnEmoji;
     @FXML private Button btnAttachImage;
     @FXML private Button btnAttachFile;
+    @FXML private Button btnEndChat;
     @FXML private Label lblTitle;
     @FXML private Label lblStatus;
 
@@ -427,6 +428,7 @@ public class CustomerChatController implements CustomerNetworkListener {
                 btnSend.setDisable(true);
                 if (btnAttachImage != null) btnAttachImage.setDisable(true);
                 if (btnAttachFile != null) btnAttachFile.setDisable(true);
+                if (btnEndChat != null) btnEndChat.setDisable(true);
                 lblStatus.setText("Đang chờ nhân viên khác tiếp nhận...");
                 listMessages.getItems().add(new ChatMessage(message, ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
                 listMessages.scrollTo(listMessages.getItems().size() - 1);
@@ -445,6 +447,7 @@ public class CustomerChatController implements CustomerNetworkListener {
             btnSend.setDisable(false);
             if (btnAttachImage != null) btnAttachImage.setDisable(false);
             if (btnAttachFile != null) btnAttachFile.setDisable(false);
+            if (btnEndChat != null) btnEndChat.setDisable(false);
             listMessages.getItems().add(new ChatMessage("Bạn đang chat với " + staffName, ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
             listMessages.scrollTo(listMessages.getItems().size() - 1);
         });
@@ -490,6 +493,32 @@ public class CustomerChatController implements CustomerNetworkListener {
         });
     }
 
+    @FXML
+    private void handleEndChat(ActionEvent event) {
+        if (currentStaffId == null || !CustomerContext.getInstance().getNetworkService().isConnected()) return;
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Xác nhận");
+        alert.setHeaderText("Kết thúc cuộc trò chuyện");
+        alert.setContentText("Bạn có chắc chắn muốn kết thúc phiên hỗ trợ này không?");
+        ButtonType btnYes = new ButtonType("Kết thúc", ButtonBar.ButtonData.YES);
+        ButtonType btnNo = new ButtonType("Hủy", ButtonBar.ButtonData.NO);
+        alert.getButtonTypes().setAll(btnYes, btnNo);
+
+        if (btnEndChat != null && btnEndChat.getScene() != null && btnEndChat.getScene().getWindow() != null) {
+            alert.initOwner(btnEndChat.getScene().getWindow());
+        }
+        if (alert.getDialogPane().getScene() != null) {
+            ThemeManager.applyTheme(alert.getDialogPane().getScene());
+        }
+
+        alert.showAndWait().ifPresent(res -> {
+            if (res == btnYes) {
+                CustomerContext.getInstance().getNetworkService().endSession(currentStaffId);
+            }
+        });
+    }
+
     @Override
     public void onSessionEnded(String reason) {
         Platform.runLater(() -> {
@@ -499,6 +528,7 @@ public class CustomerChatController implements CustomerNetworkListener {
             btnSend.setDisable(true);
             if (btnAttachImage != null) btnAttachImage.setDisable(true);
             if (btnAttachFile != null) btnAttachFile.setDisable(true);
+            if (btnEndChat != null) btnEndChat.setDisable(true);
             lblStatus.setText("Phiên đã kết thúc. Bạn có thể đăng xuất để tạo phiên mới.");
             currentStaffId = null;
 
@@ -631,6 +661,7 @@ public class CustomerChatController implements CustomerNetworkListener {
             btnSend.setDisable(true);
             if (btnAttachImage != null) btnAttachImage.setDisable(true);
             if (btnAttachFile != null) btnAttachFile.setDisable(true);
+            if (btnEndChat != null) btnEndChat.setDisable(true);
         });
     }
     
