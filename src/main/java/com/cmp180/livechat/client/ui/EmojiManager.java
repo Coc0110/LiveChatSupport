@@ -83,7 +83,7 @@ public class EmojiManager {
             if (emojiImg != null) {
                 if (textBuf.length() > 0) {
                     Text t = new Text(textBuf.toString());
-                    t.setStyle("-fx-fill: " + textColorHex + "; -fx-font-size: " + fontSize + "px; -fx-font-family: 'Segoe UI';");
+                    t.setStyle("-fx-fill: " + textColorHex + "; -fx-font-size: " + fontSize + "px; -fx-font-family: 'Segoe UI', sans-serif;");
                     flow.getChildren().add(t);
                     textBuf.setLength(0);
                 }
@@ -105,7 +105,7 @@ public class EmojiManager {
 
         if (textBuf.length() > 0) {
             Text t = new Text(textBuf.toString());
-            t.setStyle("-fx-fill: " + textColorHex + "; -fx-font-size: " + fontSize + "px; -fx-font-family: 'Segoe UI';");
+            t.setStyle("-fx-fill: " + textColorHex + "; -fx-font-size: " + fontSize + "px; -fx-font-family: 'Segoe UI', sans-serif;");
             flow.getChildren().add(t);
         }
 

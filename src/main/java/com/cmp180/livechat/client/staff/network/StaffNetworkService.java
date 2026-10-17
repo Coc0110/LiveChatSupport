@@ -18,7 +18,8 @@ public class StaffNetworkService {
     private String serverHost = "127.0.0.1";
     private int serverPort = 5000;
     private String staffName = "Staff";
-    private final String staffId = UUID.randomUUID().toString();
+    private String staffPassword = "";
+    private String staffId = UUID.randomUUID().toString();
     
     private Socket socket;
     private ObjectOutputStream out;
@@ -37,25 +38,66 @@ public class StaffNetworkService {
         }
     }
 
-    public void setServerAddress(String host, int port) {
-        if (host != null && !host.trim().isEmpty()) this.serverHost = host.trim();
-        if (port > 0) this.serverPort = port;
+    public void removeListener(StaffNetworkListener listener) {
+        listeners.remove(listener);
+    }
+
+    public synchronized void setServerAddress(String host, int port) {
+        boolean changed = false;
+        if (host != null && !host.trim().isEmpty() && !host.trim().equals(this.serverHost)) {
+            this.serverHost = host.trim();
+            changed = true;
+        }
+        if (port > 0 && port != this.serverPort) {
+            this.serverPort = port;
+            changed = true;
+        }
+        if (changed && isConnected) {
+            closeSocketSilently();
+            isConnected = false;
+            if (connectionThread != null && connectionThread.isAlive()) {
+                connectionThread.interrupt();
+            }
+        }
     }
     
     public void connectAndLogin(String staffIdOrName) {
-        connectAndLogin(this.serverHost, this.serverPort, staffIdOrName);
+        connectAndLogin(this.serverHost, this.serverPort, staffIdOrName, "");
     }
 
-    public synchronized void connectAndLogin(String host, int port, String staffIdOrName) {
-        if (host != null && !host.trim().isEmpty()) this.serverHost = host.trim();
-        if (port > 0) this.serverPort = port;
-        if (staffIdOrName != null && !staffIdOrName.trim().isEmpty()) this.staffName = staffIdOrName.trim();
+    public void connectAndLogin(String username, String password) {
+        connectAndLogin(this.serverHost, this.serverPort, username, password);
+    }
+
+    public synchronized void connectAndLogin(String host, int port, String username, String password) {
+        if (host != null && !host.trim().isEmpty()) {
+            if (!host.trim().equals(this.serverHost)) {
+                this.serverHost = host.trim();
+                closeSocketSilently();
+                isConnected = false;
+            }
+        }
+        if (port > 0) {
+            if (port != this.serverPort) {
+                this.serverPort = port;
+                closeSocketSilently();
+                isConnected = false;
+            }
+        }
+        if (username != null && !username.trim().isEmpty()) this.staffName = username.trim();
+        this.staffPassword = (password != null) ? password.trim() : "";
 
         isRunning = true;
-        if (connectionThread == null || !connectionThread.isAlive()) {
+        if (isConnected && socket != null && !socket.isClosed() && out != null) {
+            new Thread(() -> {
+                sendMessage(new Message(Protocol.CMD_STAFF_LOGIN, this.staffName, this.staffPassword));
+            }, "Staff-Login-Send-Thread").start();
+        } else if (connectionThread == null || !connectionThread.isAlive()) {
             connectionThread = new Thread(this::connectionLoop, "Staff-Network-Thread");
             connectionThread.setDaemon(true);
             connectionThread.start();
+        } else {
+            connectionThread.interrupt();
         }
     }
 
@@ -81,12 +123,8 @@ public class StaffNetworkService {
 
                 hasConnectedOnce = true;
 
-                // Gửi đăng nhập kèm staffId
-                sendMessage(new Message(Protocol.CMD_STAFF_LOGIN, staffId, staffName));
-
-                for (StaffNetworkListener l : listeners) {
-                    l.onLoginSuccess();
-                }
+                // Gửi đăng nhập kèm username và password
+                sendMessage(new Message(Protocol.CMD_STAFF_LOGIN, staffName, staffPassword));
 
                 readLoop();
 
@@ -110,7 +148,7 @@ public class StaffNetworkService {
                 try {
                     Thread.sleep(2500);
                 } catch (InterruptedException ie) {
-                    break;
+                    if (!isRunning) break;
                 }
             }
         }
@@ -122,6 +160,12 @@ public class StaffNetworkService {
             String cmd = msg.getCommand();
             
             switch (cmd) {
+                case Protocol.CMD_LOGIN_SUCCESS:
+                    this.staffId = msg.getSenderId();
+                    this.staffName = msg.getContent();
+                    for (StaffNetworkListener l : listeners) l.onLoginSuccess();
+                    break;
+
                 case Protocol.CMD_QUEUE_UPDATE:
                     List<CustomerItem> queue = parseQueueData(msg.getContent());
                     for (StaffNetworkListener l : listeners) l.onQueueUpdated(queue);

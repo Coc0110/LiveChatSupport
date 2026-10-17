@@ -164,6 +164,7 @@
 
 /* --- Input Box (Search Field & Message TextField) with Border --- */
 .bg-input {
+    -fx-font-family: 'Segoe UI', sans-serif;
     -fx-background-color: #f2f4f7;
     -fx-background-radius: 20;
     -fx-border-color: #c4c9d0;
@@ -178,6 +179,7 @@
     -fx-highlight-text-fill: white;
 }
 .dark-mode .bg-input {
+    -fx-font-family: 'Segoe UI', sans-serif;
     -fx-background-color: #2a2b2e;
     -fx-background-radius: 20;
     -fx-border-color: #484b51;
@@ -407,3 +409,78 @@
 .dark-mode .emoji-btn:hover SVGPath {
     -fx-fill: -fx-brand-color;
 }
+
+/* ===================================================
+   Customer History Pane Modern Styling
+   =================================================== */
+
+.history-list {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+.history-list .virtual-flow {
+    -fx-background-color: transparent;
+}
+.history-list .list-cell {
+    -fx-background-color: transparent;
+    -fx-text-fill: inherit;
+    -fx-padding: 2 1 2 1;
+}
+.history-list .list-cell:selected {
+    -fx-background-color: transparent;
+    -fx-text-fill: inherit;
+}
+.history-list .list-cell:focused {
+    -fx-background-color: transparent;
+}
+.history-list .list-cell:empty {
+    -fx-background-color: transparent;
+}
+
+.history-scroll {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+.history-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+/* Modern Thin Scrollbars for History List and Preview */
+.history-list .scroll-bar:vertical,
+.history-scroll .scroll-bar:vertical {
+    -fx-background-color: transparent;
+    -fx-pref-width: 5px;
+    -fx-opacity: 0.85;
+}
+.history-list .scroll-bar:vertical .thumb,
+.history-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: #cbd5e1;
+    -fx-background-radius: 4px;
+}
+.history-list .scroll-bar:vertical .thumb:hover,
+.history-scroll .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #94a3b8;
+}
+.history-list .scroll-bar:vertical .track,
+.history-scroll .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+}
+.history-list .scroll-bar .increment-button,
+.history-list .scroll-bar .decrement-button,
+.history-scroll .scroll-bar .increment-button,
+.history-scroll .scroll-bar .decrement-button {
+    -fx-pref-height: 0;
+    -fx-pref-width: 0;
+    -fx-opacity: 0;
+}
+
+.dark-mode .history-list .scroll-bar:vertical .thumb,
+.dark-mode .history-scroll .scroll-bar:vertical .thumb {
+    -fx-background-color: #475569;
+}
+.dark-mode .history-list .scroll-bar:vertical .thumb:hover,
+.dark-mode .history-scroll .scroll-bar:vertical .thumb:hover {
+    -fx-background-color: #64748b;
+}
+

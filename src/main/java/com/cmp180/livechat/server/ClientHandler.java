@@ -56,7 +56,12 @@ public class ClientHandler implements Runnable {
     private String name;
     private String role;
     
-    // Thêm thời gian tham gia hàng đợi
+    // Thuộc tính khách hàng gắn với Database
+    private String customerPhone;
+    private String dbCustomerId;
+    private String issueTopic = "Tư vấn chung";
+
+    // Thời gian tham gia hàng đợi
     private final long joinedTime;
 
     // Cờ đánh dấu "Đang tư vấn dở" và lịch sử chat của khách hàng
@@ -98,24 +103,11 @@ public class ClientHandler implements Runnable {
 
         switch (cmd) {
             case Protocol.CMD_CUST_LOGIN:
-                if (msg.getSenderId() != null && !msg.getSenderId().isEmpty() && !"Customer".equalsIgnoreCase(msg.getSenderId())) {
-                    this.clientId = msg.getSenderId();
-                }
-                if ("RECONNECT".equalsIgnoreCase(msg.getReceiverId())) {
-                    this.interrupted = true;
-                }
-                this.name = msg.getContent();
-                this.role = Protocol.ROLE_CUSTOMER;
-                sessionManager.registerClient(this);
+                handleCustomerLogin(msg);
                 break;
 
             case Protocol.CMD_STAFF_LOGIN:
-                if (msg.getSenderId() != null && !msg.getSenderId().isEmpty() && !"Staff".equalsIgnoreCase(msg.getSenderId())) {
-                    this.clientId = msg.getSenderId();
-                }
-                this.name = msg.getContent();
-                this.role = Protocol.ROLE_STAFF;
-                sessionManager.registerClient(this);
+                handleStaffLogin(msg);
                 break;
 
             case Protocol.CMD_ACCEPT_CUST:
@@ -137,11 +129,178 @@ public class ClientHandler implements Runnable {
             case Protocol.CMD_GET_QUEUE:
                 sessionManager.sendQueueToStaff(this);
                 break;
+
+            case Protocol.CMD_RATING:
+                handleRating(msg);
+                break;
+
+            case Protocol.CMD_CUST_HISTORY:
+                handleCustomerHistory();
+                break;
+
+            case Protocol.CMD_CHECK_PHONE:
+                handleCheckPhone(msg);
+                break;
+
+            case Protocol.CMD_GET_SESSION_MSGS:
+                handleGetSessionMessages(msg);
+                break;
                 
             default:
                 server.log("Lệnh không hợp lệ từ " + name + ": " + cmd);
                 break;
         }
+    }
+
+    private void handleCustomerLogin(Message msg) {
+        String phone = msg.getSenderId();
+        String content = msg.getContent();
+        String fullName = content;
+        String topic = "Tư vấn chung";
+
+        if (content != null && content.contains("|")) {
+            String[] parts = content.split("\\|", 2);
+            fullName = parts[0];
+            topic = parts[1];
+        }
+
+        if (fullName != null && fullName.contains("(")) {
+            fullName = fullName.replaceAll("\\s*\\([^)]*\\)$", "").trim();
+        }
+
+        this.issueTopic = topic;
+        String cleanPhone = (phone != null) ? phone.replaceAll("[\\s\\-\\.\\(\\)]", "").trim() : "";
+        if (cleanPhone.startsWith("+84")) cleanPhone = "0" + cleanPhone.substring(3);
+        else if (cleanPhone.startsWith("84") && cleanPhone.length() == 11) cleanPhone = "0" + cleanPhone.substring(2);
+        this.customerPhone = !cleanPhone.isEmpty() ? cleanPhone : "Khách";
+
+        // Lưu / Tra cứu trong SQLite
+        DatabaseManager.CustomerRecord rec = DatabaseManager.getInstance().registerOrUpdateCustomer(this.customerPhone, fullName);
+        if (rec != null) {
+            this.dbCustomerId = rec.customerId;
+            this.clientId = rec.customerId;
+            this.name = rec.fullName;
+        } else {
+            this.name = fullName;
+        }
+        this.role = Protocol.ROLE_CUSTOMER;
+
+        if ("RECONNECT".equalsIgnoreCase(msg.getReceiverId())) {
+            this.interrupted = true;
+        }
+
+        sessionManager.registerClient(this);
+    }
+
+    private void handleStaffLogin(Message msg) {
+        String username = msg.getSenderId();
+        String password = msg.getContent();
+
+        // Xác thực tài khoản với Database
+        DatabaseManager.StaffRecord staffRec = DatabaseManager.getInstance().authenticateStaff(username, password);
+        if (staffRec == null) {
+            server.log("[ĐĂNG NHẬP THẤT BẠI] CSKH '" + username + "' sai thông tin đăng nhập.");
+            sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Đăng nhập thất bại: Tên đăng nhập hoặc mật khẩu không chính xác!"));
+            return;
+        }
+
+        this.clientId = staffRec.staffId;
+        this.name = staffRec.fullName;
+        this.role = Protocol.ROLE_STAFF;
+
+        server.log("[ĐĂNG NHẬP THÀNH CÔNG] CSKH '" + staffRec.fullName + "' (Username: " + staffRec.username + ")");
+        sendMessage(new Message(Protocol.CMD_LOGIN_SUCCESS, staffRec.staffId, staffRec.fullName));
+        sessionManager.registerClient(this);
+    }
+
+    private void handleRating(Message msg) {
+        String sessionId = msg.getReceiverId();
+        String ratingData = msg.getContent();
+        int rating = 5;
+        String feedback = "";
+
+        if (ratingData != null) {
+            String[] parts = ratingData.split("\\|", 2);
+            try {
+                rating = Integer.parseInt(parts[0]);
+            } catch (Exception ignored) {}
+            if (parts.length > 1) feedback = parts[1];
+        }
+
+        DatabaseManager.getInstance().closeSession(sessionId, rating, feedback);
+        server.log("-> [CSAT RATING] Khách hàng '" + name + "' đánh giá phiên: " + rating + " ⭐. Phản hồi: " + feedback);
+    }
+
+    private void handleCustomerHistory() {
+        if (this.dbCustomerId != null) {
+            List<DatabaseManager.SessionRecord> past = DatabaseManager.getInstance().getSessionsByCustomer(this.dbCustomerId);
+            StringBuilder sb = new StringBuilder();
+            for (DatabaseManager.SessionRecord s : past) {
+                sb.append(s.sessionId).append("|")
+                  .append(s.issueTopic).append("|")
+                  .append(s.staffName).append("|")
+                  .append(s.status).append("|")
+                  .append(s.rating).append("|")
+                  .append(s.createdAt).append(";");
+            }
+            sendMessage(new Message(Protocol.CMD_CUST_HISTORY, "Server", sb.toString()));
+        }
+    }
+
+    private void handleCheckPhone(Message msg) {
+        String rawPhone = msg.getContent() != null ? msg.getContent().trim() : (msg.getSenderId() != null ? msg.getSenderId().trim() : "");
+        String phone = rawPhone.replaceAll("[\\s\\-\\.\\(\\)]", "").trim();
+        if (phone.startsWith("+84")) phone = "0" + phone.substring(3);
+        else if (phone.startsWith("84") && phone.length() == 11) phone = "0" + phone.substring(2);
+
+        if (!phone.matches("^0[35789][0-9]{8}$")) {
+            sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Số điện thoại không hợp lệ (cần 10 chữ số di động Việt Nam)!"));
+            return;
+        }
+
+        DatabaseManager.CustomerRecord rec = DatabaseManager.getInstance().findCustomerByPhone(phone);
+        if (rec == null) {
+            // Khách hàng mới chưa có trong hệ thống
+            sendMessage(new Message(Protocol.CMD_PHONE_RESULT, "NEW", "", ""));
+        } else {
+            // Khách hàng cũ đã tồn tại trong CSDL
+            this.dbCustomerId = rec.customerId;
+            this.customerPhone = rec.phoneOrEmail;
+            this.name = rec.fullName;
+
+            List<DatabaseManager.SessionRecord> past = DatabaseManager.getInstance().getSessionsByCustomer(rec.customerId);
+            StringBuilder sb = new StringBuilder();
+            for (DatabaseManager.SessionRecord s : past) {
+                String fb = (s.feedback != null) ? s.feedback.replace("|", " ").replace(";", " ") : "";
+                sb.append(s.sessionId).append("|")
+                  .append(s.issueTopic).append("|")
+                  .append(s.staffName).append("|")
+                  .append(s.status).append("|")
+                  .append(s.rating).append("|")
+                  .append(fb).append("|")
+                  .append(s.createdAt).append(";");
+            }
+            sendMessage(new Message(Protocol.CMD_PHONE_RESULT, "EXISTING", rec.fullName, sb.toString()));
+        }
+    }
+
+    private void handleGetSessionMessages(Message msg) {
+        String sessionId = msg.getContent();
+        if (sessionId == null || sessionId.isEmpty()) return;
+
+        List<DatabaseManager.MessageRecord> msgs = DatabaseManager.getInstance().getMessagesBySession(sessionId);
+        StringBuilder sb = new StringBuilder();
+        for (DatabaseManager.MessageRecord m : msgs) {
+            String contentClean = (m.content != null) ? m.content.replace(";", "{SEMICOLON}").replace("|", "{PIPE}") : "";
+            String fName = (m.fileName != null) ? m.fileName.replace(";", "").replace("|", "") : "";
+            sb.append(m.senderRole).append("|")
+              .append(m.senderName).append("|")
+              .append(contentClean).append("|")
+              .append(m.timestamp).append("|")
+              .append(m.isRecalled ? "1" : "0").append("|")
+              .append(fName).append(";");
+        }
+        sendMessage(new Message(Protocol.CMD_SESSION_MSGS, sessionId, sb.toString()));
     }
 
     public synchronized void sendMessage(Message message) {
@@ -158,13 +317,17 @@ public class ClientHandler implements Runnable {
     private void closeConnection() {
         try {
             if (socket != null && !socket.isClosed()) socket.close();
-        } catch (IOException e) { }
+        } catch (IOException ignored) { }
     }
 
     public String getClientId() { return clientId; }
     public String getName() { return name; }
     public String getRole() { return role; }
     public long getJoinedTime() { return joinedTime; }
+
+    public String getCustomerPhone() { return customerPhone; }
+    public String getDbCustomerId() { return dbCustomerId != null ? dbCustomerId : clientId; }
+    public String getIssueTopic() { return issueTopic; }
 
     public boolean isInterrupted() { return interrupted; }
     public void setInterrupted(boolean interrupted) { this.interrupted = interrupted; }

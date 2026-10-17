@@ -4,6 +4,9 @@
 # Log files
 *.log
 
+# Database files
+*.db
+
 # Package Files #
 *.jar
 *.war

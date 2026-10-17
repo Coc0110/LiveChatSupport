@@ -18,15 +18,21 @@ public class SessionManager {
         this.server = server;
     }
 
-    public void registerClient(ClientHandler client) {
+    public synchronized void registerClient(ClientHandler client) {
         if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(client.getRole())) {
             waitingCustomers.removeIf(c -> c.getClientId().equals(client.getClientId()));
             waitingCustomers.add(client);
             client.sendMessage(new Message(Protocol.CMD_WAITING, "Server", "Đang chờ nhân viên CSKH tiếp nhận..."));
-            server.log("[HÀNG CHỜ] Khách hàng '" + client.getName() + "' đã vào hàng chờ." + (client.isInterrupted() ? " (Đang tư vấn dở)" : ""));
+            server.log("[HÀNG CHỜ] Khách hàng '" + client.getName() + "' (SĐT: " + client.getCustomerPhone() + ") đã vào hàng chờ." + (client.isInterrupted() ? " (Đang tư vấn dở)" : ""));
             broadcastQueueToStaff();
             
         } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(client.getRole())) {
+            for (ClientHandler existingStaff : allStaffs) {
+                if (existingStaff.getClientId().equals(client.getClientId()) && existingStaff != client) {
+                    existingStaff.sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Tài khoản của bạn vừa được đăng nhập từ một thiết bị khác!"));
+                    server.log("[CSKH TRÙNG LẶP] Ngắt phiên cũ của CSKH '" + existingStaff.getName() + "' do có thiết bị mới đăng nhập.");
+                }
+            }
             allStaffs.removeIf(s -> s.getClientId().equals(client.getClientId()));
             allStaffs.add(client);
             client.sendMessage(new Message(Protocol.CMD_WAITING, "Server", "Đã kết nối. Vui lòng chọn khách hàng từ danh sách chờ."));
@@ -35,7 +41,7 @@ public class SessionManager {
         }
     }
 
-    public void acceptCustomer(ClientHandler staff, String customerId) {
+    public synchronized void acceptCustomer(ClientHandler staff, String customerId) {
         ClientHandler targetCustomer = null;
         for (ClientHandler c : waitingCustomers) {
             if (c.getClientId().equals(customerId)) {
@@ -57,8 +63,11 @@ public class SessionManager {
         boolean wasInterrupted = customer.isInterrupted();
         customer.setInterrupted(false);
 
-        ChatSession session = new ChatSession(customer, staff);
+        ChatSession session = new ChatSession(customer, staff, customer.getIssueTopic());
         activeSessionsList.add(session);
+
+        // Lưu phiên vào SQLite Database
+        DatabaseManager.getInstance().createSession(session.getSessionId(), customer.getDbCustomerId(), staff.getClientId(), customer.getIssueTopic());
 
         // Nếu khách hàng đang tư vấn dở và có lịch sử chat trước đó, gửi toàn bộ lịch sử cho nhân viên mới trước
         if (!customer.getChatHistory().isEmpty()) {
@@ -68,11 +77,12 @@ public class SessionManager {
             }
         }
         
-        customer.sendMessage(new Message(Protocol.CMD_PAIRED, staff.getName(), staff.getClientId(), "Đã kết nối với CSKH: " + staff.getName()));
+        // Gửi thông báo PAIRED kèm sessionId trong trường messageId
+        customer.sendMessage(new Message(Protocol.CMD_PAIRED, staff.getName(), staff.getClientId(), "Đã kết nối với CSKH: " + staff.getName(), session.getSessionId(), null, null));
         staff.sendMessage(new Message(Protocol.CMD_PAIRED, customer.getName(), customer.getClientId(),
-                wasInterrupted ? ("Đã tiếp nhận tư vấn tiếp cho: " + customer.getName()) : ("Đang hỗ trợ khách hàng: " + customer.getName())));
+                wasInterrupted ? ("Đã tiếp nhận tư vấn tiếp cho: " + customer.getName()) : ("Đang hỗ trợ khách hàng: " + customer.getName()), session.getSessionId(), null, null));
         
-        server.log("-> [GHÉP PHIÊN THÀNH CÔNG] " + customer.getName() + " <---> " + staff.getName() + (wasInterrupted ? " (Tiếp nhận tư vấn dở)" : ""));
+        server.log("-> [GHÉP PHIÊN THÀNH CÔNG] " + customer.getName() + " <---> " + staff.getName() + " [Mã phiên: " + session.getSessionId() + "]" + (wasInterrupted ? " (Tiếp nhận tư vấn dở)" : ""));
         updateDashboard();
     }
     
@@ -81,6 +91,7 @@ public class SessionManager {
 
         // 1. Xử lý thu hồi tin nhắn
         if (Protocol.CMD_RECALL_MSG.equals(msg.getCommand())) {
+            DatabaseManager.getInstance().recallMessage(msg.getMessageId());
             if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
                 for (ChatSession session : activeSessionsList) {
                     if (session.getCustomer() == sender) {
@@ -106,6 +117,7 @@ public class SessionManager {
             if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
                 for (ChatSession session : activeSessionsList) {
                     if (session.getCustomer() == sender) {
+                        DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.isImage(), System.currentTimeMillis());
                         sender.addFileHistory(msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage());
                         session.getStaff().sendMessage(new Message(Protocol.CMD_FILE, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage()));
                         return;
@@ -114,6 +126,7 @@ public class SessionManager {
             } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
                 for (ChatSession session : activeSessionsList) {
                     if (session.getStaff() == sender && session.getCustomer().getClientId().equals(receiverId)) {
+                        DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.isImage(), System.currentTimeMillis());
                         session.getCustomer().addFileHistory(msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage());
                         session.getCustomer().sendMessage(new Message(Protocol.CMD_FILE, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage()));
                         return;
@@ -128,6 +141,7 @@ public class SessionManager {
         if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
             for (ChatSession session : activeSessionsList) {
                 if (session.getCustomer() == sender) {
+                    DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), null, 0, false, System.currentTimeMillis());
                     sender.addHistory(msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText());
                     session.getStaff().sendMessage(new Message(Protocol.CMD_CHAT, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText()));
                     return;
@@ -136,6 +150,7 @@ public class SessionManager {
         } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
             for (ChatSession session : activeSessionsList) {
                 if (session.getStaff() == sender && session.getCustomer().getClientId().equals(receiverId)) {
+                    DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), null, 0, false, System.currentTimeMillis());
                     session.getCustomer().addHistory(msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText());
                     session.getCustomer().sendMessage(new Message(Protocol.CMD_CHAT, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText()));
                     return;
@@ -145,7 +160,7 @@ public class SessionManager {
         sender.sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Không thể gửi tin nhắn."));
     }
     
-    public void endSession(ClientHandler sender, String targetId, String reason) {
+    public synchronized void endSession(ClientHandler sender, String targetId, String reason) {
         ChatSession toRemove = null;
         for (ChatSession session : activeSessionsList) {
             if (session.getCustomer() == sender || session.getStaff() == sender) {
@@ -161,17 +176,19 @@ public class SessionManager {
         }
     }
 
-    public void closeSession(ChatSession session, String reason) {
+    public synchronized void closeSession(ChatSession session, String reason) {
         if (session == null) return;
 
         ClientHandler customer = session.getCustomer();
         ClientHandler staff = session.getStaff();
 
+        DatabaseManager.getInstance().closeSession(session.getSessionId(), 0, reason);
+
         if (customer != null) {
-            customer.sendMessage(new Message(Protocol.CMD_END, "Server", staff.getClientId(), reason));
+            customer.sendMessage(new Message(Protocol.CMD_END, "Server", staff != null ? staff.getClientId() : "", reason, session.getSessionId(), null, null));
         }
         if (staff != null) {
-            staff.sendMessage(new Message(Protocol.CMD_END, "Server", customer.getClientId(), reason));
+            staff.sendMessage(new Message(Protocol.CMD_END, "Server", customer != null ? customer.getClientId() : "", reason, session.getSessionId(), null, null));
         }
         
         activeSessionsList.remove(session);
@@ -179,7 +196,7 @@ public class SessionManager {
         updateDashboard();
     }
 
-    public void handleDisconnect(ClientHandler client) {
+    public synchronized void handleDisconnect(ClientHandler client) {
         waitingCustomers.remove(client);
         allStaffs.remove(client);
         
@@ -222,9 +239,10 @@ public class SessionManager {
         for (ChatSession session : activeSessionsList) {
             if (session.getStaff() == staff) {
                 ClientHandler c = session.getCustomer();
+                String displayName = c.getName() + (c.getIssueTopic() != null && !c.getIssueTopic().isEmpty() ? " (" + c.getIssueTopic() + ")" : "");
                 // Định dạng: ID|Name|Status|JoinedTime;
                 queueData.append(c.getClientId()).append("|")
-                         .append(c.getName()).append("|")
+                         .append(displayName).append("|")
                          .append("ACTIVE").append("|")
                          .append(c.getJoinedTime()).append(";");
             }
@@ -233,8 +251,9 @@ public class SessionManager {
         // 2. Khách hàng ĐANG CHỜ (Hoặc ĐANG TƯ VẤN DỞ khi nhân viên cũ rớt mạng)
         for (ClientHandler c : waitingCustomers) {
             String status = c.isInterrupted() ? Protocol.STATUS_INTERRUPTED : "WAITING";
+            String displayName = c.getName() + (c.getIssueTopic() != null && !c.getIssueTopic().isEmpty() ? " (" + c.getIssueTopic() + ")" : "");
             queueData.append(c.getClientId()).append("|")
-                     .append(c.getName()).append("|")
+                     .append(displayName).append("|")
                      .append(status).append("|")
                      .append(c.getJoinedTime()).append(";");
         }

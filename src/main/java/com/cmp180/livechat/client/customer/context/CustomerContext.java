@@ -5,6 +5,7 @@ import com.cmp180.livechat.client.customer.network.CustomerNetworkService;
 public class CustomerContext {
     private static CustomerContext instance;
     private String customerName;
+    private String customerPhone;
     private CustomerNetworkService networkService;
 
     private CustomerContext() {
@@ -24,6 +25,14 @@ public class CustomerContext {
 
     public void setCustomerName(String name) {
         this.customerName = name;
+    }
+
+    public String getCustomerPhone() {
+        return customerPhone;
+    }
+
+    public void setCustomerPhone(String phone) {
+        this.customerPhone = phone;
     }
 
     public CustomerNetworkService getNetworkService() {

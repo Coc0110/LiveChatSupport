@@ -21,6 +21,10 @@ import java.util.Collections;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.control.ListCell;
+import javafx.scene.control.Tooltip;
+import javafx.scene.control.ContentDisplay;
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.DoubleBinding;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.Priority;
@@ -294,33 +298,50 @@ public class LCSChatController implements StaffNetworkListener {
     @FXML
     private void handleSend(ActionEvent event) {
         String content = txtMessage.getText().trim();
-        if (!content.isEmpty() && currentCustomerId != null) {
-            String msgId = UUID.randomUUID().toString();
-            String replySender = null;
-            String replyText = null;
-            if (replyingTo != null) {
-                replySender = (replyingTo.getType() == ChatMessage.Type.MY_MSG) ? "Bạn" : replyingTo.getSenderName();
-                replyText = replyingTo.isFile() 
-                        ? ("[" + (replyingTo.isImage() ? "Hình ảnh" : "Tệp") + "] " + replyingTo.getFileName()) 
-                        : replyingTo.getText();
-            }
+        if (content.isEmpty() || currentCustomerId == null) {
+            return;
+        }
 
-            StaffContext.getInstance().getNetworkService().sendChatMessage(content, currentCustomerId, msgId, replySender, replyText);
-            
-            ChatMessage msg = new ChatMessage(msgId, content, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText);
-            chatHistories.computeIfAbsent(currentCustomerId, k -> new ArrayList<>()).add(msg);
-            listMessages.getItems().add(msg);
-            listMessages.scrollTo(listMessages.getItems().size() - 1);
-            txtMessage.clear();
-            handleCancelReply();
-            
-            // Update local state
-            for (CustomerItem c : localQueue) {
-                if (c.getId().equals(currentCustomerId)) {
-                    c.setLastMessageTime(System.currentTimeMillis());
-                    sortAndRefreshQueue();
-                    break;
-                }
+        if (content.length() > 2000) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            if (btnSend != null && btnSend.getScene() != null && btnSend.getScene().getWindow() != null) {
+                alert.initOwner(btnSend.getScene().getWindow());
+            }
+            alert.setTitle("Tin nhắn quá dài");
+            alert.setHeaderText("Không thể gửi tin nhắn");
+            alert.setContentText("Nội dung tin nhắn vượt quá giới hạn 2.000 ký tự (Hiện tại: " + content.length() + " ký tự). Vui lòng rút ngắn nội dung hoặc gửi thành nhiều tin.");
+            if (alert.getDialogPane().getScene() != null) {
+                ThemeManager.applyTheme(alert.getDialogPane().getScene());
+            }
+            alert.showAndWait();
+            return;
+        }
+
+        String msgId = UUID.randomUUID().toString();
+        String replySender = null;
+        String replyText = null;
+        if (replyingTo != null) {
+            replySender = (replyingTo.getType() == ChatMessage.Type.MY_MSG) ? "Bạn" : replyingTo.getSenderName();
+            replyText = replyingTo.isFile() 
+                    ? ("[" + (replyingTo.isImage() ? "Hình ảnh" : "Tệp") + "] " + replyingTo.getFileName()) 
+                    : replyingTo.getText();
+        }
+
+        StaffContext.getInstance().getNetworkService().sendChatMessage(content, currentCustomerId, msgId, replySender, replyText);
+        
+        ChatMessage msg = new ChatMessage(msgId, content, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText);
+        chatHistories.computeIfAbsent(currentCustomerId, k -> new ArrayList<>()).add(msg);
+        listMessages.getItems().add(msg);
+        listMessages.scrollTo(listMessages.getItems().size() - 1);
+        txtMessage.clear();
+        handleCancelReply();
+        
+        // Update local state
+        for (CustomerItem c : localQueue) {
+            if (c.getId().equals(currentCustomerId)) {
+                c.setLastMessageTime(System.currentTimeMillis());
+                sortAndRefreshQueue();
+                break;
             }
         }
     }
@@ -366,12 +387,41 @@ public class LCSChatController implements StaffNetworkListener {
     }
 
     private void processAndSendFile(File file, boolean isImage) {
+        if (file == null || !file.exists()) {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            if (btnAttachFile != null && btnAttachFile.getScene() != null && btnAttachFile.getScene().getWindow() != null) {
+                alert.initOwner(btnAttachFile.getScene().getWindow());
+            }
+            alert.setTitle("Lỗi");
+            alert.setHeaderText("Không tìm thấy tệp");
+            alert.setContentText("Tệp đã chọn không tồn tại hoặc đã bị xóa!");
+            if (alert.getDialogPane().getScene() != null) ThemeManager.applyTheme(alert.getDialogPane().getScene());
+            alert.showAndWait();
+            return;
+        }
+
+        if (file.length() == 0) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            if (btnAttachFile != null && btnAttachFile.getScene() != null && btnAttachFile.getScene().getWindow() != null) {
+                alert.initOwner(btnAttachFile.getScene().getWindow());
+            }
+            alert.setTitle("Tệp rỗng");
+            alert.setHeaderText("Không thể đính kèm tệp");
+            alert.setContentText("Tệp bạn chọn không có dữ liệu (0 byte). Vui lòng chọn tệp hợp lệ!");
+            if (alert.getDialogPane().getScene() != null) ThemeManager.applyTheme(alert.getDialogPane().getScene());
+            alert.showAndWait();
+            return;
+        }
+
         if (file.length() > Protocol.MAX_FILE_SIZE) {
             Alert alert = new Alert(Alert.AlertType.WARNING);
-            alert.initOwner(btnAttachFile.getScene().getWindow());
+            if (btnAttachFile != null && btnAttachFile.getScene() != null && btnAttachFile.getScene().getWindow() != null) {
+                alert.initOwner(btnAttachFile.getScene().getWindow());
+            }
             alert.setTitle("Dung lượng vượt giới hạn");
             alert.setHeaderText("Không thể đính kèm tệp");
             alert.setContentText("Dung lượng tệp (" + String.format("%.1f MB", file.length() / (1024.0 * 1024.0)) + ") vượt quá giới hạn cho phép là 25 MB.");
+            if (alert.getDialogPane().getScene() != null) ThemeManager.applyTheme(alert.getDialogPane().getScene());
             alert.showAndWait();
             return;
         }
@@ -685,8 +735,6 @@ public class LCSChatController implements StaffNetworkListener {
         private HBox root = new HBox();
         private Label lblText = new Label();
         private Label lblTime = new Label();
-        private Label lblStatus = new Label();
-        private VBox messageAndStatus = new VBox(2);
         private HBox timeAndBubble = new HBox(5);
         private HBox actionRow = new HBox(5);
         private Button btnOptions = new Button("•••");
@@ -705,7 +753,6 @@ public class LCSChatController implements StaffNetworkListener {
             lblQuoteText.setTextOverrun(OverrunStyle.ELLIPSIS);
 
             lblTime.setStyle("-fx-text-fill: #888888; -fx-font-size: 10px;");
-            lblStatus.setStyle("-fx-text-fill: #888888; -fx-font-size: 10px;");
 
             btnOptions.getStyleClass().add("msg-action-btn");
             btnOptions.setOpacity(0);
@@ -781,7 +828,8 @@ public class LCSChatController implements StaffNetworkListener {
                 }
             }
 
-            boolean canRecall = (item.getType() == ChatMessage.Type.MY_MSG)
+            boolean canRecall = (currentCustomerId != null)
+                    && (item.getType() == ChatMessage.Type.MY_MSG)
                     && !item.isRecalled()
                     && (System.currentTimeMillis() - item.getTimestamp() <= 5 * 60 * 1000);
 
@@ -894,7 +942,6 @@ public class LCSChatController implements StaffNetworkListener {
                 btnOptions.setOpacity(0);
             } else {
                 root.getChildren().clear();
-                messageAndStatus.getChildren().clear();
                 timeAndBubble.getChildren().clear();
                 actionRow.getChildren().clear();
                 bubbleBox.getChildren().clear();
@@ -1030,17 +1077,8 @@ public class LCSChatController implements StaffNetworkListener {
                     actionRow.setAlignment(Pos.CENTER_RIGHT);
                     actionRow.getChildren().addAll(btnOptions, timeAndBubble);
 
-                    messageAndStatus.setAlignment(Pos.TOP_RIGHT);
-                    messageAndStatus.getChildren().add(actionRow);
-
-                    boolean isLast = (getIndex() == getListView().getItems().size() - 1);
-                    if (isLast && !item.isRecalled()) {
-                        lblStatus.setText("Đã nhận");
-                        messageAndStatus.getChildren().add(lblStatus);
-                    }
-
                     root.setAlignment(Pos.CENTER_RIGHT);
-                    root.getChildren().add(messageAndStatus);
+                    root.getChildren().add(actionRow);
                 } else {
                     timeAndBubble.setAlignment(Pos.BOTTOM_LEFT);
                     timeAndBubble.getChildren().addAll(bubbleBox, lblTime);
@@ -1060,55 +1098,88 @@ public class LCSChatController implements StaffNetworkListener {
     }
     
     private class CustomerListCell extends ListCell<CustomerItem> {
-        private HBox root = new HBox(10);
+        private HBox root = new HBox(8);
         private Label avatar = new Label();
         private Label nameLabel = new Label();
         private Label issueLabel = new Label();
-        private VBox textContainer = new VBox(3);
+        private VBox textContainer = new VBox(2);
         private Circle dot = new Circle(4);
         private SVGPath clockIcon = new SVGPath();
         private Label timeLabel = new Label();
         private Button btnAccept = new Button("Nhận");
         private HBox timeBox = new HBox(3);
-        private VBox rightContainer = new VBox(5);
-        private Region spacer = new Region();
+        private VBox rightContainer = new VBox(4);
         
         public CustomerListCell() {
+            setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
             root.setAlignment(Pos.CENTER_LEFT);
-            root.setPadding(new Insets(10));
+            root.setPadding(new Insets(8, 10, 8, 10));
+            
+            // Khóa chặt kích thước của cell và root theo bề rộng của ListView để không bao giờ bị tràn lề
+            listViewProperty().addListener((obs, oldVal, lv) -> {
+                if (lv != null) {
+                    bindCellWidth(lv);
+                }
+            });
+            if (getListView() != null) {
+                bindCellWidth(getListView());
+            }
+            root.prefWidthProperty().bind(prefWidthProperty());
+            root.maxWidthProperty().bind(maxWidthProperty());
             
             avatar.setMinSize(40, 40);
             avatar.setMaxSize(40, 40);
+            avatar.setPrefSize(40, 40);
             avatar.setAlignment(Pos.CENTER);
-            avatar.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-background-radius: 50; -fx-font-weight: bold; -fx-font-size: 16;");
+            avatar.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-background-radius: 50; -fx-font-weight: bold; -fx-font-size: 15;");
             
             nameLabel.setStyle("-fx-font-size: 14; -fx-text-fill: black;");
-            nameLabel.setMaxWidth(155);
+            nameLabel.setMinWidth(0);
+            nameLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
             nameLabel.setEllipsisString("...");
             nameLabel.setWrapText(false);
             
-            issueLabel.setMaxWidth(155);
+            issueLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 12;");
+            issueLabel.setMinWidth(0);
+            issueLabel.setTextOverrun(OverrunStyle.ELLIPSIS);
             issueLabel.setEllipsisString("...");
             issueLabel.setWrapText(false);
             
             textContainer.setMinWidth(0);
-            HBox.setHgrow(textContainer, Priority.SOMETIMES);
-
-            issueLabel.setStyle("-fx-text-fill: #888888; -fx-font-size: 12;");
-            
+            textContainer.setFillWidth(true);
+            HBox.setHgrow(textContainer, Priority.ALWAYS);
             textContainer.getChildren().addAll(nameLabel, issueLabel);
-            HBox.setHgrow(spacer, Priority.ALWAYS);
+            
+            // Ràng buộc chiều rộng chữ luôn co theo textContainer
+            nameLabel.maxWidthProperty().bind(textContainer.widthProperty());
+            issueLabel.maxWidthProperty().bind(textContainer.widthProperty());
             
             clockIcon.setContent("M12 7V12H17M12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21Z");
-            clockIcon.setStrokeWidth(2);
+            clockIcon.setStrokeWidth(1.8);
             clockIcon.setFill(Color.TRANSPARENT);
-            timeBox.getChildren().addAll(clockIcon, timeLabel);
-            timeBox.setAlignment(Pos.CENTER);
+            clockIcon.setScaleX(0.7);
+            clockIcon.setScaleY(0.7);
             
-            btnAccept.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-font-size: 12; -fx-padding: 3 10; -fx-background-radius: 10;");
+            timeBox.getChildren().addAll(clockIcon, timeLabel);
+            timeBox.setAlignment(Pos.CENTER_RIGHT);
+            timeBox.setMinWidth(Region.USE_PREF_SIZE);
+            
+            btnAccept.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 10; -fx-background-radius: 8; -fx-cursor: hand;");
+            btnAccept.setMinWidth(Region.USE_PREF_SIZE);
             
             rightContainer.getChildren().addAll(timeBox, btnAccept);
             rightContainer.setAlignment(Pos.CENTER_RIGHT);
+            rightContainer.setMinWidth(Region.USE_PREF_SIZE);
+            rightContainer.setMaxWidth(Region.USE_PREF_SIZE);
+        }
+        
+        private void bindCellWidth(ListView<?> lv) {
+            DoubleBinding cellWidth = Bindings.createDoubleBinding(
+                () -> Math.max(0.0, lv.getWidth() - 20.0),
+                lv.widthProperty()
+            );
+            prefWidthProperty().bind(cellWidth);
+            maxWidthProperty().bind(cellWidth);
         }
         
         private String toHexString(Color color) {
@@ -1118,9 +1189,15 @@ public class LCSChatController implements StaffNetworkListener {
         @Override
         protected void updateItem(CustomerItem item, boolean empty) {
             super.updateItem(item, empty);
+            if (getListView() != null && !prefWidthProperty().isBound()) {
+                bindCellWidth(getListView());
+            }
             if (empty || item == null) {
                 setGraphic(null);
-                setStyle("-fx-background-color: transparent;");
+                setText(null);
+                setStyle("-fx-background-color: transparent; -fx-padding: 0;");
+                nameLabel.setTooltip(null);
+                issueLabel.setTooltip(null);
             } else {
                 root.getChildren().clear();
                 
@@ -1137,22 +1214,25 @@ public class LCSChatController implements StaffNetworkListener {
                     issue = displayName.substring(idx + 2, displayName.length() - 1);
                 }
                 
+                nameLabel.setTooltip(new Tooltip(name));
+                issueLabel.setTooltip(new Tooltip(item.isInterrupted() ? ("⚠ Đang tư vấn dở • " + issue) : issue));
+                
                 boolean isDarkTheme = getScene() != null && getScene().getRoot().getStyleClass().contains("dark-mode");
                 nameLabel.setText(name);
-                nameLabel.setStyle("-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: " + (isDarkTheme ? "#e4e6eb;" : "#1c1e21;"));
+                nameLabel.setStyle("-fx-font-size: 14; -fx-font-weight: normal; -fx-text-fill: " + (isDarkTheme ? "#e4e6eb;" : "#1c1e21;"));
                 if (!item.isActive() && item.isInterrupted()) {
                     issueLabel.setText("⚠ Đang tư vấn dở • " + issue);
                     issueLabel.setStyle("-fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: " + (isDarkTheme ? "#FFB74D;" : "#E65100;"));
                     btnAccept.setText("Tiếp nhận");
-                    btnAccept.setStyle("-fx-background-color: #F57C00; -fx-text-fill: white; -fx-font-size: 12; -fx-font-weight: bold; -fx-padding: 3 10; -fx-background-radius: 10; -fx-cursor: hand;");
+                    btnAccept.setStyle("-fx-background-color: #F57C00; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 8; -fx-background-radius: 8; -fx-cursor: hand;");
                 } else {
                     issueLabel.setText(issue);
                     issueLabel.setStyle("-fx-font-size: 12; -fx-text-fill: " + (isDarkTheme ? "#b0b3b8;" : "#888888;"));
                     btnAccept.setText("Nhận");
-                    btnAccept.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-font-size: 12; -fx-padding: 3 10; -fx-background-radius: 10; -fx-cursor: hand;");
+                    btnAccept.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold; -fx-padding: 3 10; -fx-background-radius: 8; -fx-cursor: hand;");
                 }
-                avatar.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-background-radius: 50; -fx-font-weight: bold; -fx-font-size: 16;");
-                root.getChildren().addAll(avatar, textContainer, spacer);
+                avatar.setStyle("-fx-background-color: " + ThemeManager.getPrimaryColor() + "; -fx-text-fill: white; -fx-background-radius: 50; -fx-font-weight: bold; -fx-font-size: 15;");
+                root.getChildren().addAll(avatar, textContainer);
                 
                 if (item.isActive()) {
                     // Chấm đỏ nếu có tin nhắn chưa đọc, chấm xanh nếu bình thường
@@ -1168,7 +1248,7 @@ public class LCSChatController implements StaffNetworkListener {
                     
                     clockIcon.setStroke(iconColor);
                     timeLabel.setText(waitMinutes + "p");
-                    timeLabel.setStyle("-fx-text-fill: " + toHexString(iconColor) + "; -fx-font-size: 12; -fx-font-weight: bold;");
+                    timeLabel.setStyle("-fx-text-fill: " + toHexString(iconColor) + "; -fx-font-size: 11px; -fx-font-weight: bold;");
                     
                     btnAccept.setOnAction(e -> {
                         StaffContext.getInstance().getNetworkService().acceptCustomer(item.getId());
@@ -1182,9 +1262,9 @@ public class LCSChatController implements StaffNetworkListener {
                 
                 boolean isCurrentSelected = (currentCustomerId != null && currentCustomerId.equals(item.getId())) || (item.isActive() && isSelected());
                 if (isCurrentSelected) {
-                    setStyle("-fx-background-color: " + (isDarkTheme ? "#2e3033;" : "#e5e5ea;"));
+                    setStyle("-fx-background-color: " + (isDarkTheme ? "#2e3033;" : "#e5e5ea;") + " -fx-padding: 0;");
                 } else {
-                    setStyle("-fx-background-color: transparent;");
+                    setStyle("-fx-background-color: transparent; -fx-padding: 0;");
                 }
             }
         }

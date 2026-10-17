@@ -20,6 +20,13 @@ public class Protocol {
     public static final String CMD_GET_QUEUE = "GET_QUEUE";
     public static final String CMD_CHAT_HISTORY = "CHAT_HISTORY";
     public static final String CMD_RECALL_MSG = "RECALL_MSG";
+    public static final String CMD_LOGIN_SUCCESS = "LOGIN_SUCCESS";
+    public static final String CMD_RATING = "RATING";
+    public static final String CMD_CUST_HISTORY = "CUST_HISTORY";
+    public static final String CMD_CHECK_PHONE = "CHECK_PHONE";
+    public static final String CMD_PHONE_RESULT = "PHONE_RESULT";
+    public static final String CMD_GET_SESSION_MSGS = "GET_SESSION_MSGS";
+    public static final String CMD_SESSION_MSGS = "SESSION_MSGS";
     public static final String STATUS_INTERRUPTED = "INTERRUPTED";
     public static final long MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 }

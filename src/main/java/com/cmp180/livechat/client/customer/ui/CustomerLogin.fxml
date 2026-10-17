@@ -1,61 +1,269 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
-<?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.shape.SVGPath?>
 <?import javafx.scene.text.Font?>
 
-<AnchorPane prefHeight="480.0" prefWidth="420.0" style="-fx-background-color: #e0f2f1;" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cmp180.livechat.client.customer.ui.CustomerLoginController">
+<AnchorPane fx:id="rootPane" prefHeight="480.0" prefWidth="420.0" style="-fx-background-color: #e0f2f1;" stylesheets="@menu_style.css" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.cmp180.livechat.client.customer.ui.CustomerLoginController">
    <children>
-      <!-- Settings Button (Top-Right) -->
-      <Button fx:id="btnSettings" onAction="#handleOpenSettings" layoutX="370.0" layoutY="12.0" mnemonicParsing="false" style="-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 6;">
+      <!-- Main Container Card (Centered) -->
+      <StackPane layoutX="35.0" layoutY="35.0" prefHeight="410.0" prefWidth="350.0">
+         <children>
+
+            <!-- ============================================== -->
+            <!-- FRAME 1: NHẬP SỐ ĐIỆN THOẠI                    -->
+            <!-- ============================================== -->
+            <VBox fx:id="panePhone" alignment="CENTER" spacing="14.0" style="-fx-background-color: white; -fx-background-radius: 15; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 15, 0, 0, 5); -fx-padding: 35 25 25 25;">
+               <children>
+                  <Label fx:id="lblTitlePhone" text="Hỗ trợ trực tuyến" textFill="#00838F">
+                     <font>
+                        <Font name="Segoe UI Bold" size="24.0" />
+                     </font>
+                  </Label>
+                  <Label fx:id="lblSubPhone" text="Chúng tôi sẵn sàng giải đáp mọi thắc mắc" textFill="#666666">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <VBox spacing="6.0">
+                     <children>
+                        <Label fx:id="lblPhonePrompt" text="Số điện thoại:" textFill="#444444">
+                           <font>
+                              <Font name="Segoe UI Bold" size="13.0" />
+                           </font>
+                        </Label>
+                        <TextField fx:id="txtPhone" onAction="#handleCheckPhone" prefHeight="42.0" promptText="Nhập số điện thoại của bạn" style="-fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8; -fx-background-color: white; -fx-padding: 0 15; -fx-font-size: 14;" />
+                     </children>
+                  </VBox>
+                  <Label fx:id="lblErrorPhone" text="" textFill="RED">
+                     <font>
+                        <Font size="12.0" />
+                     </font>
+                  </Label>
+                  <Button fx:id="btnCheckPhone" mnemonicParsing="false" onAction="#handleCheckPhone" prefHeight="44.0" prefWidth="300.0" style="-fx-background-color: #00838F; -fx-text-fill: white; -fx-background-radius: 8; -fx-cursor: hand;" text="Tiếp tục">
+                     <font>
+                        <Font name="Segoe UI Bold" size="14.0" />
+                     </font>
+                  </Button>
+               </children>
+            </VBox>
+
+            <!-- ============================================== -->
+            <!-- FRAME 2A: KHÁCH MỚI NHẬP HỌ TÊN                -->
+            <!-- ============================================== -->
+            <VBox fx:id="paneNewCustomer" alignment="CENTER" managed="false" spacing="16.0" style="-fx-background-color: white; -fx-background-radius: 15; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 15, 0, 0, 5); -fx-padding: 35 25 25 25;" visible="false">
+               <children>
+                  <VBox alignment="CENTER" spacing="6.0">
+                     <children>
+                        <Label fx:id="lblTitleNewCustomer" text="Thông tin khách hàng" textFill="#00838F">
+                           <font>
+                              <Font name="Segoe UI Bold" size="22.0" />
+                           </font>
+                        </Label>
+                        <Label fx:id="lblSubNewCustomer" text="Vui lòng nhập họ tên để tiện hỗ trợ" textFill="#666666">
+                           <font>
+                              <Font size="13.0" />
+                           </font>
+                        </Label>
+                     </children>
+                  </VBox>
+
+                  <VBox spacing="6.0">
+                     <children>
+                        <Label fx:id="lblNamePrompt" text="Họ và tên của bạn:" textFill="#444444">
+                           <font>
+                              <Font name="Segoe UI Bold" size="13.0" />
+                           </font>
+                        </Label>
+                        <TextField fx:id="txtNewName" onAction="#handleConfirmNewName" prefHeight="42.0" promptText="Nhập tên của bạn" style="-fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8; -fx-background-color: white; -fx-padding: 0 15; -fx-font-size: 14;" />
+                     </children>
+                  </VBox>
+                  <Label fx:id="lblErrorNew" text="" textFill="RED">
+                     <font>
+                        <Font size="12.0" />
+                     </font>
+                  </Label>
+                  <Button fx:id="btnConfirmNewName" mnemonicParsing="false" onAction="#handleConfirmNewName" prefHeight="44.0" prefWidth="300.0" style="-fx-background-color: #00838F; -fx-text-fill: white; -fx-background-radius: 8; -fx-cursor: hand;" text="Tiếp tục">
+                     <font>
+                        <Font name="Segoe UI Bold" size="14.0" />
+                     </font>
+                  </Button>
+               </children>
+            </VBox>
+
+            <!-- ============================================== -->
+            <!-- FRAME 2B: KHÁCH CŨ CHÀO MỪNG (CĂN GIỮA ĐẦY ĐỦ) -->
+            <!-- ============================================== -->
+            <VBox fx:id="paneReturning" alignment="TOP_CENTER" managed="false" prefHeight="410.0" prefWidth="350.0" style="-fx-background-color: white; -fx-background-radius: 15; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 15, 0, 0, 5);" visible="false">
+               <children>
+                  <!-- Vùng trên: Tên khách hàng căn giữa theo chiều dọc trong khoảng [0, 267px], Chào bạn đẩy lên cao hơn -->
+                  <StackPane prefHeight="267.0" prefWidth="350.0">
+                     <children>
+                        <Label fx:id="lblWelcomeReturning" alignment="CENTER" maxWidth="310.0" text="Khách hàng" textAlignment="CENTER" textFill="#00838F" StackPane.alignment="CENTER">
+                           <font>
+                              <Font name="Segoe UI Bold" size="22.0" />
+                           </font>
+                        </Label>
+                        <Label fx:id="lblGreetingReturning" text="Chào bạn" textFill="#666666" StackPane.alignment="TOP_CENTER">
+                           <font>
+                              <Font name="Segoe UI" size="14.0" />
+                           </font>
+                           <StackPane.margin>
+                              <Insets top="72.0" />
+                           </StackPane.margin>
+                        </Label>
+                     </children>
+                  </StackPane>
+
+                  <!-- Vùng dưới: 2 Lựa chọn (giữ nguyên vị trí chuẩn) -->
+                  <VBox alignment="CENTER" prefHeight="143.0" prefWidth="350.0" spacing="12.0">
+                     <children>
+                        <Button fx:id="btnNewSession" alignment="CENTER" onAction="#handleGoToTopics" prefHeight="48.0" prefWidth="300.0" style="-fx-background-color: #fafafa; -fx-border-color: #d0d7de; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand; -fx-text-fill: #333333; -fx-font-weight: normal; -fx-font-size: 14.0px;" text="Tạo phiên hỗ trợ mới" />
+                        <Button fx:id="btnHistoryChoice" alignment="CENTER" onAction="#handleGoToHistory" prefHeight="48.0" prefWidth="300.0" style="-fx-background-color: #fafafa; -fx-border-color: #d0d7de; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand; -fx-text-fill: #333333; -fx-font-weight: normal; -fx-font-size: 14.0px;" text="Xem lịch sử hỗ trợ" />
+                     </children>
+                     <padding>
+                        <Insets bottom="35.0" />
+                     </padding>
+                  </VBox>
+               </children>
+            </VBox>
+
+            <!-- ============================================== -->
+            <!-- FRAME 3: CHỌN VẤN ĐỀ CẦN TƯ VẤN                -->
+            <!-- ============================================== -->
+            <VBox fx:id="paneTopics" alignment="CENTER" managed="false" spacing="8.0" style="-fx-background-color: white; -fx-background-radius: 15; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 15, 0, 0, 5); -fx-padding: 30 20 20 20;" visible="false">
+               <children>
+                  <VBox alignment="CENTER" spacing="4.0">
+                     <children>
+                        <Label fx:id="lblTitleTopics" text="Vấn đề cần tư vấn" textFill="#00838F">
+                           <font>
+                              <Font name="Segoe UI Bold" size="20.0" />
+                           </font>
+                        </Label>
+                        <Label fx:id="lblSubTopics" text="Chọn chủ đề bạn cần hỗ trợ:" textFill="#666666">
+                           <font>
+                              <Font size="12.0" />
+                           </font>
+                        </Label>
+                     </children>
+                  </VBox>
+
+                  <VBox spacing="6.0">
+                     <children>
+                        <Button fx:id="btnTopic1" alignment="CENTER_LEFT" prefHeight="38.0" prefWidth="310.0" style="-fx-background-color: #fafafa; -fx-border-color: #d0d7de; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand; -fx-text-fill: #333333; -fx-font-weight: normal; -fx-padding: 0 14; -fx-font-size: 13px;" text="Tư vấn Mua Laptop &amp; Build PC" />
+                        <Button fx:id="btnTopic2" alignment="CENTER_LEFT" prefHeight="38.0" prefWidth="310.0" style="-fx-background-color: #fafafa; -fx-border-color: #d0d7de; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand; -fx-text-fill: #333333; -fx-font-weight: normal; -fx-padding: 0 14; -fx-font-size: 13px;" text="Hỗ trợ Kỹ thuật &amp; Cài đặt" />
+                        <Button fx:id="btnTopic3" alignment="CENTER_LEFT" prefHeight="38.0" prefWidth="310.0" style="-fx-background-color: #fafafa; -fx-border-color: #d0d7de; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand; -fx-text-fill: #333333; -fx-font-weight: normal; -fx-padding: 0 14; -fx-font-size: 13px;" text="Bảo hành &amp; Đổi trả linh kiện" />
+                        <Button fx:id="btnTopic4" alignment="CENTER_LEFT" prefHeight="38.0" prefWidth="310.0" style="-fx-background-color: #fafafa; -fx-border-color: #d0d7de; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand; -fx-text-fill: #333333; -fx-font-weight: normal; -fx-padding: 0 14; -fx-font-size: 13px;" text="Tra cứu Đơn hàng &amp; Giao vận" />
+                        <Button fx:id="btnTopic5" alignment="CENTER_LEFT" prefHeight="38.0" prefWidth="310.0" style="-fx-background-color: #fafafa; -fx-border-color: #d0d7de; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand; -fx-text-fill: #333333; -fx-font-weight: normal; -fx-padding: 0 14; -fx-font-size: 13px;" text="Thắc mắc &amp; Dịch vụ khác" />
+                     </children>
+                  </VBox>
+
+                  <Label fx:id="lblErrorTopic" text="" textFill="RED">
+                     <font>
+                        <Font size="11.5" />
+                     </font>
+                  </Label>
+
+                  <Button fx:id="btnConfirmTopic" mnemonicParsing="false" onAction="#handleConfirmTopic" prefHeight="40.0" prefWidth="310.0" style="-fx-background-color: #00838F; -fx-text-fill: white; -fx-background-radius: 8; -fx-cursor: hand;" text="Tiếp tục">
+                     <font>
+                        <Font name="Segoe UI Bold" size="14.0" />
+                     </font>
+                  </Button>
+               </children>
+            </VBox>
+
+            <!-- ============================================== -->
+            <!-- FRAME 4: LỊCH SỬ PHIÊN CŨ                      -->
+            <!-- ============================================== -->
+            <VBox fx:id="paneHistory" alignment="TOP_CENTER" managed="false" prefHeight="410.0" prefWidth="350.0" spacing="6.0" style="-fx-background-color: white; -fx-background-radius: 15; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 15, 0, 0, 5); -fx-padding: 24 16 16 16;" visible="false">
+               <children>
+                  <!-- Header: Tiêu đề + Phụ đề -->
+                  <VBox alignment="CENTER" spacing="2.0">
+                     <children>
+                        <Label fx:id="lblTitleHistory" text="Lịch sử hỗ trợ" textFill="#00838F">
+                           <font>
+                              <Font name="Segoe UI Bold" size="18.0" />
+                           </font>
+                        </Label>
+                        <Label fx:id="lblSubHistory" text="Chọn phiên hỗ trợ để xem lại chi tiết" textFill="#64748b">
+                           <font>
+                              <Font name="Segoe UI" size="11.0" />
+                           </font>
+                        </Label>
+                     </children>
+                  </VBox>
+
+                  <!-- Danh sách các phiên (ListView dạng Card hiện đại) -->
+                  <ListView fx:id="listPastSessions" prefHeight="125.0" prefWidth="318.0" styleClass="history-list" />
+
+                  <!-- Thanh phân cách / Tiêu đề xem trước nội dung -->
+                  <HBox alignment="CENTER_LEFT" spacing="6.0" style="-fx-padding: 2 2 0 2;">
+                     <children>
+                        <Label fx:id="lblPreviewTitle" text="Nội dung trao đổi" textFill="#475569">
+                           <font>
+                              <Font name="Segoe UI Bold" size="11.5" />
+                           </font>
+                        </Label>
+                        <Region HBox.hgrow="ALWAYS" />
+                        <Label fx:id="lblMessageCount" text="" textFill="#94a3b8">
+                           <font>
+                              <Font name="Segoe UI" size="10.5" />
+                           </font>
+                        </Label>
+                     </children>
+                  </HBox>
+
+                  <!-- Khung xem trước tin nhắn (Chat Bubbles Preview) -->
+                  <ScrollPane fx:id="scrollPastMessages" fitToWidth="true" hbarPolicy="NEVER" prefHeight="120.0" prefWidth="318.0" styleClass="history-scroll" vbarPolicy="AS_NEEDED">
+                     <content>
+                        <VBox fx:id="boxPastMessages" spacing="6.0" style="-fx-padding: 8;">
+                           <!-- Chat bubbles được render bằng code -->
+                        </VBox>
+                     </content>
+                  </ScrollPane>
+
+                  <!-- Nút tiếp tục / hỏi tiếp về phiên này -->
+                  <Button fx:id="btnReopenSession" mnemonicParsing="false" onAction="#handleReopenSelectedSession" prefHeight="38.0" prefWidth="318.0" style="-fx-background-color: #00838F; -fx-text-fill: white; -fx-background-radius: 8; -fx-cursor: hand; -fx-font-weight: bold; -fx-font-size: 13px;" text="Hỏi tiếp về phiên này">
+                     <VBox.margin>
+                        <Insets top="2.0" />
+                     </VBox.margin>
+                  </Button>
+               </children>
+            </VBox>
+
+         </children>
+      </StackPane>
+
+      <!-- Back Button: BÊN TRONG góc trên bên trái của khung card -->
+      <Button fx:id="btnBack" layoutX="47.0" layoutY="47.0" mnemonicParsing="false" onAction="#handleGlobalBack" prefHeight="30.0" prefWidth="30.0" style="-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 0;" visible="false">
          <graphic>
-            <SVGPath content="M19.0608 17.9236L13.6006 21.0761C13.0177 21.4126 12.7259 21.5806 12.416 21.6465C12.1419 21.7047 11.8584 21.7047 11.5843 21.6465C11.2744 21.5806 10.9826 21.4126 10.3997 21.0761L4.93945 17.9236C4.35657 17.5871 4.06548 17.4188 3.85352 17.1834C3.66597 16.9751 3.52434 16.7297 3.43773 16.4632C3.33984 16.1619 3.33984 15.8254 3.33984 15.1524V8.84742C3.33984 8.17436 3.33984 7.83765 3.43773 7.53638C3.52434 7.26982 3.66597 7.02428 3.85352 6.816C4.06535 6.58073 4.35623 6.41279 4.93843 6.07666L10.3997 2.92359C10.9826 2.58706 11.2744 2.41914 11.5843 2.35328C11.8584 2.295 12.1419 2.295 12.416 2.35328C12.7259 2.41913 13.0167 2.58706 13.5996 2.92359L19.0674 6.08043C19.6453 6.41405 19.9355 6.58161 20.1465 6.816C20.3341 7.02428 20.4759 7.26982 20.5625 7.53638C20.6602 7.83694 20.6602 8.17277 20.6602 8.84268V15.1568C20.6602 15.8267 20.6602 16.1626 20.5625 16.4632C20.4759 16.7297 20.3341 16.9751 20.1465 17.1834C19.9346 17.4188 19.6437 17.5871 19.0608 17.9236ZM12 14.9998C10.3431 14.9998 9 13.6566 9 11.9998C9 10.3429 10.3431 8.99976 12 8.99976C13.6569 8.99976 15 10.3429 15 11.9998C15 13.6566 13.6569 14.9998 12 14.9998Z" fill="transparent" stroke="#555555" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+            <SVGPath fx:id="svgBack" content="M15 19L8 12L15 5" fill="transparent" stroke="#1c1e21" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2.5" />
+         </graphic>
+         <tooltip>
+            <Tooltip text="Quay lại" />
+         </tooltip>
+      </Button>
+
+      <!-- Settings Button: BÊN TRONG góc trên bên phải của khung card -->
+      <Button fx:id="btnSettings" layoutX="343.0" layoutY="47.0" mnemonicParsing="false" onAction="#handleOpenSettings" prefHeight="30.0" prefWidth="30.0" style="-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 0;">
+         <graphic>
+            <SVGPath fx:id="svgSettings" content="M19.0608 17.9236L13.6006 21.0761C13.0177 21.4126 12.7259 21.5806 12.416 21.6465C12.1419 21.7047 11.8584 21.7047 11.5843 21.6465C11.2744 21.5806 10.9826 21.4126 10.3997 21.0761L4.93945 17.9236C4.35657 17.5871 4.06548 17.4188 3.85352 17.1834C3.66597 16.9751 3.52434 16.7297 3.43773 16.4632C3.33984 16.1619 3.33984 15.8254 3.33984 15.1524V8.84742C3.33984 8.17436 3.33984 7.83765 3.43773 7.53638C3.52434 7.26982 3.66597 7.02428 3.85352 6.816C4.06535 6.58073 4.35623 6.41279 4.93843 6.07666L10.3997 2.92359C10.9826 2.58706 11.2744 2.41914 11.5843 2.35328C11.8584 2.295 12.1419 2.295 12.416 2.35328C12.7259 2.41913 13.0167 2.58706 13.5996 2.92359L19.0674 6.08043C19.6453 6.41405 19.9355 6.58161 20.1465 6.816C20.3341 7.02428 20.4759 7.26982 20.5625 7.53638C20.6602 7.83694 20.6602 8.17277 20.6602 8.84268V15.1568C20.6602 15.8267 20.6602 16.1626 20.5625 16.4632C20.4759 16.7297 20.3341 16.9751 20.1465 17.1834C19.9346 17.4188 19.6437 17.5871 19.0608 17.9236ZM12 14.9998C10.3431 14.9998 9 13.6566 9 11.9998C9 10.3429 10.3431 8.99976 12 8.99976C13.6569 8.99976 15 10.3429 15 11.9998C15 13.6566 13.6569 14.9998 12 14.9998Z" fill="transparent" stroke="#555555" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
          </graphic>
          <tooltip>
             <Tooltip text="Cài đặt giao diện &amp; máy chủ" />
          </tooltip>
       </Button>
 
-      <VBox alignment="CENTER" layoutX="35.0" layoutY="35.0" prefHeight="410.0" prefWidth="350.0" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 15; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 20, 0, 0, 10); -fx-padding: 25;">
-         <children>
-            <Label text="Hỗ trợ trực tuyến" textFill="#00838F">
-               <font>
-                  <Font name="Segoe UI Bold" size="26.0" />
-               </font>
-            </Label>
-            
-            <Label text="Vui lòng nhập tên của bạn để bắt đầu" textFill="#888888">
-               <font>
-                  <Font name="Segoe UI" size="13.0" />
-               </font>
-            </Label>
-            
-            <VBox spacing="12.0">
-               <children>
-                  <TextField fx:id="txtName" prefHeight="42.0" promptText="Tên của bạn" style="-fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8; -fx-background-color: white; -fx-padding: 0 15; -fx-font-size: 14;" />
-                  
-                  <ComboBox fx:id="cbIssue" prefHeight="42.0" prefWidth="350.0" promptText="Chọn vấn đề cần tư vấn..." style="-fx-background-radius: 8; -fx-border-color: #e0e0e0; -fx-border-radius: 8; -fx-background-color: white; -fx-font-size: 14;" />
-               </children>
-            </VBox>
-            
-            <Label fx:id="lblError" text="" textFill="RED">
-               <font>
-                  <Font size="12.0" />
-               </font>
-            </Label>
-            
-            <Button fx:id="btnConnect" mnemonicParsing="false" onAction="#handleConnect" prefHeight="45.0" prefWidth="350.0" style="-fx-background-color: #00838F; -fx-text-fill: white; -fx-background-radius: 8; -fx-cursor: hand;" text="Bắt đầu Chat">
-               <font>
-                  <Font name="Segoe UI Bold" size="14.0" />
-               </font>
-            </Button>
-         </children>
-      </VBox>
    </children>
 </AnchorPane>

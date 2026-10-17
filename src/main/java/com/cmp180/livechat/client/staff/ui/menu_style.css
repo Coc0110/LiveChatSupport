@@ -164,6 +164,7 @@
 
 /* --- Input Box (Search Field & Message TextField) with Border --- */
 .bg-input {
+    -fx-font-family: 'Segoe UI', sans-serif;
     -fx-background-color: #f2f4f7;
     -fx-background-radius: 20;
     -fx-border-color: #c4c9d0;
@@ -178,6 +179,7 @@
     -fx-highlight-text-fill: white;
 }
 .dark-mode .bg-input {
+    -fx-font-family: 'Segoe UI', sans-serif;
     -fx-background-color: #2a2b2e;
     -fx-background-radius: 20;
     -fx-border-color: #484b51;

@@ -231,6 +231,16 @@ public class SettingsDialog {
                 if (p <= 0 || p > 65535) throw new NumberFormatException();
                 ServerConfig.setHost(h);
                 ServerConfig.setPort(p);
+                try {
+                    if (CustomerContext.getInstance().getNetworkService() != null) {
+                        CustomerContext.getInstance().getNetworkService().setServerAddress(h, p);
+                    }
+                } catch (Exception ignored) {}
+                try {
+                    if (StaffContext.getInstance().getNetworkService() != null) {
+                        StaffContext.getInstance().getNetworkService().setServerAddress(h, p);
+                    }
+                } catch (Exception ignored) {}
                 lblNetStatus.setText("✓ Đã lưu cấu hình kết nối (" + h + ":" + p + ") thành công!");
                 lblNetStatus.setStyle("-fx-text-fill: #2E7D32; -fx-font-weight: bold;");
             } catch (NumberFormatException ex) {
@@ -244,6 +254,16 @@ public class SettingsDialog {
         btnResetNet.setCursor(javafx.scene.Cursor.HAND);
         btnResetNet.setOnAction(e -> {
             ServerConfig.resetToDefault();
+            try {
+                if (CustomerContext.getInstance().getNetworkService() != null) {
+                    CustomerContext.getInstance().getNetworkService().setServerAddress(ServerConfig.DEFAULT_HOST, ServerConfig.DEFAULT_PORT);
+                }
+            } catch (Exception ignored) {}
+            try {
+                if (StaffContext.getInstance().getNetworkService() != null) {
+                    StaffContext.getInstance().getNetworkService().setServerAddress(ServerConfig.DEFAULT_HOST, ServerConfig.DEFAULT_PORT);
+                }
+            } catch (Exception ignored) {}
             txtHost.setText(ServerConfig.DEFAULT_HOST);
             txtPort.setText(String.valueOf(ServerConfig.DEFAULT_PORT));
             lblNetStatus.setText("✓ Đã khôi phục về mặc định 127.0.0.1 : 5000");

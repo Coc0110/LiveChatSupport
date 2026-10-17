@@ -12,4 +12,6 @@ public interface CustomerNetworkListener {
     default void onMessageRecalled(String messageId) {}
     void onSessionEnded(String reason);
     void onError(String errorMessage);
+    default void onPhoneChecked(boolean isExisting, String customerName, java.util.List<com.cmp180.livechat.client.customer.model.CustomerPastSession> pastSessions) {}
+    default void onSessionMessagesLoaded(String sessionId, java.util.List<com.cmp180.livechat.client.customer.model.CustomerPastMessage> messages) {}
 }

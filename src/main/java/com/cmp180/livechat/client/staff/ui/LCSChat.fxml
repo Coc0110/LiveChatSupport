@@ -51,16 +51,16 @@
    <center>
       <HBox BorderPane.alignment="CENTER">
          <!-- CỘT GIỮA: Danh sách hội thoại -->
-         <VBox prefHeight="650.0" prefWidth="280.0" minWidth="280.0" maxWidth="280.0" style="-fx-border-width: 0 1 0 0;" styleClass="bg-white, bordered">
+         <VBox prefHeight="650.0" prefWidth="300.0" minWidth="300.0" maxWidth="300.0" style="-fx-border-width: 0 1 0 0;" styleClass="bg-white, bordered">
          <children>
-            <HBox alignment="CENTER" prefHeight="70.0" prefWidth="280.0" style="-fx-padding: 15; -fx-border-width: 0 0 1 0;" styleClass="bg-white, bordered">
+            <HBox alignment="CENTER" prefHeight="70.0" prefWidth="300.0" style="-fx-padding: 15; -fx-border-width: 0 0 1 0;" styleClass="bg-white, bordered">
                <children>
                   <!-- Ô tìm kiếm bo tròn có viền -->
-                  <TextField fx:id="txtSearch" prefHeight="36.0" prefWidth="250.0" promptText="Tìm kiếm..." style="-fx-background-radius: 20; -fx-padding: 0 15 0 15;" styleClass="bg-input" HBox.hgrow="ALWAYS" />
+                  <TextField fx:id="txtSearch" prefHeight="36.0" prefWidth="270.0" promptText="Tìm kiếm..." style="-fx-background-radius: 20; -fx-padding: 0 15 0 15;" styleClass="bg-input" HBox.hgrow="ALWAYS" />
                </children>
             </HBox>
             <!-- Danh sách khách hàng -->
-            <ListView fx:id="listClients" focusTraversable="false" prefHeight="580.0" prefWidth="280.0" style="-fx-border-width: 0;" VBox.vgrow="ALWAYS" styleClass="client-list" />
+            <ListView fx:id="listClients" focusTraversable="false" prefHeight="580.0" prefWidth="300.0" style="-fx-border-width: 0;" VBox.vgrow="ALWAYS" styleClass="client-list" />
          </children>
       </VBox>
          <!-- CỘT PHẢI: Khung chat chính -->
@@ -137,8 +137,8 @@
                      <children>
                         <StackPane HBox.hgrow="ALWAYS">
                            <children>
-                              <TextField fx:id="txtMessage" onAction="#handleSend" prefHeight="45.0" promptText="Nhập tin nhắn..." style="-fx-background-radius: 20; -fx-padding: 0 45 0 20; -fx-font-size: 15;" styleClass="bg-input" />
-                              <Button fx:id="btnEmoji" mnemonicParsing="false" prefHeight="35.0" prefWidth="35.0" styleClass="emoji-btn" StackPane.alignment="CENTER_RIGHT">
+                              <TextField fx:id="txtMessage" onAction="#handleSend" prefHeight="45.0" promptText="Nhập tin nhắn..." style="-fx-background-radius: 20; -fx-padding: 0 45 0 20; -fx-font-size: 15; -fx-font-family: 'Segoe UI', sans-serif;" styleClass="bg-input" />
+                              <Button fx:id="btnEmoji" focusTraversable="false" mnemonicParsing="false" prefHeight="35.0" prefWidth="35.0" styleClass="emoji-btn" StackPane.alignment="CENTER_RIGHT">
                                  <StackPane.margin>
                                     <Insets right="8.0" />
                                  </StackPane.margin>
