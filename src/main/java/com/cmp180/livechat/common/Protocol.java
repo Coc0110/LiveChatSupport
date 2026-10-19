@@ -30,6 +30,20 @@ public class Protocol {
     public static final String CMD_GET_ONLINE_STAFF = "GET_ONLINE_STAFF";
     public static final String CMD_ONLINE_STAFF_LIST = "ONLINE_STAFF_LIST";
     public static final String CMD_TRANSFER_SESSION = "TRANSFER_SESSION";
+    public static final String CMD_HEARTBEAT = "HEARTBEAT";
+    public static final String CMD_TYPING = "TYPING";
+    public static final String TYPING_START = "START";
+    public static final String TYPING_STOP = "STOP";
     public static final String STATUS_INTERRUPTED = "INTERRUPTED";
-    public static final long MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+    public static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+    public static final int MAX_TEXT_LENGTH = 4000; // Giới hạn 4.000 ký tự mỗi tin nhắn văn bản
+
+    // Voice Chat & Voice Call
+    public static final String CMD_VOICE_MSG = "VOICE_MSG";
+    public static final String CMD_CALL_REQ = "CALL_REQ";
+    public static final String CMD_CALL_ACCEPT = "CALL_ACCEPT";
+    public static final String CMD_CALL_REJECT = "CALL_REJECT";
+    public static final String CMD_CALL_END = "CALL_END";
+    public static final String CMD_CALL_DATA = "CALL_DATA";
 }
+

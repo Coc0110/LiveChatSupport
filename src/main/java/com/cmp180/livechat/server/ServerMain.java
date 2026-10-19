@@ -10,23 +10,27 @@ public class ServerMain {
     private static final int PORT = 5000;
     private ServerGUI gui;
     private final SessionManager sessionManager; 
+    private final UdpRelayServer udpRelayServer;
     private final ExecutorService threadPool = Executors.newCachedThreadPool();
     private ServerSocket serverSocket;
     private volatile boolean isRunning = false;
 
     public ServerMain() {
         this.sessionManager = new SessionManager(this);
+        this.udpRelayServer = new UdpRelayServer(PORT, this);
     }
     
     public ServerMain(ServerGUI gui) {
         this.gui = gui;
         this.sessionManager = new SessionManager(this);
+        this.udpRelayServer = new UdpRelayServer(PORT, this);
     }
 
     public void start() {
         isRunning = true;
         log("=== HỆ THỐNG LIVE CHAT SUPPORT SERVER (PORT " + PORT + ") ===");
         try {
+            udpRelayServer.start();
             serverSocket = new ServerSocket(PORT);
             while (isRunning) {
                 Socket clientSocket = serverSocket.accept();
@@ -47,6 +51,12 @@ public class ServerMain {
     public void stop() {
         isRunning = false;
         try {
+            if (udpRelayServer != null) {
+                udpRelayServer.stop();
+            }
+            if (sessionManager != null) {
+                sessionManager.shutdown();
+            }
             if (serverSocket != null && !serverSocket.isClosed()) {
                 serverSocket.close();
             }
@@ -63,6 +73,14 @@ public class ServerMain {
 
     public ServerGUI getGui() {
         return gui;
+    }
+
+    public SessionManager getSessionManager() {
+        return sessionManager;
+    }
+
+    public UdpRelayServer getUdpRelayServer() {
+        return udpRelayServer;
     }
 
     public static void main(String[] args) {

@@ -17,7 +17,8 @@ public class ClientHandler implements Runnable {
         public final String senderName;
         public final String encryptedContent;
         public final String replyToSender;
-        public final String replyToText;
+        public String replyToText;
+        public final String replyToId;
         public final long timestamp;
         public volatile boolean isRecalled;
         public final String fileName;
@@ -26,16 +27,25 @@ public class ClientHandler implements Runnable {
         public final boolean isImage;
 
         public HistoryEntry(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, long timestamp) {
-            this(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, timestamp, null, 0, null, false);
+            this(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, null, timestamp, null, 0, null, false);
+        }
+
+        public HistoryEntry(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, String replyToId, long timestamp) {
+            this(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, replyToId, timestamp, null, 0, null, false);
         }
 
         public HistoryEntry(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, long timestamp, String fileName, long fileSize, byte[] fileData, boolean isImage) {
+            this(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, null, timestamp, fileName, fileSize, fileData, isImage);
+        }
+
+        public HistoryEntry(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, String replyToId, long timestamp, String fileName, long fileSize, byte[] fileData, boolean isImage) {
             this.messageId = messageId;
             this.senderRole = senderRole;
             this.senderName = senderName;
             this.encryptedContent = encryptedContent;
             this.replyToSender = replyToSender;
             this.replyToText = replyToText;
+            this.replyToId = replyToId;
             this.timestamp = timestamp;
             this.isRecalled = false;
             this.fileName = fileName;
@@ -77,6 +87,7 @@ public class ClientHandler implements Runnable {
         this.joinedTime = System.currentTimeMillis();
         
         try {
+            socket.setSoTimeout(40000);
             this.out = new ObjectOutputStream(socket.getOutputStream());
             this.in = new ObjectInputStream(socket.getInputStream());
         } catch (IOException e) {
@@ -91,6 +102,8 @@ public class ClientHandler implements Runnable {
             while ((message = (Message) in.readObject()) != null) {
                 processMessage(message);
             }
+        } catch (java.net.SocketTimeoutException e) {
+            server.log("[ZOMBIE TIMEOUT] Không nhận được heartbeat/tín hiệu từ " + (name != null ? name : clientId) + " sau 40s. Đang dọn dẹp kết nối.");
         } catch (Exception e) {
             server.log("[NGẮT KẾT NỐI] Client " + (name != null ? name : clientId) + " đã rời đi.");
         } finally {
@@ -120,6 +133,13 @@ public class ClientHandler implements Runnable {
             case Protocol.CMD_CHAT:
             case Protocol.CMD_FILE:
             case Protocol.CMD_RECALL_MSG:
+            case Protocol.CMD_TYPING:
+            case Protocol.CMD_VOICE_MSG:
+            case Protocol.CMD_CALL_REQ:
+            case Protocol.CMD_CALL_ACCEPT:
+            case Protocol.CMD_CALL_REJECT:
+            case Protocol.CMD_CALL_END:
+            case Protocol.CMD_CALL_DATA:
                 sessionManager.routeMessage(this, msg);
                 break;
                 
@@ -158,6 +178,10 @@ public class ClientHandler implements Runnable {
                     sessionManager.transferSession(this, msg.getReceiverId(), msg.getContent());
                 }
                 break;
+
+            case Protocol.CMD_HEARTBEAT:
+                // Heartbeat packet from client, socket read timeout is automatically reset
+                break;
                 
             default:
                 server.log("Lệnh không hợp lệ từ " + name + ": " + cmd);
@@ -181,6 +205,15 @@ public class ClientHandler implements Runnable {
             fullName = fullName.replaceAll("\\s*\\([^)]*\\)$", "").trim();
         }
 
+        if (topic != null) {
+            String clean = topic.replaceAll("^(Hỏi tiếp:\\s*)+", "").trim();
+            if (topic.contains("Hỏi tiếp:")) {
+                topic = "Hỏi tiếp: " + (clean.isEmpty() ? "Tư vấn" : clean);
+            } else {
+                topic = clean.isEmpty() ? "Tư vấn chung" : clean;
+            }
+        }
+
         this.issueTopic = topic;
         String cleanPhone = (phone != null) ? phone.replaceAll("[\\s\\-\\.\\(\\)]", "").trim() : "";
         if (cleanPhone.startsWith("+84")) cleanPhone = "0" + cleanPhone.substring(3);
@@ -197,8 +230,27 @@ public class ClientHandler implements Runnable {
             this.name = fullName;
         }
         this.role = Protocol.ROLE_CUSTOMER;
+        if (server.getUdpRelayServer() != null) {
+            server.getUdpRelayServer().registerAlias(this.customerPhone, this.clientId);
+        }
+        sendMessage(new Message(Protocol.CMD_LOGIN_SUCCESS, this.clientId, this.name));
 
-        if ("RECONNECT".equalsIgnoreCase(msg.getReceiverId())) {
+        if (msg.getReceiverId() != null && msg.getReceiverId().startsWith("REOPEN:")) {
+            String reopenSessionId = msg.getReceiverId().substring("REOPEN:".length());
+            this.interrupted = true;
+            List<DatabaseManager.MessageRecord> oldMsgs;
+            if (this.dbCustomerId != null) {
+                oldMsgs = DatabaseManager.getInstance().getAllMessagesByCustomer(this.dbCustomerId);
+            } else {
+                oldMsgs = DatabaseManager.getInstance().getMessagesBySession(reopenSessionId);
+            }
+            for (DatabaseManager.MessageRecord m : oldMsgs) {
+                HistoryEntry he = new HistoryEntry(m.messageId, m.senderRole, m.senderName, m.content, m.replyToSender, m.replyToText, m.replyToId, m.timestamp, m.fileName, m.fileSize, m.fileData, m.isImage);
+                he.isRecalled = m.isRecalled;
+                this.chatHistory.add(he);
+            }
+            server.log("[MỞ LẠI PHIÊN CŨ] Khách hàng '" + this.name + "' mở lại toàn bộ lịch sử (" + oldMsgs.size() + " tin nhắn qua tất cả các phiên).");
+        } else if ("RECONNECT".equalsIgnoreCase(msg.getReceiverId())) {
             this.interrupted = true;
         }
 
@@ -224,6 +276,9 @@ public class ClientHandler implements Runnable {
 
         server.log("[ĐĂNG NHẬP THÀNH CÔNG] CSKH '" + staffRec.fullName + "' (Username: " + staffRec.username + ", Chuyên môn: " + this.primarySkill + ")");
         sendMessage(new Message(Protocol.CMD_LOGIN_SUCCESS, staffRec.staffId, staffRec.fullName));
+        if (server.getUdpRelayServer() != null) {
+            server.getUdpRelayServer().registerAlias(staffRec.username, staffRec.staffId);
+        }
         sessionManager.registerClient(this);
     }
 
@@ -348,12 +403,20 @@ public class ClientHandler implements Runnable {
     public void setInterrupted(boolean interrupted) { this.interrupted = interrupted; }
     public List<HistoryEntry> getChatHistory() { return chatHistory; }
 
+    public void addHistory(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, String replyToId) {
+        chatHistory.add(new HistoryEntry(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, replyToId, System.currentTimeMillis()));
+    }
+
     public void addHistory(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText) {
-        chatHistory.add(new HistoryEntry(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, System.currentTimeMillis()));
+        addHistory(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, null);
+    }
+
+    public void addFileHistory(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, String replyToId, String fileName, long fileSize, byte[] fileData, boolean isImage) {
+        chatHistory.add(new HistoryEntry(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, replyToId, System.currentTimeMillis(), fileName, fileSize, fileData, isImage));
     }
 
     public void addFileHistory(String messageId, String senderRole, String senderName, String encryptedContent, String replyToSender, String replyToText, String fileName, long fileSize, byte[] fileData, boolean isImage) {
-        chatHistory.add(new HistoryEntry(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, System.currentTimeMillis(), fileName, fileSize, fileData, isImage));
+        addFileHistory(messageId, senderRole, senderName, encryptedContent, replyToSender, replyToText, null, fileName, fileSize, fileData, isImage);
     }
 
     public void addHistory(String senderRole, String senderName, String encryptedContent) {
@@ -362,10 +425,16 @@ public class ClientHandler implements Runnable {
 
     public void recallHistory(String messageId) {
         if (messageId == null) return;
+        String recalledContent = null;
         for (HistoryEntry e : chatHistory) {
             if (messageId.equals(e.messageId)) {
                 e.isRecalled = true;
-                break;
+                recalledContent = e.encryptedContent;
+            }
+        }
+        for (HistoryEntry e : chatHistory) {
+            if (messageId.equals(e.replyToId) || (recalledContent != null && recalledContent.equals(e.replyToText))) {
+                e.replyToText = "Tin nhắn đã được thu hồi";
             }
         }
     }

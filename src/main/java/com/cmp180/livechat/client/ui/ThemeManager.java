@@ -107,9 +107,47 @@ public class ThemeManager {
         }
     }
 
+    public static void applyTheme(javafx.scene.control.Alert alert) {
+        if (alert == null) return;
+        applyTheme(alert.getDialogPane());
+    }
+
+    public static void applyTheme(javafx.scene.control.DialogPane pane) {
+        if (pane == null) return;
+        try {
+            String css = ThemeManager.class.getResource("/com/cmp180/livechat/client/staff/ui/menu_style.css").toExternalForm();
+            if (!pane.getStylesheets().contains(css)) {
+                pane.getStylesheets().add(css);
+            }
+        } catch (Exception ignored) {}
+
+        if (isDarkMode) {
+            if (!pane.getStyleClass().contains("dark-mode")) pane.getStyleClass().add("dark-mode");
+            if (!pane.getStyleClass().contains("dark-dialog")) pane.getStyleClass().add("dark-dialog");
+        } else {
+            pane.getStyleClass().remove("dark-mode");
+            pane.getStyleClass().remove("dark-dialog");
+        }
+
+        if (pane.getScene() != null) {
+            try {
+                String css = ThemeManager.class.getResource("/com/cmp180/livechat/client/staff/ui/menu_style.css").toExternalForm();
+                if (!pane.getScene().getStylesheets().contains(css)) {
+                    pane.getScene().getStylesheets().add(css);
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
     public static void applyTheme(Scene scene) {
         if (scene == null || scene.getRoot() == null) return;
         var root = scene.getRoot();
+
+        if (root instanceof javafx.scene.control.DialogPane pane) {
+            applyTheme(pane);
+            return;
+        }
+
         if (isDarkMode) {
             if (!root.getStyleClass().contains("dark-mode")) {
                 root.getStyleClass().add("dark-mode");
@@ -122,6 +160,23 @@ public class ThemeManager {
         String light = getLightTint(color);
         String bg = getBgTint(color);
 
-        root.setStyle(String.format("-fx-brand-color: %s; -fx-brand-light: %s; -fx-brand-bg: %s;", color, light, bg));
+        String currentStyle = root.getStyle();
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("-fx-brand-color: %s; -fx-brand-light: %s; -fx-brand-bg: %s; ", color, light, bg));
+        
+        boolean hasCustomBg = false;
+        if (currentStyle != null && currentStyle.contains("-fx-background-color:")) {
+            for (String part : currentStyle.split(";")) {
+                if (part.trim().startsWith("-fx-background-color:")) {
+                    sb.append(part.trim()).append("; ");
+                    hasCustomBg = true;
+                }
+            }
+        }
+        if (!hasCustomBg) {
+            sb.append(isDarkMode ? "-fx-background-color: #141414; " : "-fx-background-color: " + bg + "; ");
+        }
+
+        root.setStyle(sb.toString().trim());
     }
 }

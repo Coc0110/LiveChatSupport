@@ -185,11 +185,24 @@ public class SessionManager {
         // Lưu phiên vào SQLite Database
         DatabaseManager.getInstance().createSession(session.getSessionId(), customer.getDbCustomerId(), staff.getClientId(), customer.getIssueTopic());
 
-        // Nếu khách hàng đang tư vấn dở và có lịch sử chat trước đó, gửi toàn bộ lịch sử cho nhân viên mới trước
+        // Nếu khách hàng có lịch sử trước đó (tư vấn dở / mở lại / từng chat các phiên trước), nạp và gửi toàn bộ lịch sử cho cả Nhân viên và Khách hàng
+        if (customer.getChatHistory().isEmpty() && customer.getDbCustomerId() != null) {
+            List<DatabaseManager.MessageRecord> dbMsgs = DatabaseManager.getInstance().getAllMessagesByCustomer(customer.getDbCustomerId());
+            for (DatabaseManager.MessageRecord m : dbMsgs) {
+                ClientHandler.HistoryEntry he = new ClientHandler.HistoryEntry(
+                    m.messageId, m.senderRole, m.senderName, m.content, m.replyToSender, m.replyToText, m.timestamp,
+                    m.fileName, m.fileSize, m.fileData, m.isImage
+                );
+                he.isRecalled = m.isRecalled;
+                customer.getChatHistory().add(he);
+            }
+        }
+
         if (!customer.getChatHistory().isEmpty()) {
             for (ClientHandler.HistoryEntry entry : customer.getChatHistory()) {
                 String meta = entry.senderRole + "|" + entry.senderName + "|" + entry.timestamp + "|" + (entry.isRecalled ? "RECALLED" : "NORMAL");
-                staff.sendMessage(new Message(Protocol.CMD_CHAT_HISTORY, meta, customer.getClientId(), entry.encryptedContent, entry.messageId, entry.replyToSender, entry.replyToText, entry.fileName, entry.fileSize, entry.fileData, entry.isImage));
+                staff.sendMessage(new Message(Protocol.CMD_CHAT_HISTORY, meta, customer.getClientId(), entry.encryptedContent, entry.messageId, entry.replyToSender, entry.replyToText, entry.replyToId, entry.fileName, entry.fileSize, entry.fileData, entry.isImage));
+                customer.sendMessage(new Message(Protocol.CMD_CHAT_HISTORY, meta, staff.getClientId(), entry.encryptedContent, entry.messageId, entry.replyToSender, entry.replyToText, entry.replyToId, entry.fileName, entry.fileSize, entry.fileData, entry.isImage));
             }
         }
         
@@ -228,23 +241,96 @@ public class SessionManager {
             return;
         }
 
-        // 2. Xử lý gửi tệp đính kèm / hình ảnh
-        if (Protocol.CMD_FILE.equals(msg.getCommand())) {
+        // 1.1. Xử lý trạng thái đang soạn tin (Typing Indicator)
+        if (Protocol.CMD_TYPING.equals(msg.getCommand())) {
             if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
                 for (ChatSession session : activeSessionsList) {
-                    if (session.getCustomer() == sender) {
-                        DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.isImage(), System.currentTimeMillis());
-                        sender.addFileHistory(msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage());
-                        session.getStaff().sendMessage(new Message(Protocol.CMD_FILE, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage()));
+                    if (session.getCustomer() == sender && session.getStaff() != null) {
+                        session.getStaff().sendMessage(new Message(Protocol.CMD_TYPING, sender.getName(), sender.getClientId(), msg.getContent()));
                         return;
                     }
                 }
             } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
                 for (ChatSession session : activeSessionsList) {
                     if (session.getStaff() == sender && session.getCustomer().getClientId().equals(receiverId)) {
-                        DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.isImage(), System.currentTimeMillis());
-                        session.getCustomer().addFileHistory(msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage());
-                        session.getCustomer().sendMessage(new Message(Protocol.CMD_FILE, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage()));
+                        session.getCustomer().sendMessage(new Message(Protocol.CMD_TYPING, sender.getName(), sender.getClientId(), msg.getContent()));
+                        return;
+                    }
+                }
+            }
+            return;
+        }
+
+        // 1.2. Xử lý tin nhắn thoại (Voice Message)
+        if (Protocol.CMD_VOICE_MSG.equals(msg.getCommand())) {
+            if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
+                for (ChatSession session : activeSessionsList) {
+                    if (session.getCustomer() == sender) {
+                        DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), false, System.currentTimeMillis(), msg.getFileData());
+                        sender.addFileHistory(msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), false);
+                        session.getStaff().sendMessage(new Message(Protocol.CMD_VOICE_MSG, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), false));
+                        return;
+                    }
+                }
+            } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
+                for (ChatSession session : activeSessionsList) {
+                    if (session.getStaff() == sender && session.getCustomer().getClientId().equals(receiverId)) {
+                        DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), false, System.currentTimeMillis(), msg.getFileData());
+                        session.getCustomer().addFileHistory(msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), false);
+                        session.getCustomer().sendMessage(new Message(Protocol.CMD_VOICE_MSG, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), false));
+                        return;
+                    }
+                }
+            }
+            sender.sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Không thể gửi tin nhắn thoại."));
+            return;
+        }
+
+        // 1.3. Xử lý cuộc gọi thoại (Voice Call Signaling & Audio Streaming)
+        if (Protocol.CMD_CALL_REQ.equals(msg.getCommand()) ||
+            Protocol.CMD_CALL_ACCEPT.equals(msg.getCommand()) ||
+            Protocol.CMD_CALL_REJECT.equals(msg.getCommand()) ||
+            Protocol.CMD_CALL_END.equals(msg.getCommand()) ||
+            Protocol.CMD_CALL_DATA.equals(msg.getCommand())) {
+
+            if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
+                for (ChatSession session : activeSessionsList) {
+                    if (session.getCustomer() == sender && session.getStaff() != null) {
+                        session.getStaff().sendMessage(new Message(msg.getCommand(), sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), null, null, null, 0, msg.getFileData(), false));
+                        return;
+                    }
+                }
+            } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
+                for (ChatSession session : activeSessionsList) {
+                    if (session.getStaff() == sender && session.getCustomer() != null && session.getCustomer().getClientId().equals(receiverId)) {
+                        session.getCustomer().sendMessage(new Message(msg.getCommand(), sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), null, null, null, 0, msg.getFileData(), false));
+                        return;
+                    }
+                }
+            }
+            if (Protocol.CMD_CALL_REQ.equals(msg.getCommand())) {
+                sender.sendMessage(new Message(Protocol.CMD_CALL_REJECT, "Server", "Đối phương hiện không sẵn sàng nhận cuộc gọi."));
+            }
+            return;
+        }
+
+        // 2. Xử lý gửi tệp đính kèm / hình ảnh
+        if (Protocol.CMD_FILE.equals(msg.getCommand())) {
+            if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
+                for (ChatSession session : activeSessionsList) {
+                    if (session.getCustomer() == sender) {
+                        DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), msg.isImage(), System.currentTimeMillis(), msg.getFileData());
+                        sender.addFileHistory(msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage());
+                        session.getStaff().sendMessage(new Message(Protocol.CMD_FILE, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage()));
+                        return;
+                    }
+                }
+            } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
+                for (ChatSession session : activeSessionsList) {
+                    if (session.getStaff() == sender && session.getCustomer().getClientId().equals(receiverId)) {
+                        DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), msg.isImage(), System.currentTimeMillis(), msg.getFileData());
+                        session.getCustomer().addFileHistory(msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage());
+                        session.getCustomer().sendMessage(new Message(Protocol.CMD_FILE, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), msg.getFileData(), msg.isImage()));
                         return;
                     }
                 }
@@ -257,18 +343,18 @@ public class SessionManager {
         if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
             for (ChatSession session : activeSessionsList) {
                 if (session.getCustomer() == sender) {
-                    DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), null, 0, false, System.currentTimeMillis());
-                    sender.addHistory(msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText());
-                    session.getStaff().sendMessage(new Message(Protocol.CMD_CHAT, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText()));
+                    DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), null, 0, false, System.currentTimeMillis(), null);
+                    sender.addHistory(msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId());
+                    session.getStaff().sendMessage(new Message(Protocol.CMD_CHAT, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), null, 0, null, false));
                     return;
                 }
             }
         } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
             for (ChatSession session : activeSessionsList) {
                 if (session.getStaff() == sender && session.getCustomer().getClientId().equals(receiverId)) {
-                    DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), null, 0, false, System.currentTimeMillis());
-                    session.getCustomer().addHistory(msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText());
-                    session.getCustomer().sendMessage(new Message(Protocol.CMD_CHAT, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText()));
+                    DatabaseManager.getInstance().saveMessage(session.getSessionId(), msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), null, 0, false, System.currentTimeMillis(), null);
+                    session.getCustomer().addHistory(msg.getMessageId(), "STAFF", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId());
+                    session.getCustomer().sendMessage(new Message(Protocol.CMD_CHAT, sender.getName(), sender.getClientId(), msg.getContent(), msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), null, 0, null, false));
                     return;
                 }
             }
@@ -461,14 +547,25 @@ public class SessionManager {
         requestingStaff.sendMessage(new Message(Protocol.CMD_END, "Server", customer.getClientId(), "Đã chuyển phiên cho " + targetStaff.getName(), targetSession.getSessionId(), null, null));
 
         // 3. Nếu có ghi chú bàn giao, lưu vào lịch sử của khách hàng
+        String encNote = null;
         if (transferNote != null && !transferNote.trim().isEmpty()) {
             String noteText = "[Chuyển tiếp từ NV " + requestingStaff.getName() + "]: " + transferNote.trim();
-            String encNote = com.cmp180.livechat.common.SecurityManager.encrypt(noteText);
+            encNote = com.cmp180.livechat.common.SecurityManager.encrypt(noteText);
             customer.addHistory("SYSTEM", "Hệ thống", encNote);
         }
 
         // 4. Tạo phiên mới với nhân viên đích (toàn bộ lịch sử bao gồm ghi chú bàn giao sẽ được gửi tới nhân viên đích)
         createSession(customer, targetStaff);
+
+        // Lưu ghi chú bàn giao vào Database cho phiên mới
+        if (encNote != null) {
+            for (ChatSession s : activeSessionsList) {
+                if (s.getCustomer() == customer && s.getStaff() == targetStaff) {
+                    DatabaseManager.getInstance().saveMessage(s.getSessionId(), java.util.UUID.randomUUID().toString(), "SYSTEM", "Hệ thống", encNote, null, null, null, 0, false, System.currentTimeMillis());
+                    break;
+                }
+            }
+        }
 
         // 5. Thông báo cho khách hàng
         String notice = "Bạn đã được chuyển tiếp đến hỗ trợ viên " + targetStaff.getName() + " (Chuyên môn: " + targetStaff.getPrimarySkill() + ").";
@@ -476,5 +573,33 @@ public class SessionManager {
 
         server.log("-> [CHUYỂN PHIÊN THÀNH CÔNG] CSKH '" + requestingStaff.getName() + "' -> CSKH '" + targetStaff.getName() + "' (Khách: '" + customer.getName() + "', Ghi chú: " + transferNote + ")");
         broadcastQueueToStaff();
+    }
+
+    public synchronized void shutdown() {
+        Message shutdownMsg = new Message(Protocol.CMD_END, "Server", "", "Máy chủ đang tạm dừng để bảo trì. Kết nối đã đóng.");
+        for (ChatSession session : activeSessionsList) {
+            if (session.getCustomer() != null) session.getCustomer().sendMessage(shutdownMsg);
+            if (session.getStaff() != null) session.getStaff().sendMessage(shutdownMsg);
+        }
+        activeSessionsList.clear();
+
+        for (ClientHandler cust : waitingCustomers) {
+            cust.sendMessage(shutdownMsg);
+        }
+        waitingCustomers.clear();
+
+        for (ClientHandler staff : allStaffs) {
+            staff.sendMessage(shutdownMsg);
+        }
+        allStaffs.clear();
+        updateDashboard();
+    }
+
+    public List<ChatSession> getActiveSessions() {
+        return new ArrayList<>(activeSessionsList);
+    }
+
+    public List<ClientHandler> getWaitingCustomers() {
+        return new ArrayList<>(waitingCustomers);
     }
 }

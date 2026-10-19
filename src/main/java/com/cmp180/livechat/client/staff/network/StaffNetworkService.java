@@ -123,6 +123,7 @@ public class StaffNetworkService {
                 }
 
                 hasConnectedOnce = true;
+                startHeartbeat();
 
                 // Gửi đăng nhập kèm username và password
                 sendMessage(new Message(Protocol.CMD_STAFF_LOGIN, staffName, staffPassword));
@@ -196,14 +197,14 @@ public class StaffNetworkService {
                         }
                     }
                     for (StaffNetworkListener l : listeners) {
-                        l.onChatHistoryReceived(msg.getReceiverId(), role, senderName, ts, decryptedHistory, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), isRecalled, msg.getFileName(), msg.getFileSize(), decHistData, msg.isImage());
+                        l.onChatHistoryReceived(msg.getReceiverId(), role, senderName, ts, decryptedHistory, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), isRecalled, msg.getFileName(), msg.getFileSize(), decHistData, msg.isImage());
                     }
                     break;
                     
                 case Protocol.CMD_CHAT:
                     String decryptedContent = com.cmp180.livechat.common.SecurityManager.decrypt(msg.getContent());
                     for (StaffNetworkListener l : listeners) {
-                        l.onMessageReceived(msg.getSenderId(), msg.getReceiverId(), decryptedContent, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText());
+                        l.onMessageReceived(msg.getSenderId(), msg.getReceiverId(), decryptedContent, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId());
                     }
                     break;
 
@@ -213,7 +214,7 @@ public class StaffNetworkService {
                             : "";
                     byte[] decStaffData = com.cmp180.livechat.common.SecurityManager.decryptBytes(msg.getFileData());
                     for (StaffNetworkListener l : listeners) {
-                        l.onFileReceived(msg.getSenderId(), msg.getReceiverId(), msg.getMessageId(), decFileCaption, msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), decStaffData, msg.isImage());
+                        l.onFileReceived(msg.getSenderId(), msg.getReceiverId(), msg.getMessageId(), decFileCaption, msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), decStaffData, msg.isImage());
                     }
                     break;
 
@@ -234,6 +235,50 @@ public class StaffNetworkService {
                     }
                     break;
                     
+                case Protocol.CMD_TYPING:
+                    boolean isTyping = Protocol.TYPING_START.equalsIgnoreCase(msg.getContent());
+                    for (StaffNetworkListener l : listeners) {
+                        l.onTypingStatusChanged(msg.getReceiverId(), msg.getSenderId(), isTyping);
+                    }
+                    break;
+
+                case Protocol.CMD_VOICE_MSG:
+                    byte[] decStaffVoiceData = com.cmp180.livechat.common.SecurityManager.decryptBytes(msg.getFileData());
+                    for (StaffNetworkListener l : listeners) {
+                        l.onVoiceMessageReceived(msg.getSenderId(), msg.getReceiverId(), msg.getMessageId(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), decStaffVoiceData);
+                    }
+                    break;
+
+                case Protocol.CMD_CALL_REQ:
+                    for (StaffNetworkListener l : listeners) {
+                        l.onIncomingCall(msg.getSenderId(), msg.getReceiverId());
+                    }
+                    break;
+
+                case Protocol.CMD_CALL_ACCEPT:
+                    for (StaffNetworkListener l : listeners) {
+                        l.onCallAccepted(msg.getSenderId());
+                    }
+                    break;
+
+                case Protocol.CMD_CALL_REJECT:
+                    for (StaffNetworkListener l : listeners) {
+                        l.onCallRejected(msg.getContent());
+                    }
+                    break;
+
+                case Protocol.CMD_CALL_END:
+                    for (StaffNetworkListener l : listeners) {
+                        l.onCallEnded();
+                    }
+                    break;
+
+                case Protocol.CMD_CALL_DATA:
+                    for (StaffNetworkListener l : listeners) {
+                        l.onCallDataReceived(msg.getFileData());
+                    }
+                    break;
+
                 case Protocol.CMD_ERROR:
                     for (StaffNetworkListener l : listeners) l.onError(msg.getContent());
                     break;
@@ -256,16 +301,29 @@ public class StaffNetworkService {
     }
 
     public void sendChatMessage(String text, String customerId, String messageId, String replyToSender, String replyToText) {
+        sendChatMessage(text, customerId, messageId, replyToSender, replyToText, null);
+    }
+
+    public void sendChatMessage(String text, String customerId, String messageId, String replyToSender, String replyToText, String replyToId) {
         if (!isConnected) return;
         String encryptedContent = com.cmp180.livechat.common.SecurityManager.encrypt(text);
-        sendMessage(new Message(Protocol.CMD_CHAT, "Staff", customerId, encryptedContent, messageId, replyToSender, replyToText));
+        sendMessage(new Message(Protocol.CMD_CHAT, "Staff", customerId, encryptedContent, messageId, replyToSender, replyToText, replyToId, null, 0, null, false));
     }
 
     public void sendFileMessage(String fileName, long fileSize, byte[] fileData, boolean isImage, String caption, String customerId, String messageId, String replyToSender, String replyToText) {
+        sendFileMessage(fileName, fileSize, fileData, isImage, caption, customerId, messageId, replyToSender, replyToText, null);
+    }
+
+    public void sendFileMessage(String fileName, long fileSize, byte[] fileData, boolean isImage, String caption, String customerId, String messageId, String replyToSender, String replyToText, String replyToId) {
         if (!isConnected) return;
         String encCaption = (caption != null && !caption.isEmpty()) ? com.cmp180.livechat.common.SecurityManager.encrypt(caption) : "";
         byte[] encData = com.cmp180.livechat.common.SecurityManager.encryptBytes(fileData);
-        sendMessage(new Message(Protocol.CMD_FILE, "Staff", customerId, encCaption, messageId, replyToSender, replyToText, fileName, fileSize, encData, isImage));
+        sendMessage(new Message(Protocol.CMD_FILE, "Staff", customerId, encCaption, messageId, replyToSender, replyToText, replyToId, fileName, fileSize, encData, isImage));
+    }
+
+    public void sendTypingStatus(String customerId, boolean isTyping) {
+        if (!isConnected || customerId == null) return;
+        sendMessage(new Message(Protocol.CMD_TYPING, "Staff", customerId, isTyping ? Protocol.TYPING_START : Protocol.TYPING_STOP));
     }
 
     public void recallMessage(String messageId, String customerId) {
@@ -301,7 +359,10 @@ public class StaffNetworkService {
         }
     }
 
+    private java.util.concurrent.ScheduledExecutorService heartbeatExecutor;
+
     private synchronized void closeSocketSilently() {
+        stopHeartbeat();
         try { if (in != null) in.close(); } catch (Exception ignored) {}
         try { if (out != null) out.close(); } catch (Exception ignored) {}
         try { if (socket != null && !socket.isClosed()) socket.close(); } catch (Exception ignored) {}
@@ -313,9 +374,31 @@ public class StaffNetworkService {
     public synchronized void disconnect() {
         isRunning = false;
         isConnected = false;
+        stopHeartbeat();
         closeSocketSilently();
         if (connectionThread != null) {
             connectionThread.interrupt();
+        }
+    }
+
+    private synchronized void startHeartbeat() {
+        stopHeartbeat();
+        heartbeatExecutor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "Staff-Heartbeat-Thread");
+            t.setDaemon(true);
+            return t;
+        });
+        heartbeatExecutor.scheduleAtFixedRate(() -> {
+            if (isConnected && socket != null && !socket.isClosed()) {
+                sendMessage(new Message(Protocol.CMD_HEARTBEAT, staffId, "Server", ""));
+            }
+        }, 15, 15, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    private synchronized void stopHeartbeat() {
+        if (heartbeatExecutor != null && !heartbeatExecutor.isShutdown()) {
+            heartbeatExecutor.shutdownNow();
+            heartbeatExecutor = null;
         }
     }
 
@@ -325,6 +408,10 @@ public class StaffNetworkService {
 
     public String getStaffId() {
         return staffId;
+    }
+
+    public String getStaffName() {
+        return staffName;
     }
 
     private List<CustomerItem> parseQueueData(String data) {
@@ -367,4 +454,48 @@ public class StaffNetworkService {
         }
         return list;
     }
+
+    public void sendVoiceMessage(String targetId, String durationText, byte[] wavData) {
+        sendVoiceMessage("voice_" + System.currentTimeMillis() + ".wav", wavData != null ? wavData.length : 0, wavData, 0, targetId, UUID.randomUUID().toString(), null, null);
+    }
+
+    public void sendVoiceMessage(String fileName, long fileSize, byte[] wavData, int durationSec, String targetId, String messageId, String replyToSender, String replyToText) {
+        sendVoiceMessage(fileName, fileSize, wavData, durationSec, targetId, messageId, replyToSender, replyToText, null);
+    }
+
+    public void sendVoiceMessage(String fileName, long fileSize, byte[] wavData, int durationSec, String targetId, String messageId, String replyToSender, String replyToText, String replyToId) {
+        if (!isConnected || wavData == null) return;
+        byte[] encData = com.cmp180.livechat.common.SecurityManager.encryptBytes(wavData);
+        String durText = durationSec > 0 ? (durationSec + "s") : "";
+        sendMessage(new Message(Protocol.CMD_VOICE_MSG, this.staffName, targetId, durText, messageId != null ? messageId : UUID.randomUUID().toString(), replyToSender, replyToText, replyToId, fileName, fileSize, encData, false));
+    }
+
+    public void sendCallRequest(String targetId) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_CALL_REQ, this.staffName, targetId, "Nhân viên CSKH"));
+    }
+
+    public void sendCallAccept(String targetId) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_CALL_ACCEPT, this.staffName, targetId, "Đồng ý"));
+    }
+
+    public void sendCallReject(String targetId, String reason) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_CALL_REJECT, this.staffName, targetId, reason != null ? reason : "Bận"));
+    }
+
+    public void sendCallEnd(String targetId) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_CALL_END, this.staffName, targetId, "Gác máy"));
+    }
+
+    public void sendCallData(String targetId, byte[] pcmChunk) {
+        if (!isConnected || pcmChunk == null) return;
+        sendMessage(new Message(Protocol.CMD_CALL_DATA, this.staffName, targetId, null, null, null, null, null, 0, pcmChunk, false));
+    }
+
+    public String getServerHost() { return serverHost; }
+    public int getServerPort() { return serverPort; }
 }
+

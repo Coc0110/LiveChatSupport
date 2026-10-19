@@ -79,10 +79,10 @@ public class LoginController implements StaffNetworkListener {
         Color settingsColor = dark ? Color.web("#e4e6eb") : Color.web("#555555");
 
         if (rootPane != null) {
-            rootPane.setStyle("-fx-background-color: " + bgTint + ";");
             if (rootPane.getScene() != null) {
                 ThemeManager.applyTheme(rootPane.getScene());
             }
+            rootPane.setStyle("-fx-background-color: " + bgTint + ";");
         }
 
         if (cardPane != null) {
@@ -172,11 +172,20 @@ public class LoginController implements StaffNetworkListener {
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("LCSChat.fxml"));
                 Parent root = loader.load();
                 
+                boolean wasMaximized = stage.isMaximized();
+                boolean wasFullScreen = stage.isFullScreen();
                 Scene scene = new Scene(root);
                 ThemeManager.applyTheme(scene);
                 stage.setScene(scene);
                 stage.setTitle("LiveChat - " + StaffContext.getInstance().getStaffName());
-                stage.centerOnScreen();
+                if (wasFullScreen) {
+                    stage.setFullScreen(true);
+                } else if (wasMaximized) {
+                    stage.setMaximized(true);
+                    Platform.runLater(() -> stage.setMaximized(true));
+                } else {
+                    stage.centerOnScreen();
+                }
                 
             } catch (IOException e) {
                 e.printStackTrace();

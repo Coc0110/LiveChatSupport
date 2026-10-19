@@ -210,10 +210,10 @@ public class CustomerLoginController implements CustomerNetworkListener {
 
         // 1. Root background
         if (rootPane != null) {
-            rootPane.setStyle("-fx-background-color: " + bgTint + ";");
             if (rootPane.getScene() != null) {
                 ThemeManager.applyTheme(rootPane.getScene());
             }
+            rootPane.setStyle("-fx-background-color: " + bgTint + ";");
         }
 
         // 2. Corner Buttons SVG strokes
@@ -418,9 +418,7 @@ public class CustomerLoginController implements CustomerNetworkListener {
                     lblStaff.setText("CSKH: " + (item.staffName != null && !item.staffName.isEmpty() ? item.staffName : "Chưa chỉ định"));
 
                     if (item.rating > 0) {
-                        StringBuilder stars = new StringBuilder();
-                        for (int i = 0; i < item.rating; i++) stars.append("★");
-                        lblRating.setText(stars.toString() + " (" + item.rating + "/5)");
+                        lblRating.setText(item.rating + "/5 sao");
                         lblRating.setStyle("-fx-text-fill: #d97706; -fx-font-size: 9.5px; -fx-font-weight: bold; -fx-background-color: rgba(245, 158, 11, 0.15); -fx-background-radius: 8; -fx-padding: 1 5;");
                     } else {
                         lblRating.setText("Chưa đánh giá");
@@ -475,7 +473,7 @@ public class CustomerLoginController implements CustomerNetworkListener {
                 CustomerContext.getInstance().getNetworkService().requestSessionMessages(newVal.sessionId);
                 if (btnReopenSession != null) {
                     btnReopenSession.setDisable(false);
-                    String topic = (newVal.issueTopic != null && !newVal.issueTopic.isEmpty()) ? newVal.issueTopic : "Tư vấn";
+                    String topic = stripReopenPrefix(newVal.issueTopic);
                     if (topic.length() > 22) topic = topic.substring(0, 20) + "...";
                     btnReopenSession.setText("Hỏi tiếp: " + topic);
                 }
@@ -655,6 +653,12 @@ public class CustomerLoginController implements CustomerNetworkListener {
         updateTopicStyles();
     }
 
+    private String stripReopenPrefix(String topic) {
+        if (topic == null || topic.trim().isEmpty()) return "Tư vấn";
+        String cleaned = topic.replaceAll("^(Hỏi tiếp:\\s*)+", "").trim();
+        return cleaned.isEmpty() ? "Tư vấn" : cleaned;
+    }
+
     @FXML
     private void handleReopenSelectedSession(ActionEvent event) {
         CustomerPastSession selected = listPastSessions != null ? listPastSessions.getSelectionModel().getSelectedItem() : null;
@@ -662,10 +666,15 @@ public class CustomerLoginController implements CustomerNetworkListener {
             if (btnReopenSession != null) btnReopenSession.setDisable(true);
             return;
         }
-        startChatWithTopic("Hỏi tiếp: " + selected.issueTopic);
+        String cleanTopic = stripReopenPrefix(selected.issueTopic);
+        startChatWithTopic("Hỏi tiếp: " + cleanTopic, selected.sessionId);
     }
 
     private void startChatWithTopic(String topic) {
+        startChatWithTopic(topic, null);
+    }
+
+    private void startChatWithTopic(String topic, String reopenSessionId) {
         if (isStartingChat) return;
         isStartingChat = true;
 
@@ -687,16 +696,25 @@ public class CustomerLoginController implements CustomerNetworkListener {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("CustomerChat.fxml"));
             Parent root = loader.load();
 
+            boolean wasMaximized = stage.isMaximized();
+            boolean wasFullScreen = stage.isFullScreen();
             Scene scene = new Scene(root);
             ThemeManager.applyTheme(scene);
             stage.setScene(scene);
             stage.setTitle("LiveChat - Hỗ trợ trực tuyến");
-            stage.centerOnScreen();
+            if (wasFullScreen) {
+                stage.setFullScreen(true);
+            } else if (wasMaximized) {
+                stage.setMaximized(true);
+                Platform.runLater(() -> stage.setMaximized(true));
+            } else {
+                stage.centerOnScreen();
+            }
 
-            // Đăng nhập và vào hàng đợi
+            // Đăng nhập và vào hàng đợi kèm mã phiên cũ để khôi phục toàn bộ lịch sử
             String host = ServerConfig.getHost();
             int port = ServerConfig.getPort();
-            CustomerContext.getInstance().getNetworkService().connectAndLogin(host, port, currentPhone, currentCustomerName, topic);
+            CustomerContext.getInstance().getNetworkService().connectAndLogin(host, port, currentPhone, currentCustomerName, topic, reopenSessionId);
 
         } catch (IOException e) {
             isStartingChat = false;
@@ -803,7 +821,7 @@ public class CustomerLoginController implements CustomerNetworkListener {
                         bubble.setStyle("-fx-background-color: " + brandColor + "; -fx-background-radius: 10 10 2 10; -fx-padding: 6 9;");
 
                         if (m.fileName != null && !m.fileName.isEmpty()) {
-                            Label fileLabel = new Label("📎 " + m.fileName);
+                            Label fileLabel = new Label("[Tệp đính kèm] " + m.fileName);
                             fileLabel.setWrapText(true);
                             fileLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-weight: bold; -fx-font-size: 11px;");
                             bubble.getChildren().add(fileLabel);
@@ -843,7 +861,7 @@ public class CustomerLoginController implements CustomerNetworkListener {
                         bubble.setStyle("-fx-background-color: " + staffBg + "; -fx-border-color: " + staffBorder + "; -fx-border-radius: 10 10 10 2; -fx-background-radius: 10 10 10 2; -fx-padding: 6 9; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 2, 0, 0, 1);");
 
                         if (m.fileName != null && !m.fileName.isEmpty()) {
-                            Label fileLabel = new Label("📎 " + m.fileName);
+                            Label fileLabel = new Label("[Tệp đính kèm] " + m.fileName);
                             fileLabel.setWrapText(true);
                             fileLabel.setStyle("-fx-text-fill: " + staffText + "; -fx-font-weight: bold; -fx-font-size: 11px;");
                             bubble.getChildren().add(fileLabel);

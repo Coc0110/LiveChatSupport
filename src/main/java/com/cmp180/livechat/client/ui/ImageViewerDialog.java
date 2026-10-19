@@ -46,7 +46,7 @@ public class ImageViewerDialog {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button btnSave = new Button("💾 Lưu về máy");
+        Button btnSave = new Button("Lưu về máy");
         btnSave.setCursor(javafx.scene.Cursor.HAND);
         btnSave.setStyle("-fx-background-color: rgba(255, 255, 255, 0.15); -fx-text-fill: white; -fx-background-radius: 6; -fx-padding: 6 12;");
         btnSave.setOnAction(e -> saveImage(stage, fileName, imageData));

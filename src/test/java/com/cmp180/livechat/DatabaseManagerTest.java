@@ -3,6 +3,7 @@ package com.cmp180.livechat;
 import com.cmp180.livechat.common.SecurityManager;
 import com.cmp180.livechat.server.DatabaseManager;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -50,6 +51,12 @@ public class DatabaseManagerTest {
         DatabaseManager.CustomerRecord found = db.findCustomerByPhone(testPhone);
         assertNotNull(found);
         assertEquals(cust.customerId, found.customerId);
+
+        // Tìm lại theo ID
+        DatabaseManager.CustomerRecord foundById = db.getCustomerById(cust.customerId);
+        assertNotNull(foundById);
+        assertEquals(testName, foundById.fullName);
+        assertEquals(testPhone, foundById.phoneOrEmail);
     }
 
     @Test
@@ -122,4 +129,122 @@ public class DatabaseManagerTest {
         assertFalse(com.cmp180.livechat.client.customer.ui.CustomerLoginController.isValidCustomerName("123456"));
         assertFalse(com.cmp180.livechat.client.customer.ui.CustomerLoginController.isValidCustomerName("..."));
     }
+
+    @Test
+    public void testSaltedPasswordHashingAndVerification() {
+        String pass = "SecurePass@2026";
+        String salted1 = SecurityManager.hashPasswordWithSalt(pass);
+        String salted2 = SecurityManager.hashPasswordWithSalt(pass);
+
+        assertNotNull(salted1);
+        assertNotNull(salted2);
+        assertTrue(salted1.contains(":"));
+        assertTrue(salted2.contains(":"));
+        // Hai lần băm phải khác nhau do sinh salt ngẫu nhiên
+        assertNotEquals(salted1, salted2);
+
+        // Kiểm tra verify thành công với mật khẩu đúng
+        assertTrue(SecurityManager.verifyPassword(pass, salted1));
+        assertTrue(SecurityManager.verifyPassword(pass, salted2));
+
+        // Kiểm tra verify thất bại với mật khẩu sai
+        assertFalse(SecurityManager.verifyPassword("WrongPassword", salted1));
+        assertFalse(SecurityManager.verifyPassword("", salted1));
+        assertFalse(SecurityManager.verifyPassword(null, salted1));
+
+        // Kiểm tra tương thích với chuỗi SHA-256 legacy không có salt
+        String legacyHash = SecurityManager.hashPassword("legacy123");
+        assertTrue(SecurityManager.verifyPassword("legacy123", legacyHash));
+        assertFalse(SecurityManager.verifyPassword("wrong", legacyHash));
+    }
+
+    @Test
+    public void testCBCEncryptionRandomIVAndLegacyFallback() throws Exception {
+        String plain = "Thông tin bảo mật quan trọng!";
+        String enc1 = SecurityManager.encrypt(plain);
+        String enc2 = SecurityManager.encrypt(plain);
+
+        // Với CBC + random IV, 2 lần mã hóa cùng dữ liệu phải ra 2 chuỗi khác nhau
+        assertNotEquals(enc1, enc2);
+
+        // Cả 2 đều phải giải mã chính xác về nội dung gốc
+        assertEquals(plain, SecurityManager.decrypt(enc1));
+        assertEquals(plain, SecurityManager.decrypt(enc2));
+
+        // Kiểm tra khả năng giải mã tin nhắn legacy AES/ECB (mã hóa trực tiếp bằng ECB như trước)
+        javax.crypto.Cipher ecbCipher = javax.crypto.Cipher.getInstance("AES/ECB/PKCS5Padding");
+        javax.crypto.spec.SecretKeySpec key = new javax.crypto.spec.SecretKeySpec("LiveChatKey12345".getBytes(java.nio.charset.StandardCharsets.UTF_8), "AES");
+        ecbCipher.init(javax.crypto.Cipher.ENCRYPT_MODE, key);
+        byte[] ecbEncrypted = ecbCipher.doFinal(plain.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String legacyEcbBase64 = java.util.Base64.getEncoder().encodeToString(ecbEncrypted);
+
+        // SecurityManager.decrypt phải tự động fallback và giải mã thành công bản tin ECB cũ
+        String decryptedLegacy = SecurityManager.decrypt(legacyEcbBase64);
+        assertEquals(plain, decryptedLegacy);
+    }
+
+    @Test
+    public void testCustomerHistoryAndNameLookup() {
+        String phone = "0933221100";
+        String name = "Trần Minh Quang";
+        DatabaseManager.CustomerRecord cust = db.registerOrUpdateCustomer(phone, name);
+        assertNotNull(cust);
+
+        // Tra cứu theo tên và phoneOrName
+        DatabaseManager.CustomerRecord byName = db.findCustomerByName("Trần Minh Quang");
+        assertNotNull(byName);
+        assertEquals(cust.customerId, byName.customerId);
+
+        DatabaseManager.CustomerRecord byPhoneOrName = db.findCustomerByPhoneOrName("0933221100");
+        assertNotNull(byPhoneOrName);
+        assertEquals(cust.customerId, byPhoneOrName.customerId);
+
+        // Tạo 2 session và tin nhắn cho khách hàng này
+        String sess1 = UUID.randomUUID().toString();
+        String sess2 = UUID.randomUUID().toString();
+        db.createSession(sess1, cust.customerId, "staff01", "Tư vấn Laptop");
+        db.createSession(sess2, cust.customerId, "staff01", "Bảo hành");
+
+        db.saveMessage(sess1, UUID.randomUUID().toString(), "CUSTOMER", name, "Tin nhắn 1", null, null, null, 0, false, System.currentTimeMillis() - 2000);
+        db.saveMessage(sess1, UUID.randomUUID().toString(), "STAFF", "CSKH", "Tin nhắn 2", null, null, null, 0, false, System.currentTimeMillis() - 1500);
+        db.saveMessage(sess2, UUID.randomUUID().toString(), "CUSTOMER", name, "Tin nhắn 3 ở phiên 2", null, null, null, 0, false, System.currentTimeMillis() - 1000);
+
+        // Lấy toàn bộ tin nhắn xuyên suốt tất cả các phiên của khách hàng
+        List<DatabaseManager.MessageRecord> allMsgs = db.getAllMessagesByCustomer(cust.customerId);
+        assertTrue(allMsgs.size() >= 3, "Phải lấy được tất cả tin nhắn từ cả 2 phiên của khách hàng");
+    }
+
+    @Test
+    @DisplayName("Kiểm tra cập nhật thông tin hồ sơ khách hàng (Email, Hạng VIP, Ghi chú CSKH)")
+    void testUpdateCustomerProfileAndFetch() {
+        String phone = "0944556677";
+        String initialName = "Lê Hoàng Nam";
+        DatabaseManager.CustomerRecord cust = db.registerOrUpdateCustomer(phone, initialName);
+        assertNotNull(cust);
+
+        // Cập nhật thông tin hồ sơ
+        String updatedName = "Lê Hoàng Nam (VIP Pro)";
+        String email = "hoangnam.le@example.com";
+        String tier = "VIP";
+        String notes = "Khách hàng thân thiết doanh nghiệp, ưu tiên kỹ thuật";
+
+        boolean updated = db.updateCustomerProfile(cust.customerId, updatedName, phone, email, tier, notes);
+        assertTrue(updated, "Cập nhật hồ sơ khách hàng phải thành công");
+
+        // Tra cứu lại từ DB
+        DatabaseManager.CustomerRecord fetched = db.getCustomerById(cust.customerId);
+        assertNotNull(fetched);
+        assertEquals(updatedName, fetched.fullName);
+        assertEquals(phone, fetched.phoneOrEmail);
+        assertEquals(email, fetched.email);
+        assertEquals(tier, fetched.tier);
+        assertEquals(notes, fetched.notes);
+
+        // Tra cứu theo số điện thoại
+        DatabaseManager.CustomerRecord fetchedByPhone = db.findCustomerByPhone(phone);
+        assertNotNull(fetchedByPhone);
+        assertEquals(email, fetchedByPhone.email);
+        assertEquals(tier, fetchedByPhone.tier);
+    }
 }
+

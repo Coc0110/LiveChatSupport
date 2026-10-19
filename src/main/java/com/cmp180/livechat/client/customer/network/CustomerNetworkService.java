@@ -23,6 +23,7 @@ public class CustomerNetworkService {
     private String issueTopic = "Tư vấn chung";
     private String currentSessionId = null;
     private final String customerId = UUID.randomUUID().toString();
+    private String assignedCustomerId;
     
     private Socket socket;
     private ObjectOutputStream out;
@@ -68,15 +69,25 @@ public class CustomerNetworkService {
         }, "Customer-CheckPhone-Thread").start();
     }
     
+    private java.util.concurrent.ScheduledExecutorService heartbeatExecutor;
+
     public void connectAndLogin(String customerName) {
-        connectAndLogin(this.serverHost, this.serverPort, this.customerPhone, customerName, this.issueTopic);
+        connectAndLogin(this.serverHost, this.serverPort, this.customerPhone, customerName, this.issueTopic, null);
     }
 
     public void connectAndLogin(String phone, String customerName, String issueTopic) {
-        connectAndLogin(this.serverHost, this.serverPort, phone, customerName, issueTopic);
+        connectAndLogin(this.serverHost, this.serverPort, phone, customerName, issueTopic, null);
+    }
+
+    public void connectAndLogin(String phone, String customerName, String issueTopic, String reopenSessionId) {
+        connectAndLogin(this.serverHost, this.serverPort, phone, customerName, issueTopic, reopenSessionId);
     }
 
     public synchronized void connectAndLogin(String host, int port, String phone, String customerName, String issueTopic) {
+        connectAndLogin(host, port, phone, customerName, issueTopic, null);
+    }
+
+    public synchronized void connectAndLogin(String host, int port, String phone, String customerName, String issueTopic, String reopenSessionId) {
         if (host != null && !host.trim().isEmpty()) this.serverHost = host.trim();
         if (port > 0) this.serverPort = port;
         if (phone != null && !phone.trim().isEmpty()) this.customerPhone = phone.trim();
@@ -92,7 +103,10 @@ public class CustomerNetworkService {
 
                 String payload = this.customerName + "|" + this.issueTopic;
                 String senderPhone = (customerPhone != null && !customerPhone.isEmpty()) ? customerPhone : customerId;
-                sendMessage(new Message(Protocol.CMD_CUST_LOGIN, senderPhone, isReconnecting ? "RECONNECT" : null, payload));
+                String receiverId = (reopenSessionId != null && !reopenSessionId.isEmpty()) 
+                        ? ("REOPEN:" + reopenSessionId) 
+                        : (isReconnecting ? "RECONNECT" : null);
+                sendMessage(new Message(Protocol.CMD_CUST_LOGIN, senderPhone, receiverId, payload));
 
                 for (CustomerNetworkListener l : listeners) {
                     l.onConnectedToQueue();
@@ -120,6 +134,7 @@ public class CustomerNetworkService {
         this.out = oos;
         this.in = ois;
         this.isConnected = true;
+        startHeartbeat();
 
         if (connectionThread == null || !connectionThread.isAlive()) {
             connectionThread = new Thread(this::readLoop, "Customer-Read-Thread");
@@ -135,6 +150,10 @@ public class CustomerNetworkService {
                 String cmd = msg.getCommand();
                 
                 switch (cmd) {
+                    case Protocol.CMD_LOGIN_SUCCESS:
+                        this.assignedCustomerId = msg.getSenderId();
+                        break;
+
                     case Protocol.CMD_PHONE_RESULT:
                         boolean isExisting = "EXISTING".equalsIgnoreCase(msg.getSenderId());
                         String custName = msg.getReceiverId();
@@ -164,7 +183,7 @@ public class CustomerNetworkService {
                     case Protocol.CMD_CHAT:
                         String decryptedContent = com.cmp180.livechat.common.SecurityManager.decrypt(msg.getContent());
                         for (CustomerNetworkListener l : listeners) {
-                            l.onMessageReceived(msg.getSenderId(), decryptedContent, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText());
+                            l.onMessageReceived(msg.getSenderId(), decryptedContent, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId());
                         }
                         break;
 
@@ -174,13 +193,35 @@ public class CustomerNetworkService {
                                 : "";
                         byte[] decData = com.cmp180.livechat.common.SecurityManager.decryptBytes(msg.getFileData());
                         for (CustomerNetworkListener l : listeners) {
-                            l.onFileReceived(msg.getSenderId(), msg.getMessageId(), decCaption, msg.getReplyToSender(), msg.getReplyToText(), msg.getFileName(), msg.getFileSize(), decData, msg.isImage());
+                            l.onFileReceived(msg.getSenderId(), msg.getMessageId(), decCaption, msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), msg.getFileName(), msg.getFileSize(), decData, msg.isImage());
                         }
                         break;
 
                     case Protocol.CMD_RECALL_MSG:
                         for (CustomerNetworkListener l : listeners) {
                             l.onMessageRecalled(msg.getMessageId());
+                        }
+                        break;
+
+                    case Protocol.CMD_CHAT_HISTORY:
+                        String histMeta = msg.getSenderId(); // senderRole|senderName|timestamp|STATUS
+                        String histSenderRole = "STAFF";
+                        String histSenderName = "Hỗ trợ viên";
+                        long histTimestamp = System.currentTimeMillis();
+                        boolean histRecalled = false;
+                        if (histMeta != null && histMeta.contains("|")) {
+                            String[] p = histMeta.split("\\|");
+                            if (p.length > 0) histSenderRole = p[0];
+                            if (p.length > 1) histSenderName = p[1];
+                            if (p.length > 2) {
+                                try { histTimestamp = Long.parseLong(p[2]); } catch (Exception ignored) {}
+                            }
+                            if (p.length > 3) histRecalled = "RECALLED".equalsIgnoreCase(p[3]);
+                        }
+                        String decHistContent = com.cmp180.livechat.common.SecurityManager.decrypt(msg.getContent());
+                        byte[] decHistFileData = com.cmp180.livechat.common.SecurityManager.decryptBytes(msg.getFileData());
+                        for (CustomerNetworkListener l : listeners) {
+                            l.onChatHistoryReceived(histSenderRole, histSenderName, histTimestamp, decHistContent, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), histRecalled, msg.getFileName(), msg.getFileSize(), decHistFileData, msg.isImage());
                         }
                         break;
                         
@@ -191,6 +232,50 @@ public class CustomerNetworkService {
                         for (CustomerNetworkListener l : listeners) l.onSessionEnded(msg.getContent());
                         break;
                         
+                    case Protocol.CMD_TYPING:
+                        boolean isTyping = Protocol.TYPING_START.equalsIgnoreCase(msg.getContent());
+                        for (CustomerNetworkListener l : listeners) {
+                            l.onTypingStatusChanged(msg.getSenderId(), isTyping);
+                        }
+                        break;
+
+                    case Protocol.CMD_VOICE_MSG:
+                        byte[] decVoiceData = com.cmp180.livechat.common.SecurityManager.decryptBytes(msg.getFileData());
+                        for (CustomerNetworkListener l : listeners) {
+                            l.onVoiceMessageReceived(msg.getSenderId(), msg.getMessageId(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), decVoiceData);
+                        }
+                        break;
+
+                    case Protocol.CMD_CALL_REQ:
+                        for (CustomerNetworkListener l : listeners) {
+                            l.onIncomingCall(msg.getSenderId(), msg.getReceiverId());
+                        }
+                        break;
+
+                    case Protocol.CMD_CALL_ACCEPT:
+                        for (CustomerNetworkListener l : listeners) {
+                            l.onCallAccepted(msg.getSenderId());
+                        }
+                        break;
+
+                    case Protocol.CMD_CALL_REJECT:
+                        for (CustomerNetworkListener l : listeners) {
+                            l.onCallRejected(msg.getContent());
+                        }
+                        break;
+
+                    case Protocol.CMD_CALL_END:
+                        for (CustomerNetworkListener l : listeners) {
+                            l.onCallEnded();
+                        }
+                        break;
+
+                    case Protocol.CMD_CALL_DATA:
+                        for (CustomerNetworkListener l : listeners) {
+                            l.onCallDataReceived(msg.getFileData());
+                        }
+                        break;
+
                     case Protocol.CMD_ERROR:
                         for (CustomerNetworkListener l : listeners) l.onError(msg.getContent());
                         break;
@@ -265,16 +350,29 @@ public class CustomerNetworkService {
     }
 
     public void sendChatMessage(String text, String staffId, String messageId, String replyToSender, String replyToText) {
+        sendChatMessage(text, staffId, messageId, replyToSender, replyToText, null);
+    }
+
+    public void sendChatMessage(String text, String staffId, String messageId, String replyToSender, String replyToText, String replyToId) {
         if (!isConnected) return;
         String encryptedContent = com.cmp180.livechat.common.SecurityManager.encrypt(text);
-        sendMessage(new Message(Protocol.CMD_CHAT, "Customer", staffId, encryptedContent, messageId, replyToSender, replyToText));
+        sendMessage(new Message(Protocol.CMD_CHAT, "Customer", staffId, encryptedContent, messageId, replyToSender, replyToText, replyToId, null, 0, null, false));
     }
 
     public void sendFileMessage(String fileName, long fileSize, byte[] fileData, boolean isImage, String caption, String staffId, String messageId, String replyToSender, String replyToText) {
+        sendFileMessage(fileName, fileSize, fileData, isImage, caption, staffId, messageId, replyToSender, replyToText, null);
+    }
+
+    public void sendFileMessage(String fileName, long fileSize, byte[] fileData, boolean isImage, String caption, String staffId, String messageId, String replyToSender, String replyToText, String replyToId) {
         if (!isConnected) return;
         String encCaption = (caption != null && !caption.isEmpty()) ? com.cmp180.livechat.common.SecurityManager.encrypt(caption) : "";
         byte[] encData = com.cmp180.livechat.common.SecurityManager.encryptBytes(fileData);
-        sendMessage(new Message(Protocol.CMD_FILE, "Customer", staffId, encCaption, messageId, replyToSender, replyToText, fileName, fileSize, encData, isImage));
+        sendMessage(new Message(Protocol.CMD_FILE, "Customer", staffId, encCaption, messageId, replyToSender, replyToText, replyToId, fileName, fileSize, encData, isImage));
+    }
+
+    public void sendTypingStatus(String staffId, boolean isTyping) {
+        if (!isConnected || staffId == null) return;
+        sendMessage(new Message(Protocol.CMD_TYPING, "Customer", staffId, isTyping ? Protocol.TYPING_START : Protocol.TYPING_STOP));
     }
 
     public void recallMessage(String messageId, String staffId) {
@@ -300,6 +398,7 @@ public class CustomerNetworkService {
     }
 
     private synchronized void closeSocketSilently() {
+        stopHeartbeat();
         try { if (in != null) in.close(); } catch (Exception ignored) {}
         try { if (out != null) out.close(); } catch (Exception ignored) {}
         try { if (socket != null && !socket.isClosed()) socket.close(); } catch (Exception ignored) {}
@@ -311,22 +410,36 @@ public class CustomerNetworkService {
     public synchronized void disconnect() {
         isRunning = false;
         isConnected = false;
+        stopHeartbeat();
         closeSocketSilently();
         if (connectionThread != null) {
             connectionThread.interrupt();
         }
     }
 
+    private synchronized void startHeartbeat() {
+        stopHeartbeat();
+        heartbeatExecutor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "Customer-Heartbeat-Thread");
+            t.setDaemon(true);
+            return t;
+        });
+        heartbeatExecutor.scheduleAtFixedRate(() -> {
+            if (isConnected && socket != null && !socket.isClosed()) {
+                sendMessage(new Message(Protocol.CMD_HEARTBEAT, customerId, "Server", ""));
+            }
+        }, 15, 15, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
+    private synchronized void stopHeartbeat() {
+        if (heartbeatExecutor != null && !heartbeatExecutor.isShutdown()) {
+            heartbeatExecutor.shutdownNow();
+            heartbeatExecutor = null;
+        }
+    }
+
     public boolean isConnected() {
         return isConnected;
-    }
-
-    public String getCustomerId() {
-        return customerId;
-    }
-
-    public String getCustomerPhone() {
-        return customerPhone;
     }
 
     public void setCustomerPhone(String phone) {
@@ -342,4 +455,56 @@ public class CustomerNetworkService {
         String payload = stars + "|" + (feedback != null ? feedback : "");
         sendMessage(new Message(Protocol.CMD_RATING, customerPhone, currentSessionId, payload));
     }
+
+    public void sendVoiceMessage(String targetId, String durationText, byte[] wavData) {
+        sendVoiceMessage("voice_" + System.currentTimeMillis() + ".wav", wavData != null ? wavData.length : 0, wavData, 0, targetId, UUID.randomUUID().toString(), null, null);
+    }
+
+    public void sendVoiceMessage(String fileName, long fileSize, byte[] wavData, int durationSec, String targetId, String messageId, String replyToSender, String replyToText) {
+        sendVoiceMessage(fileName, fileSize, wavData, durationSec, targetId, messageId, replyToSender, replyToText, null);
+    }
+
+    public void sendVoiceMessage(String fileName, long fileSize, byte[] wavData, int durationSec, String targetId, String messageId, String replyToSender, String replyToText, String replyToId) {
+        if (!isConnected || wavData == null) return;
+        byte[] encData = com.cmp180.livechat.common.SecurityManager.encryptBytes(wavData);
+        String durText = durationSec > 0 ? (durationSec + "s") : "";
+        sendMessage(new Message(Protocol.CMD_VOICE_MSG, this.customerPhone, targetId, durText, messageId != null ? messageId : UUID.randomUUID().toString(), replyToSender, replyToText, replyToId, fileName, fileSize, encData, false));
+    }
+
+    public void sendCallRequest(String targetId) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_CALL_REQ, this.customerPhone, targetId, "Khách hàng"));
+    }
+
+    public void sendCallAccept(String targetId) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_CALL_ACCEPT, this.customerPhone, targetId, "Đồng ý"));
+    }
+
+    public void sendCallReject(String targetId, String reason) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_CALL_REJECT, this.customerPhone, targetId, reason != null ? reason : "Bận"));
+    }
+
+    public void sendCallEnd(String targetId) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_CALL_END, this.customerPhone, targetId, "Gác máy"));
+    }
+
+    public void sendCallData(String targetId, byte[] pcmChunk) {
+        if (!isConnected || pcmChunk == null) return;
+        sendMessage(new Message(Protocol.CMD_CALL_DATA, this.customerPhone, targetId, null, null, null, null, null, 0, pcmChunk, false));
+    }
+
+    public String getServerHost() { return serverHost; }
+    public int getServerPort() { return serverPort; }
+    public String getCustomerPhone() { return customerPhone; }
+    public String getCustomerName() { return customerName; }
+    public void setCustomerName(String name) { if (name != null) this.customerName = name.trim(); }
+    public String getCustomerId() {
+        return (assignedCustomerId != null && !assignedCustomerId.isEmpty())
+                ? assignedCustomerId
+                : ((customerPhone != null && !customerPhone.isEmpty()) ? customerPhone : customerId);
+    }
 }
+

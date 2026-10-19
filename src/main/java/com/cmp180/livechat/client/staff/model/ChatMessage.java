@@ -17,6 +17,7 @@ public class ChatMessage {
     private String status; // "Đã gửi", "Đã đọc", etc.
     private String replyToSender;
     private String replyToText;
+    private String replyToId;
     private boolean recalled;
     private String fileName;
     private long fileSize;
@@ -32,10 +33,18 @@ public class ChatMessage {
     }
 
     public ChatMessage(String id, String text, Type type, String senderName, long timestamp, String replyToSender, String replyToText) {
-        this(id, text, type, senderName, timestamp, replyToSender, replyToText, null, 0, null, false);
+        this(id, text, type, senderName, timestamp, replyToSender, replyToText, null, null, 0, null, false);
+    }
+
+    public ChatMessage(String id, String text, Type type, String senderName, long timestamp, String replyToSender, String replyToText, String replyToId) {
+        this(id, text, type, senderName, timestamp, replyToSender, replyToText, replyToId, null, 0, null, false);
     }
 
     public ChatMessage(String id, String text, Type type, String senderName, long timestamp, String replyToSender, String replyToText, String fileName, long fileSize, byte[] fileData, boolean isImage) {
+        this(id, text, type, senderName, timestamp, replyToSender, replyToText, null, fileName, fileSize, fileData, isImage);
+    }
+
+    public ChatMessage(String id, String text, Type type, String senderName, long timestamp, String replyToSender, String replyToText, String replyToId, String fileName, long fileSize, byte[] fileData, boolean isImage) {
         this.id = (id != null && !id.isEmpty()) ? id : UUID.randomUUID().toString();
         this.text = text;
         this.type = type;
@@ -44,6 +53,7 @@ public class ChatMessage {
         this.status = (type == Type.MY_MSG) ? "Đã gửi" : "";
         this.replyToSender = replyToSender;
         this.replyToText = replyToText;
+        this.replyToId = replyToId;
         this.recalled = false;
         this.fileName = fileName;
         this.fileSize = fileSize;
@@ -61,6 +71,9 @@ public class ChatMessage {
     public void setStatus(String status) { this.status = status; }
     public String getReplyToSender() { return replyToSender; }
     public String getReplyToText() { return replyToText; }
+    public void setReplyToText(String replyToText) { this.replyToText = replyToText; }
+    public String getReplyToId() { return replyToId; }
+    public void setReplyToId(String replyToId) { this.replyToId = replyToId; }
     public boolean isRecalled() { return recalled; }
     public void setRecalled(boolean recalled) { this.recalled = recalled; }
     public String getFileName() { return fileName; }
@@ -68,6 +81,7 @@ public class ChatMessage {
     public byte[] getFileData() { return fileData; }
     public boolean isImage() { return isImage; }
     public boolean isFile() { return fileName != null && !fileName.isEmpty(); }
+    public boolean isVoice() { return fileName != null && fileName.startsWith("voice_") && fileName.endsWith(".wav"); }
 
     public String getFormattedFileSize() {
         if (fileSize <= 0) return "";

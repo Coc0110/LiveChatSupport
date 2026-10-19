@@ -409,3 +409,238 @@
 .dark-mode .emoji-btn:hover SVGPath {
     -fx-fill: -fx-brand-color;
 }
+
+/* ===================================================
+   Header & Toolbar Action Buttons (Icon Buttons)
+   =================================================== */
+.btn-icon-action {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+    -fx-padding: 0;
+    -fx-alignment: center;
+}
+.btn-icon-action:disabled {
+    -fx-opacity: 0.35;
+    -fx-cursor: default;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+/* 1. Nút X (Kết thúc phiên) */
+.btn-action-close:hover {
+    -fx-background-color: rgba(239, 68, 68, 0.15);
+    -fx-border-color: transparent;
+}
+.dark-mode .btn-action-close:hover {
+    -fx-background-color: rgba(239, 68, 68, 0.25);
+    -fx-border-color: transparent;
+}
+
+/* 2. Nút Call (Gọi thoại) */
+.btn-action-call:hover {
+    -fx-background-color: rgba(16, 185, 129, 0.15);
+    -fx-border-color: transparent;
+}
+.dark-mode .btn-action-call:hover {
+    -fx-background-color: rgba(16, 185, 129, 0.25);
+    -fx-border-color: transparent;
+}
+
+/* 3. Nút Chuyển tiếp */
+.btn-action-transfer:hover {
+    -fx-background-color: rgba(59, 130, 246, 0.15);
+    -fx-border-color: transparent;
+}
+.dark-mode .btn-action-transfer:hover {
+    -fx-background-color: rgba(59, 130, 246, 0.25);
+    -fx-border-color: transparent;
+}
+
+/* 4. Nút Hồ sơ khách */
+.btn-action-profile:hover {
+    -fx-background-color: rgba(5, 150, 105, 0.15);
+    -fx-border-color: transparent;
+}
+.dark-mode .btn-action-profile:hover {
+    -fx-background-color: rgba(5, 150, 105, 0.25);
+    -fx-border-color: transparent;
+}
+
+/* 5. Nút Tin nhắn nhanh */
+.btn-action-quick:hover {
+    -fx-background-color: rgba(245, 158, 11, 0.15);
+    -fx-border-color: transparent;
+}
+.dark-mode .btn-action-quick:hover {
+    -fx-background-color: rgba(245, 158, 11, 0.25);
+    -fx-border-color: transparent;
+}
+
+/* Toolbar generic icons hover (image, file, mic) */
+.btn-toolbar-icon {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-border-width: 0;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+    -fx-padding: 0;
+    -fx-alignment: center;
+}
+.btn-toolbar-icon:disabled {
+    -fx-opacity: 0.35;
+    -fx-cursor: default;
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+.btn-toolbar-icon:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.08);
+    -fx-border-color: transparent;
+}
+.dark-mode .btn-toolbar-icon:hover {
+    -fx-background-color: rgba(255, 255, 255, 0.14);
+    -fx-border-color: transparent;
+}
+
+/* ===================================================
+   Alert / DialogPane Styling (Light & Dark Mode)
+   =================================================== */
+
+.dialog-pane {
+    -fx-background-color: #ffffff;
+    -fx-font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+}
+.dialog-pane > .header-panel {
+    -fx-background-color: #f8fafc;
+    -fx-border-color: #e2e8f0;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 14 16;
+}
+.dialog-pane > .header-panel > .label,
+.dialog-pane > .header-panel .label {
+    -fx-font-size: 14.5px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f172a;
+}
+.dialog-pane > .content.label,
+.dialog-pane > .content > .label,
+.dialog-pane > .content,
+.dialog-pane .label {
+    -fx-font-size: 13px;
+    -fx-text-fill: #334155;
+}
+.dialog-pane .button-bar {
+    -fx-padding: 12 16;
+    -fx-background-color: #ffffff;
+}
+.dialog-pane .button {
+    -fx-background-color: #f1f5f9;
+    -fx-text-fill: #1e293b;
+    -fx-border-color: #cbd5e1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6 18;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+}
+.dialog-pane .button:hover {
+    -fx-background-color: #e2e8f0;
+}
+.dialog-pane .button:default {
+    -fx-background-color: -fx-brand-color;
+    -fx-text-fill: #ffffff;
+    -fx-border-color: transparent;
+}
+
+/* Dark Mode Dialog / Alert */
+.dark-mode.dialog-pane,
+.dark-mode .dialog-pane,
+.dialog-pane.dark-dialog {
+    -fx-background-color: #242526;
+}
+.dark-mode.dialog-pane > .header-panel,
+.dark-mode .dialog-pane > .header-panel,
+.dialog-pane.dark-dialog > .header-panel {
+    -fx-background-color: #1e1e1e;
+    -fx-border-color: #393a3b;
+    -fx-border-width: 0 0 1 0;
+    -fx-padding: 14 16;
+}
+.dark-mode.dialog-pane > .header-panel > .label,
+.dark-mode.dialog-pane > .header-panel .label,
+.dark-mode .dialog-pane > .header-panel > .label,
+.dark-mode .dialog-pane > .header-panel .label,
+.dialog-pane.dark-dialog > .header-panel > .label {
+    -fx-font-size: 14.5px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ffffff;
+}
+.dark-mode.dialog-pane > .content.label,
+.dark-mode.dialog-pane > .content > .label,
+.dark-mode.dialog-pane > .content,
+.dark-mode.dialog-pane .label,
+.dark-mode .dialog-pane > .content.label,
+.dark-mode .dialog-pane > .content > .label,
+.dark-mode .dialog-pane > .content,
+.dark-mode .dialog-pane .label,
+.dialog-pane.dark-dialog .label {
+    -fx-font-size: 13px;
+    -fx-text-fill: #e4e6eb;
+}
+.dark-mode.dialog-pane .button-bar,
+.dark-mode .dialog-pane .button-bar,
+.dialog-pane.dark-dialog .button-bar {
+    -fx-padding: 12 16;
+    -fx-background-color: #242526;
+}
+.dark-mode.dialog-pane .button,
+.dark-mode .dialog-pane .button,
+.dialog-pane.dark-dialog .button {
+    -fx-background-color: #3a3b3c;
+    -fx-text-fill: #ffffff;
+    -fx-border-color: #4e4f50;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6 18;
+    -fx-cursor: hand;
+    -fx-font-weight: bold;
+}
+.dark-mode.dialog-pane .button:hover,
+.dark-mode .dialog-pane .button:hover,
+.dialog-pane.dark-dialog .button:hover {
+    -fx-background-color: #4e4f50;
+}
+.dark-mode.dialog-pane .button:default,
+.dark-mode .dialog-pane .button:default,
+.dialog-pane.dark-dialog .button:default {
+    -fx-background-color: -fx-brand-color;
+    -fx-text-fill: #ffffff;
+    -fx-border-color: transparent;
+}
+
+/* ===================================================
+   Clean Borderless TextArea (No Inner Viewport Border)
+   =================================================== */
+
+.text-area.clean-text-area {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+.text-area.clean-text-area .scroll-pane {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+.text-area.clean-text-area .scroll-pane .viewport {
+    -fx-background-color: transparent;
+}
+.text-area.clean-text-area .scroll-pane .content {
+    -fx-background-color: transparent;
+}
+
+

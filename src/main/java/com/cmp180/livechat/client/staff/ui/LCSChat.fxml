@@ -5,6 +5,7 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Priority?>
@@ -92,9 +93,35 @@
                         </Label>
                      </HBox>
                   </VBox>
-                  <HBox alignment="CENTER_RIGHT" spacing="10">
-                     <Button fx:id="btnTransferSession" disable="true" mnemonicParsing="false" onAction="#handleTransferSession" text="Chuyển phiên" style="-fx-background-color: transparent; -fx-border-color: #3b82f6; -fx-text-fill: #3b82f6; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 6 14;" />
-                     <Button fx:id="btnEndSession" disable="true" mnemonicParsing="false" onAction="#handleEndSession" text="Kết thúc" style="-fx-background-color: transparent; -fx-border-color: #ef4444; -fx-text-fill: #ef4444; -fx-border-radius: 6; -fx-background-radius: 6; -fx-cursor: hand; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 6 14;" />
+                  <HBox alignment="CENTER_RIGHT" spacing="8">
+                     <!-- 4. Nút Hồ sơ -->
+                     <Button fx:id="btnCustomerProfile" disable="true" mnemonicParsing="false" onAction="#handleViewCustomerProfile" prefHeight="38.0" prefWidth="38.0" styleClass="btn-icon-action, btn-action-profile">
+                        <tooltip><Tooltip text="Hồ sơ khách hàng" /></tooltip>
+                        <graphic>
+                           <SVGPath content="M21 19.9999C21 18.2583 19.3304 16.7767 17 16.2275M15 20C15 17.7909 12.3137 16 9 16C5.68629 16 3 17.7909 3 20M15 13C17.2091 13 19 11.2091 19 9C19 6.79086 17.2091 5 15 5M9 13C6.79086 13 5 11.2091 5 9C5 6.79086 6.79086 5 9 5C11.2091 5 13 6.79086 13 9C13 11.2091 11.2091 13 9 13Z" fill="transparent" stroke="#059669" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                        </graphic>
+                     </Button>
+                     <!-- 3. Nút Chuyển tiếp -->
+                     <Button fx:id="btnTransferSession" disable="true" mnemonicParsing="false" onAction="#handleTransferSession" prefHeight="38.0" prefWidth="38.0" styleClass="btn-icon-action, btn-action-transfer">
+                        <tooltip><Tooltip text="Chuyển phiên hỗ trợ" /></tooltip>
+                        <graphic>
+                           <SVGPath content="M16 19L19 16L16 13M19 16H5M8 5L5 8L8 11M5 8H19" fill="transparent" stroke="#3b82f6" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                        </graphic>
+                     </Button>
+                     <!-- 2. Nút Gọi thoại (Call) -->
+                     <Button fx:id="btnVoiceCall" disable="true" mnemonicParsing="false" onAction="#handleVoiceCall" prefHeight="38.0" prefWidth="38.0" styleClass="btn-icon-action, btn-action-call">
+                        <tooltip><Tooltip text="Gọi thoại trực tiếp" /></tooltip>
+                        <graphic>
+                           <SVGPath content="M7.64551 3C8.46332 3 9.19873 3.4979 9.50246 4.25722L10.5577 6.89309C10.8305 7.57516 10.7066 8.35195 10.2363 8.9163L9.66895 9.59668C9.00673 10.3913 9.06079 11.5596 9.79222 12.2911L11.7082 14.2088C12.4396 14.9402 13.6089 14.9929 14.4035 14.3307L15.0839 13.7632C15.6483 13.2929 16.4249 13.1701 17.1069 13.4429L19.7434 14.4971C20.5027 14.8009 21.0005 15.5361 21.0005 16.354L21 19.1052C21 20.1516 20.1519 21 19.1055 21C10.2108 21 3 13.7892 3 4.89453C3 3.8481 3.8483 3 4.89474 3H7.64551Z" fill="transparent" stroke="#10b981" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                        </graphic>
+                     </Button>
+                     <!-- 1. Nút X (Kết thúc phiên) -->
+                     <Button fx:id="btnEndSession" disable="true" mnemonicParsing="false" onAction="#handleEndSession" prefHeight="38.0" prefWidth="38.0" styleClass="btn-icon-action, btn-action-close">
+                        <tooltip><Tooltip text="Kết thúc phiên chat" /></tooltip>
+                        <graphic>
+                           <SVGPath content="M21 21L12 12M12 12L3 3M12 12L21.0001 3M12 12L3 21.0001" fill="transparent" stroke="#ef4444" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                        </graphic>
+                     </Button>
                   </HBox>
                </children>
             </HBox>
@@ -121,23 +148,58 @@
                         <Button fx:id="btnCancelReply" mnemonicParsing="false" onAction="#handleCancelReply" styleClass="reply-btn-cancel" text="✕" />
                      </children>
                   </HBox>
-                  <!-- Thanh cÃ´ng cá»¥ (Ä‘Ã­nh kÃ¨m) -->
-                  <HBox alignment="CENTER_LEFT" spacing="15" style="-fx-padding: 10 20 0 20;">
+                  <!-- Thanh công cụ (đính kèm) -->
+                  <HBox alignment="CENTER_LEFT" spacing="10" style="-fx-padding: 10 20 0 20;">
                      <!-- Attach Image Button -->
-                     <Button fx:id="btnAttachImage" disable="true" onAction="#handleAttachImage" mnemonicParsing="false" style="-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 0;">
+                     <Button fx:id="btnAttachImage" disable="true" onAction="#handleAttachImage" mnemonicParsing="false" prefHeight="36.0" prefWidth="36.0" styleClass="btn-toolbar-icon">
+                        <tooltip><Tooltip text="Gửi hình ảnh" /></tooltip>
                         <graphic>
                            <SVGPath content="M3.00005 17.0001C3 16.9355 3 16.8689 3 16.8002V7.2002C3 6.08009 3 5.51962 3.21799 5.0918C3.40973 4.71547 3.71547 4.40973 4.0918 4.21799C4.51962 4 5.08009 4 6.2002 4H17.8002C18.9203 4 19.4801 4 19.9079 4.21799C20.2842 4.40973 20.5905 4.71547 20.7822 5.0918C21 5.5192 21 6.07899 21 7.19691V16.8031C21 17.2881 21 17.6679 20.9822 17.9774M3.00005 17.0001C3.00082 17.9884 3.01337 18.5058 3.21799 18.9074C3.40973 19.2837 3.71547 19.5905 4.0918 19.7822C4.5192 20 5.07899 20 6.19691 20H17.8036C18.9215 20 19.4805 20 19.9079 19.7822C20.2842 19.5905 20.5905 19.2837 20.7822 18.9074C20.9055 18.6654 20.959 18.3813 20.9822 17.9774M3.00005 17.0001L7.76798 11.4375L7.76939 11.436C8.19227 10.9426 8.40406 10.6955 8.65527 10.6064C8.87594 10.5282 9.11686 10.53 9.33643 10.6113C9.58664 10.704 9.79506 10.9539 10.2119 11.4541L12.8831 14.6595C13.269 15.1226 13.463 15.3554 13.6986 15.4489C13.9065 15.5313 14.1357 15.5406 14.3501 15.4773C14.5942 15.4053 14.8091 15.1904 15.2388 14.7607L15.7358 14.2637C16.1733 13.8262 16.3921 13.6076 16.6397 13.5361C16.8571 13.4734 17.0896 13.4869 17.2988 13.5732C17.537 13.6716 17.7302 13.9124 18.1167 14.3955L20.9822 17.9774M20.9822 17.9774L21 17.9996M15 10C14.4477 10 14 9.55228 14 9C14 8.44772 14.4477 8 15 8C15.5523 8 16 8.44772 16 9C16 9.55228 15.5523 10 15 10Z" fill="transparent" stroke="#72808e" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
                         </graphic>
                      </Button>
                      <!-- Attach File Button -->
-                     <Button fx:id="btnAttachFile" disable="true" onAction="#handleAttachFile" mnemonicParsing="false" style="-fx-background-color: transparent; -fx-cursor: hand; -fx-padding: 0;">
+                     <Button fx:id="btnAttachFile" disable="true" onAction="#handleAttachFile" mnemonicParsing="false" prefHeight="36.0" prefWidth="36.0" styleClass="btn-toolbar-icon">
+                        <tooltip><Tooltip text="Gửi tập tin" /></tooltip>
                         <graphic>
                            <SVGPath content="M4.53564 11.4647L11.4299 4.5704C13.4802 2.52015 16.8044 2.52015 18.8546 4.5704C20.9049 6.62066 20.9046 9.94496 18.8544 11.9952L10.8994 19.9502C9.53258 21.317 7.31688 21.3168 5.95004 19.95C4.58321 18.5831 4.58287 16.3673 5.94971 15.0005L13.9047 7.0455C14.5881 6.36208 15.6967 6.36208 16.3801 7.0455C17.0635 7.72892 17.0631 8.83669 16.3796 9.52011L9.48535 16.4144" fill="transparent" stroke="#72808e" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
                         </graphic>
                      </Button>
+                     <!-- Record Voice Message Button -->
+                     <Button fx:id="btnRecordVoice" disable="true" onAction="#handleRecordVoice" mnemonicParsing="false" prefHeight="36.0" prefWidth="36.0" styleClass="btn-toolbar-icon">
+                        <tooltip><Tooltip text="Ghi âm tin nhắn thoại" /></tooltip>
+                        <graphic>
+                           <SVGPath content="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="transparent" stroke="#72808e" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                        </graphic>
+                     </Button>
+                     <!-- 5. Quick Canned Replies Button (Tin nhắn nhanh với tia sét) -->
+                     <Button fx:id="btnQuickReplies" disable="true" onAction="#handleQuickReplies" mnemonicParsing="false" prefHeight="36.0" prefWidth="36.0" styleClass="btn-icon-action, btn-action-quick">
+                        <tooltip><Tooltip text="Tin nhắn mẫu nhanh" /></tooltip>
+                        <graphic>
+                           <SVGPath content="M12.5 7L9.5 11H13.5L11.5 15M7.12357 18.7012L5.59961 19.9203C4.76744 20.5861 4.35115 20.9191 4.00098 20.9195C3.69644 20.9198 3.40845 20.7813 3.21846 20.5433C3 20.2696 3 19.7369 3 18.6712V7.2002C3 6.08009 3 5.51962 3.21799 5.0918C3.40973 4.71547 3.71547 4.40973 4.0918 4.21799C4.51962 4 5.08009 4 6.2002 4H17.8002C18.9203 4 19.4796 4 19.9074 4.21799C20.2837 4.40973 20.5905 4.71547 20.7822 5.0918C21 5.5192 21 6.07899 21 7.19691V14.8036C21 15.9215 21 16.4805 20.7822 16.9079C20.5905 17.2842 20.2843 17.5905 19.908 17.7822C19.4806 18 18.921 18 17.8031 18H9.12207C8.70603 18 8.49877 18 8.2998 18.0408C8.12328 18.0771 7.95216 18.1368 7.79168 18.2188C7.61281 18.3101 7.45249 18.4384 7.13478 18.6926L7.12357 18.7012Z" fill="transparent" stroke="#f59e0b" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                        </graphic>
+                     </Button>
                   </HBox>
-                  <!-- VÃ¹ng Text vÃ  NÃºt Gá»­i -->
-                  <HBox alignment="CENTER" prefHeight="70.0" prefWidth="655.0" style="-fx-padding: 10 20 20 20; -fx-spacing: 15;">
+                                     <!-- Thanh ghi âm trực tiếp (Live Recording HUD) -->
+                   <HBox fx:id="recordingBar" alignment="CENTER_LEFT" managed="false" prefHeight="70.0" prefWidth="655.0" spacing="12" style="-fx-padding: 10 20 20 20;" visible="false">
+                      <children>
+                         <HBox alignment="CENTER_LEFT" spacing="10" style="-fx-background-color: #fef2f2; -fx-background-radius: 25; -fx-border-color: #fca5a5; -fx-border-radius: 25; -fx-border-width: 1.5; -fx-padding: 0 16;" HBox.hgrow="ALWAYS">
+                            <children>
+                               <javafx.scene.shape.Circle fx:id="recordingDot" fill="#ef4444" radius="5" />
+                               <Label fx:id="lblRecordingTimer" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #b91c1c;" text="00:00" />
+                               <Label text="Đang thu âm..." style="-fx-font-size: 13px; -fx-font-style: italic; -fx-text-fill: #dc2626;" />
+                               <HBox fx:id="liveWaveContainer" alignment="CENTER" prefHeight="35.0" spacing="3" HBox.hgrow="ALWAYS" />
+                               <Button fx:id="btnCancelRecord" mnemonicParsing="false" onAction="#handleCancelRecord" style="-fx-background-color: #fee2e2; -fx-text-fill: #991b1b; -fx-background-radius: 15; -fx-cursor: hand; -fx-font-weight: bold; -fx-padding: 5 12;" text="Huỷ" />
+                            </children>
+                         </HBox>
+                         <Button fx:id="btnFinishRecord" mnemonicParsing="false" onAction="#handleFinishRecord" prefHeight="45.0" prefWidth="45.0" style="-fx-background-color: #ef4444; -fx-background-radius: 23; -fx-cursor: hand; -fx-padding: 0;" styleClass="btn-send">
+                            <graphic>
+                               <SVGPath content="M10.3078 13.6923L15.1539 8.84619M20.1113 5.88867L16.0207 19.1833C15.6541 20.3747 15.4706 20.9707 15.1544 21.1683C14.8802 21.3396 14.5406 21.3683 14.2419 21.2443C13.8975 21.1014 13.618 20.5433 13.0603 19.428L10.4694 14.2461C10.3809 14.0691 10.3366 13.981 10.2775 13.9043C10.225 13.8363 10.1645 13.7749 10.0965 13.7225C10.0215 13.6647 9.93486 13.6214 9.76577 13.5369L4.57192 10.9399C3.45662 10.3823 2.89892 10.1032 2.75601 9.75879C2.63207 9.4601 2.66033 9.12023 2.83169 8.84597C3.02928 8.52974 3.62523 8.34603 4.81704 7.97932L18.1116 3.88867C19.0486 3.60038 19.5173 3.45635 19.8337 3.57253C20.1094 3.67373 20.3267 3.89084 20.4279 4.16651C20.544 4.48283 20.3999 4.95126 20.1119 5.88729L20.1113 5.88867Z" fill="transparent" stroke="white" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                            </graphic>
+                         </Button>
+                      </children>
+                   </HBox>
+                   <!-- Vùng Text và Nút Gửi -->
+                   <HBox fx:id="inputBar" alignment="CENTER" prefHeight="70.0" prefWidth="655.0" style="-fx-padding: 10 20 20 20; -fx-spacing: 15;">
                      <children>
                         <StackPane HBox.hgrow="ALWAYS">
                            <children>

@@ -160,7 +160,7 @@ public class SettingsDialog {
 
         HBox outRow = new HBox();
         outRow.setAlignment(Pos.CENTER_RIGHT);
-        Label outBubble = new Label("Màu sắc trông rất hiện đại & bắt mắt! ✨");
+        Label outBubble = new Label("Màu sắc trông rất hiện đại & bắt mắt!");
         outBubble.setPadding(new Insets(6, 12, 6, 12));
         outBubble.setStyle("-fx-text-fill: white; -fx-background-radius: 12 12 0 12; -fx-font-size: 13px;");
         outRow.getChildren().add(outBubble);
@@ -222,7 +222,7 @@ public class SettingsDialog {
             String h = txtHost.getText().trim();
             String pStr = txtPort.getText().trim();
             if (h.isEmpty()) {
-                lblNetStatus.setText("⚠ Địa chỉ IP không được để trống!");
+                lblNetStatus.setText("Địa chỉ IP không được để trống!");
                 lblNetStatus.setStyle("-fx-text-fill: #E53935; -fx-font-weight: bold;");
                 return;
             }
@@ -241,10 +241,10 @@ public class SettingsDialog {
                         StaffContext.getInstance().getNetworkService().setServerAddress(h, p);
                     }
                 } catch (Exception ignored) {}
-                lblNetStatus.setText("✓ Đã lưu cấu hình kết nối (" + h + ":" + p + ") thành công!");
+                lblNetStatus.setText("Đã lưu cấu hình kết nối (" + h + ":" + p + ") thành công!");
                 lblNetStatus.setStyle("-fx-text-fill: #2E7D32; -fx-font-weight: bold;");
             } catch (NumberFormatException ex) {
-                lblNetStatus.setText("⚠ Cổng (Port) phải là số từ 1 đến 65535!");
+                lblNetStatus.setText("Cổng (Port) phải là số từ 1 đến 65535!");
                 lblNetStatus.setStyle("-fx-text-fill: #E53935; -fx-font-weight: bold;");
             }
         });
@@ -266,7 +266,7 @@ public class SettingsDialog {
             } catch (Exception ignored) {}
             txtHost.setText(ServerConfig.DEFAULT_HOST);
             txtPort.setText(String.valueOf(ServerConfig.DEFAULT_PORT));
-            lblNetStatus.setText("✓ Đã khôi phục về mặc định 127.0.0.1 : 5000");
+            lblNetStatus.setText("Đã khôi phục về mặc định 127.0.0.1 : 5000");
             lblNetStatus.setStyle("-fx-text-fill: #2E7D32;");
         });
 
@@ -277,7 +277,7 @@ public class SettingsDialog {
         VBox tipBox = new VBox(4);
         tipBox.setPadding(new Insets(10, 14, 10, 14));
         tipBox.setStyle("-fx-background-radius: 8;");
-        Label lblTipTitle = new Label("💡 Gợi ý kết nối:");
+        Label lblTipTitle = new Label("Gợi ý kết nối:");
         lblTipTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
         Label lblTipContent = new Label("• Mạng nội bộ (LAN): Nhập địa chỉ IPv4 máy chủ của bạn (ví dụ: 192.168.1.5).\n• Máy chủ Cloud: Nhập địa chỉ tên miền và Port tương ứng được cấp (ví dụ từ Playit.gg hoặc VPS).");
         lblTipContent.setFont(Font.font("Segoe UI", 12));
@@ -539,7 +539,7 @@ public class SettingsDialog {
             ? "-fx-background-color: #000000; -fx-background-radius: 6; -fx-border-color: #3a3b3c; -fx-border-radius: 6; -fx-border-width: 1.5;"
             : "-fx-background-color: #ffffff; -fx-background-radius: 6; -fx-border-color: #c4c9d0; -fx-border-radius: 6; -fx-border-width: 1.5;");
 
-        Label lbl = new Label(isDarkCard ? "🌙 " + labelText : "☀️ " + labelText);
+        Label lbl = new Label(labelText);
         lbl.setFont(Font.font("Segoe UI", FontWeight.NORMAL, 13));
 
         card.getChildren().addAll(mockWindow, lbl);
