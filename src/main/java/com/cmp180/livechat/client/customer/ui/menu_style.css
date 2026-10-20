@@ -524,6 +524,16 @@
     -fx-border-color: transparent;
 }
 
+/* 3. Nút Hồ sơ nhân viên */
+.btn-action-profile:hover {
+    -fx-background-color: rgba(5, 150, 105, 0.15);
+    -fx-border-color: transparent;
+}
+.dark-mode .btn-action-profile:hover {
+    -fx-background-color: rgba(5, 150, 105, 0.25);
+    -fx-border-color: transparent;
+}
+
 /* Toolbar generic icons hover (image, file, mic) */
 .btn-toolbar-icon {
     -fx-background-color: transparent;

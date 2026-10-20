@@ -61,6 +61,7 @@ import com.cmp180.livechat.common.VoiceManager;
 import com.cmp180.livechat.client.ui.IncomingCallDialog;
 import com.cmp180.livechat.client.ui.VoiceCallDialog;
 import com.cmp180.livechat.client.ui.UserProfileDialog;
+import com.cmp180.livechat.client.ui.ServerConfig;
 import com.cmp180.livechat.common.UdpMediaClient;
 
 import com.cmp180.livechat.common.Protocol;
@@ -930,19 +931,7 @@ public class LCSChatController implements StaffNetworkListener {
     private void handleViewCustomerProfile() {
         if (currentCustomerId == null) return;
         Window owner = btnCustomerProfile != null && btnCustomerProfile.getScene() != null ? btnCustomerProfile.getScene().getWindow() : null;
-        CustomerProfileDialog.show(owner, currentCustomerId, lblCurrentClient.getText(), newName -> {
-            if (newName != null && !newName.trim().isEmpty()) {
-                lblCurrentClient.setText(newName.trim());
-                for (CustomerItem c : localQueue) {
-                    if (c.getId().equals(currentCustomerId)) {
-                        String issue = (lblIssue != null && !lblIssue.getText().isEmpty()) ? " " + lblIssue.getText() : "";
-                        c.setFullName(newName.trim() + issue);
-                        break;
-                    }
-                }
-                listClients.refresh();
-            }
-        });
+        CustomerProfileDialog.show(owner, currentCustomerId, lblCurrentClient.getText());
     }
 
     @Override
@@ -1147,7 +1136,7 @@ public class LCSChatController implements StaffNetworkListener {
         stopCallMedia();
         try {
             String host = StaffContext.getInstance().getNetworkService().getServerHost();
-            int port = StaffContext.getInstance().getNetworkService().getServerPort();
+            int port = ServerConfig.getUdpPort();
             String myId = StaffContext.getInstance().getNetworkService().getStaffId();
             udpMediaClient = new UdpMediaClient(myId, peerId, host, port);
             udpMediaClient.setVoiceConsumer(chunk -> {
@@ -1169,6 +1158,16 @@ public class LCSChatController implements StaffNetworkListener {
         }
     }
 
+    private void recordCallEvent(String eventText, String targetCustId, boolean broadcast) {
+        String msgId = UUID.randomUUID().toString();
+        ChatMessage msg = new ChatMessage(eventText, ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
+        listMessages.getItems().add(msg);
+        listMessages.scrollTo(listMessages.getItems().size() - 1);
+        if (broadcast && targetCustId != null && StaffContext.getInstance().getNetworkService().isConnected()) {
+            StaffContext.getInstance().getNetworkService().sendChatMessage(eventText, targetCustId, msgId, null, null);
+        }
+    }
+
     @FXML
     private void handleVoiceCall(ActionEvent event) {
         if (currentCustomerId == null || !StaffContext.getInstance().getNetworkService().isConnected()) return;
@@ -1184,10 +1183,19 @@ public class LCSChatController implements StaffNetworkListener {
             custName,
             true,
             () -> {
+                int sec = (activeCallDialog != null) ? activeCallDialog.getSecondsElapsed() : 0;
+                boolean wasConnected = (activeCallDialog != null) && activeCallDialog.isConnected();
                 StaffContext.getInstance().getNetworkService().sendCallEnd(targetCustId);
                 VoiceManager.getInstance().stopCallAudio();
                 stopCallMedia();
                 activeCallDialog = null;
+
+                if (wasConnected) {
+                    String dur = String.format("%02d:%02d", sec / 60, sec % 60);
+                    recordCallEvent("📞 Cuộc gọi thoại kết thúc (Thời lượng: " + dur + ")", targetCustId, true);
+                } else {
+                    recordCallEvent("📞 Cuộc gọi nhỡ", targetCustId, true);
+                }
             }
         );
         activeCallDialog.show();
@@ -1210,10 +1218,19 @@ public class LCSChatController implements StaffNetworkListener {
                         callerName,
                         false,
                         () -> {
+                            int sec = (activeCallDialog != null) ? activeCallDialog.getSecondsElapsed() : 0;
+                            boolean wasConnected = (activeCallDialog != null) && activeCallDialog.isConnected();
                             StaffContext.getInstance().getNetworkService().sendCallEnd(callerId);
                             VoiceManager.getInstance().stopCallAudio();
                             stopCallMedia();
                             activeCallDialog = null;
+
+                            if (wasConnected) {
+                                String dur = String.format("%02d:%02d", sec / 60, sec % 60);
+                                recordCallEvent("📞 Cuộc gọi thoại kết thúc (Thời lượng: " + dur + ")", callerId, true);
+                            } else {
+                                recordCallEvent("📞 Cuộc gọi nhỡ", callerId, true);
+                            }
                         }
                     );
                     activeCallDialog.show();
@@ -1226,6 +1243,7 @@ public class LCSChatController implements StaffNetworkListener {
                     });
                 } else {
                     StaffContext.getInstance().getNetworkService().sendCallReject(callerId, "Từ chối");
+                    recordCallEvent("📞 Cuộc gọi thoại • Bị từ chối", callerId, true);
                 }
             });
         });
@@ -1604,6 +1622,47 @@ public class LCSChatController implements StaffNetworkListener {
             return card;
         }
 
+        private void renderCallPill(ChatMessage item) {
+            actionRow.getChildren().clear();
+            bubbleBox.getChildren().clear();
+            quoteBox.getChildren().clear();
+
+            boolean isDark = getScene() != null && getScene().getRoot().getStyleClass().contains("dark-mode");
+            boolean isCompleted = item.getText().contains("kết thúc") || item.getText().contains("Thời lượng");
+
+            HBox pill = new HBox(8);
+            pill.setAlignment(Pos.CENTER);
+            pill.setPadding(new Insets(6, 14, 6, 14));
+
+            String bg = isCompleted 
+                ? (isDark ? "rgba(16, 185, 129, 0.16)" : "#ecfdf5")
+                : (isDark ? "rgba(239, 68, 68, 0.16)" : "#fef2f2");
+            String border = isCompleted 
+                ? (isDark ? "#059669" : "#a7f3d0")
+                : (isDark ? "#dc2626" : "#fecaca");
+            String textFill = isCompleted 
+                ? (isDark ? "#34d399" : "#047857")
+                : (isDark ? "#f87171" : "#b91c1c");
+
+            pill.setStyle("-fx-background-color: " + bg + "; -fx-border-color: " + border + "; -fx-border-radius: 18; -fx-background-radius: 18; -fx-border-width: 1;");
+
+            Label lblCall = new Label(item.getText());
+            lblCall.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+            lblCall.setStyle("-fx-text-fill: " + textFill + ";");
+
+            Label lblTimePill = new Label(item.getFormattedTime());
+            lblTimePill.setFont(Font.font("Segoe UI", 10.5));
+            lblTimePill.setStyle("-fx-text-fill: " + (isDark ? "#94a3b8" : "#64748b") + ";");
+
+            pill.getChildren().addAll(lblCall, lblTimePill);
+
+            root.setAlignment(Pos.CENTER);
+            root.getChildren().setAll(pill);
+            setGraphic(root);
+            setText(null);
+            setStyle("-fx-background-color: transparent; -fx-padding: 6px;");
+        }
+
         @Override
         protected void updateItem(ChatMessage item, boolean empty) {
             super.updateItem(item, empty);
@@ -1617,6 +1676,11 @@ public class LCSChatController implements StaffNetworkListener {
                 actionRow.getChildren().clear();
                 bubbleBox.getChildren().clear();
                 quoteBox.getChildren().clear();
+
+                if (item.getText() != null && item.getText().startsWith("📞")) {
+                    renderCallPill(item);
+                    return;
+                }
 
                 if (item.getType() == ChatMessage.Type.SYSTEM_MSG) {
                     lblText.setText(item.getText());
@@ -1989,6 +2053,7 @@ public class LCSChatController implements StaffNetworkListener {
     
     private void handleLogout() {
         if (refreshTimer != null) refreshTimer.stop();
+        StaffContext.getInstance().getNetworkService().removeListener(this);
         StaffContext.getInstance().getNetworkService().disconnect();
         try {
             Stage stage = (Stage) btnAccount.getScene().getWindow();

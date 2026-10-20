@@ -68,6 +68,7 @@ import com.cmp180.livechat.common.VoiceManager;
 import com.cmp180.livechat.client.ui.IncomingCallDialog;
 import com.cmp180.livechat.client.ui.VoiceCallDialog;
 import com.cmp180.livechat.client.ui.UserProfileDialog;
+import com.cmp180.livechat.client.ui.ServerConfig;
 import com.cmp180.livechat.common.UdpMediaClient;
 
 import javafx.scene.Node;
@@ -89,10 +90,12 @@ public class CustomerChatController implements CustomerNetworkListener {
     @FXML private Button btnAttachFile;
     @FXML private Button btnEndChat;
     @FXML private Button btnVoiceCall;
+    @FXML private Button btnStaffProfile;
     @FXML private Button btnRecordVoice;
     private boolean isRecordingVoice = false;
     private VoiceCallDialog activeCallDialog = null;
     private UdpMediaClient udpMediaClient = null;
+    private boolean isRatingHandled = false;
     @FXML private HBox inputBar;
     @FXML private HBox recordingBar;
     @FXML private javafx.scene.shape.Circle recordingDot;
@@ -118,6 +121,7 @@ public class CustomerChatController implements CustomerNetworkListener {
     private ChatMessage replyingTo = null;
 
     private String currentStaffId = null;
+    private String currentStaffName = null;
 
     @FXML private Button btnAccount;
     @FXML private Button btnSettings;
@@ -150,6 +154,7 @@ public class CustomerChatController implements CustomerNetworkListener {
         });
         MenuItem itemLogout = new MenuItem("Đăng xuất");
         itemLogout.setOnAction(e -> {
+            CustomerContext.getInstance().getNetworkService().removeListener(this);
             CustomerContext.getInstance().getNetworkService().disconnect();
             try {
                 Stage stage = (Stage) btnAccount.getScene().getWindow();
@@ -180,6 +185,7 @@ public class CustomerChatController implements CustomerNetworkListener {
                 ThemeManager.applyTheme(btnAccount.getScene());
                 if (btnAccount.getScene().getWindow() != null) {
                     btnAccount.getScene().getWindow().setOnCloseRequest(ev -> {
+                        CustomerContext.getInstance().getNetworkService().removeListener(this);
                         CustomerContext.getInstance().getNetworkService().disconnect();
                         Platform.exit();
                         System.exit(0);
@@ -207,7 +213,8 @@ public class CustomerChatController implements CustomerNetworkListener {
         
         listMessages.setCellFactory(param -> new MessageListCell());
 
-                if (btnVoiceCall != null) btnVoiceCall.setDisable(true);
+        if (btnStaffProfile != null) btnStaffProfile.setDisable(true);
+        if (btnVoiceCall != null) btnVoiceCall.setDisable(true);
         if (btnRecordVoice != null) btnRecordVoice.setDisable(true);
 
         if (btnEmoji != null && txtMessage != null) {
@@ -526,10 +533,12 @@ public class CustomerChatController implements CustomerNetworkListener {
             handleCancelReply();
             if (currentStaffId != null) {
                 currentStaffId = null;
+                currentStaffName = null;
                 txtMessage.setDisable(true);
                 btnSend.setDisable(true);
                 if (btnAttachImage != null) btnAttachImage.setDisable(true);
                 if (btnAttachFile != null) btnAttachFile.setDisable(true);
+                if (btnStaffProfile != null) btnStaffProfile.setDisable(true);
                 if (btnEndChat != null) btnEndChat.setDisable(true);
                 if (btnVoiceCall != null) btnVoiceCall.setDisable(true);
                 if (btnRecordVoice != null) btnRecordVoice.setDisable(true);
@@ -550,8 +559,10 @@ public class CustomerChatController implements CustomerNetworkListener {
     @Override
     public void onPairedWithStaff(String staffName, String staffId) {
         Platform.runLater(() -> {
+            isRatingHandled = false;
             handleCancelReply();
             currentStaffId = staffId;
+            currentStaffName = staffName;
             lblTitle.setText("Hỗ trợ viên: " + staffName);
             lblStatus.setText("Đã kết nối thành công");
             if (statusDot != null) statusDot.setFill(javafx.scene.paint.Color.web("#22c55e"));
@@ -559,6 +570,7 @@ public class CustomerChatController implements CustomerNetworkListener {
             btnSend.setDisable(false);
             if (btnAttachImage != null) btnAttachImage.setDisable(false);
             if (btnAttachFile != null) btnAttachFile.setDisable(false);
+            if (btnStaffProfile != null) btnStaffProfile.setDisable(false);
             if (btnEndChat != null) btnEndChat.setDisable(false);
             if (btnVoiceCall != null) btnVoiceCall.setDisable(false);
             if (btnRecordVoice != null) btnRecordVoice.setDisable(false);
@@ -695,6 +707,9 @@ public class CustomerChatController implements CustomerNetworkListener {
     @Override
     public void onSessionEnded(String reason) {
         Platform.runLater(() -> {
+            if (isRatingHandled) return;
+            isRatingHandled = true;
+
             handleCancelReply();
             listMessages.getItems().add(new ChatMessage(reason, ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
             txtMessage.setDisable(true);
@@ -702,6 +717,7 @@ public class CustomerChatController implements CustomerNetworkListener {
             if (btnAttachImage != null) btnAttachImage.setDisable(true);
             if (btnAttachFile != null) btnAttachFile.setDisable(true);
             if (btnEndChat != null) btnEndChat.setDisable(true);
+            if (btnStaffProfile != null) btnStaffProfile.setDisable(true);
             if (btnVoiceCall != null) btnVoiceCall.setDisable(true);
             if (btnRecordVoice != null) btnRecordVoice.setDisable(true);
             if (activeCallDialog != null) { activeCallDialog.closeDirectly(); activeCallDialog = null; }
@@ -713,6 +729,7 @@ public class CustomerChatController implements CustomerNetworkListener {
             if (statusDot != null) statusDot.setFill(javafx.scene.paint.Color.web("#ef4444"));
             lblStatus.setText("Phiên đã kết thúc. Bạn có thể đăng xuất để tạo phiên mới.");
             currentStaffId = null;
+            currentStaffName = null;
 
             showRatingDialog();
         });
@@ -814,6 +831,7 @@ public class CustomerChatController implements CustomerNetworkListener {
     }
 
     private void returnToLoginScreen() {
+        CustomerContext.getInstance().getNetworkService().removeListener(this);
         CustomerContext.getInstance().getNetworkService().disconnect();
         try {
             Stage stage = (Stage) btnSend.getScene().getWindow();
@@ -1014,7 +1032,7 @@ public class CustomerChatController implements CustomerNetworkListener {
         stopCallMedia();
         try {
             String host = CustomerContext.getInstance().getNetworkService().getServerHost();
-            int port = CustomerContext.getInstance().getNetworkService().getServerPort();
+            int port = ServerConfig.getUdpPort();
             String myId = CustomerContext.getInstance().getNetworkService().getCustomerId();
             udpMediaClient = new UdpMediaClient(myId, peerId, host, port);
             udpMediaClient.setVoiceConsumer(chunk -> {
@@ -1036,6 +1054,24 @@ public class CustomerChatController implements CustomerNetworkListener {
         }
     }
 
+    private void recordCallEvent(String eventText, String targetStaffId, boolean broadcast) {
+        String msgId = UUID.randomUUID().toString();
+        ChatMessage msg = new ChatMessage(eventText, ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
+        listMessages.getItems().add(msg);
+        listMessages.scrollTo(listMessages.getItems().size() - 1);
+        if (broadcast && targetStaffId != null && CustomerContext.getInstance().getNetworkService().isConnected()) {
+            CustomerContext.getInstance().getNetworkService().sendChatMessage(eventText, targetStaffId, msgId, null, null);
+        }
+    }
+
+    @FXML
+    private void handleViewStaffProfile() {
+        if (currentStaffId == null) return;
+        Window owner = btnStaffProfile != null && btnStaffProfile.getScene() != null ? btnStaffProfile.getScene().getWindow() : null;
+        String name = currentStaffName != null ? currentStaffName : lblTitle.getText().replace("Hỗ trợ viên: ", "").trim();
+        UserProfileDialog.showStaffProfileViewOnly(owner, currentStaffId, name);
+    }
+
     @FXML
     private void handleVoiceCall(ActionEvent event) {
         if (currentStaffId == null || !CustomerContext.getInstance().getNetworkService().isConnected()) return;
@@ -1051,10 +1087,19 @@ public class CustomerChatController implements CustomerNetworkListener {
             staffName,
             true,
             () -> {
+                int sec = (activeCallDialog != null) ? activeCallDialog.getSecondsElapsed() : 0;
+                boolean wasConnected = (activeCallDialog != null) && activeCallDialog.isConnected();
                 CustomerContext.getInstance().getNetworkService().sendCallEnd(targetStaffId);
                 VoiceManager.getInstance().stopCallAudio();
                 stopCallMedia();
                 activeCallDialog = null;
+
+                if (wasConnected) {
+                    String dur = String.format("%02d:%02d", sec / 60, sec % 60);
+                    recordCallEvent("📞 Cuộc gọi thoại kết thúc (Thời lượng: " + dur + ")", targetStaffId, true);
+                } else {
+                    recordCallEvent("📞 Cuộc gọi nhỡ", targetStaffId, true);
+                }
             }
         );
         activeCallDialog.show();
@@ -1077,10 +1122,19 @@ public class CustomerChatController implements CustomerNetworkListener {
                         callerName,
                         false,
                         () -> {
+                            int sec = (activeCallDialog != null) ? activeCallDialog.getSecondsElapsed() : 0;
+                            boolean wasConnected = (activeCallDialog != null) && activeCallDialog.isConnected();
                             CustomerContext.getInstance().getNetworkService().sendCallEnd(callerId);
                             VoiceManager.getInstance().stopCallAudio();
                             stopCallMedia();
                             activeCallDialog = null;
+
+                            if (wasConnected) {
+                                String dur = String.format("%02d:%02d", sec / 60, sec % 60);
+                                recordCallEvent("📞 Cuộc gọi thoại kết thúc (Thời lượng: " + dur + ")", callerId, true);
+                            } else {
+                                recordCallEvent("📞 Cuộc gọi nhỡ", callerId, true);
+                            }
                         }
                     );
                     activeCallDialog.show();
@@ -1093,6 +1147,7 @@ public class CustomerChatController implements CustomerNetworkListener {
                     });
                 } else {
                     CustomerContext.getInstance().getNetworkService().sendCallReject(callerId, "Từ chối");
+                    recordCallEvent("📞 Cuộc gọi thoại • Bị từ chối", callerId, true);
                 }
             });
         });
@@ -1455,6 +1510,47 @@ public class CustomerChatController implements CustomerNetworkListener {
             return card;
         }
 
+        private void renderCallPill(ChatMessage item) {
+            actionRow.getChildren().clear();
+            bubbleBox.getChildren().clear();
+            quoteBox.getChildren().clear();
+
+            boolean isDark = getScene() != null && getScene().getRoot().getStyleClass().contains("dark-mode");
+            boolean isCompleted = item.getText().contains("kết thúc") || item.getText().contains("Thời lượng");
+
+            HBox pill = new HBox(8);
+            pill.setAlignment(Pos.CENTER);
+            pill.setPadding(new Insets(6, 14, 6, 14));
+
+            String bg = isCompleted 
+                ? (isDark ? "rgba(16, 185, 129, 0.16)" : "#ecfdf5")
+                : (isDark ? "rgba(239, 68, 68, 0.16)" : "#fef2f2");
+            String border = isCompleted 
+                ? (isDark ? "#059669" : "#a7f3d0")
+                : (isDark ? "#dc2626" : "#fecaca");
+            String textFill = isCompleted 
+                ? (isDark ? "#34d399" : "#047857")
+                : (isDark ? "#f87171" : "#b91c1c");
+
+            pill.setStyle("-fx-background-color: " + bg + "; -fx-border-color: " + border + "; -fx-border-radius: 18; -fx-background-radius: 18; -fx-border-width: 1;");
+
+            Label lblCall = new Label(item.getText());
+            lblCall.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+            lblCall.setStyle("-fx-text-fill: " + textFill + ";");
+
+            Label lblTimePill = new Label(item.getFormattedTime());
+            lblTimePill.setFont(Font.font("Segoe UI", 10.5));
+            lblTimePill.setStyle("-fx-text-fill: " + (isDark ? "#94a3b8" : "#64748b") + ";");
+
+            pill.getChildren().addAll(lblCall, lblTimePill);
+
+            root.setAlignment(Pos.CENTER);
+            root.getChildren().setAll(pill);
+            setGraphic(root);
+            setText(null);
+            setStyle("-fx-background-color: transparent; -fx-padding: 6px;");
+        }
+
         @Override
         protected void updateItem(ChatMessage item, boolean empty) {
             super.updateItem(item, empty);
@@ -1468,6 +1564,11 @@ public class CustomerChatController implements CustomerNetworkListener {
                 actionRow.getChildren().clear();
                 bubbleBox.getChildren().clear();
                 quoteBox.getChildren().clear();
+
+                if (item.getText() != null && item.getText().startsWith("📞")) {
+                    renderCallPill(item);
+                    return;
+                }
 
                 if (item.getType() == ChatMessage.Type.SYSTEM_MSG) {
                     lblText.setText(item.getText());

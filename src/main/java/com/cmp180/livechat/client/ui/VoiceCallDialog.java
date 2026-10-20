@@ -34,6 +34,7 @@ public class VoiceCallDialog {
     private final Button btnEnd;
     private final Timeline timer;
     private int secondsElapsed = 0;
+    private boolean isConnected = false;
     private Runnable onHangUp;
 
     public VoiceCallDialog(Window owner, String peerName, boolean isCaller, Runnable onHangUp) {
@@ -108,6 +109,7 @@ public class VoiceCallDialog {
     }
 
     public void setConnected() {
+        this.isConnected = true;
         Platform.runLater(() -> {
             lblStatus.setText("Đang trong cuộc gọi");
             lblDuration.setVisible(true);
@@ -147,5 +149,9 @@ public class VoiceCallDialog {
 
     public int getSecondsElapsed() {
         return secondsElapsed;
+    }
+
+    public boolean isConnected() {
+        return isConnected;
     }
 }

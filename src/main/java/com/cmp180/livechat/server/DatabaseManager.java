@@ -297,6 +297,81 @@ public class DatabaseManager {
         }
     }
 
+    public boolean verifyStaffPassword(String staffId, String plainPassword) {
+        if (staffId == null || plainPassword == null) return false;
+        String sql = "SELECT password FROM staff WHERE (staff_id = ? OR username = ?) AND is_active = 1";
+        try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, staffId);
+            ps.setString(2, staffId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String storedHash = rs.getString("password");
+                    return com.cmp180.livechat.common.SecurityManager.verifyPassword(plainPassword, storedHash);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi xác thực mật khẩu staff: " + e.getMessage());
+        }
+        return false;
+    }
+
+    public StaffRecord getStaffById(String staffId) {
+        if (staffId == null || staffId.trim().isEmpty()) return null;
+        List<StaffRecord> list = getAllStaffWithStats();
+        for (StaffRecord s : list) {
+            if (staffId.equalsIgnoreCase(s.staffId) || staffId.equalsIgnoreCase(s.username)) {
+                return s;
+            }
+        }
+        return null;
+    }
+
+    public boolean updateStaffCredentials(String staffId, String newUsername, String newPassword) {
+        if (staffId == null || staffId.trim().isEmpty()) return false;
+        if (newUsername == null || newUsername.trim().isEmpty()) return false;
+        String cleanUsername = newUsername.trim();
+
+        synchronized (writeLock) {
+            try (Connection conn = getConnection()) {
+                // Kiểm tra tên đăng nhập đã được dùng bởi staff khác chưa
+                String checkSql = "SELECT COUNT(*) FROM staff WHERE username = ? AND staff_id != ? AND is_active = 1";
+                try (PreparedStatement checkPs = conn.prepareStatement(checkSql)) {
+                    checkPs.setString(1, cleanUsername);
+                    checkPs.setString(2, staffId.trim());
+                    try (ResultSet rs = checkPs.executeQuery()) {
+                        if (rs.next() && rs.getInt(1) > 0) {
+                            System.err.println("Tên đăng nhập đã tồn tại: " + cleanUsername);
+                            return false;
+                        }
+                    }
+                }
+
+                if (newPassword != null && !newPassword.trim().isEmpty()) {
+                    String finalPass = (newPassword.contains(":") || (newPassword.length() == 64 && newPassword.matches("^[a-fA-F0-9]{64}$")))
+                            ? newPassword.trim()
+                            : com.cmp180.livechat.common.SecurityManager.hashPasswordWithSalt(newPassword.trim());
+                    String updateSql = "UPDATE staff SET username = ?, password = ? WHERE staff_id = ?";
+                    try (PreparedStatement updatePs = conn.prepareStatement(updateSql)) {
+                        updatePs.setString(1, cleanUsername);
+                        updatePs.setString(2, finalPass);
+                        updatePs.setString(3, staffId.trim());
+                        return updatePs.executeUpdate() > 0;
+                    }
+                } else {
+                    String updateSql = "UPDATE staff SET username = ? WHERE staff_id = ?";
+                    try (PreparedStatement updatePs = conn.prepareStatement(updateSql)) {
+                        updatePs.setString(1, cleanUsername);
+                        updatePs.setString(2, staffId.trim());
+                        return updatePs.executeUpdate() > 0;
+                    }
+                }
+            } catch (SQLException e) {
+                System.err.println("Lỗi cập nhật thông tin tài khoản nhân viên: " + e.getMessage());
+                return false;
+            }
+        }
+    }
+
     public boolean deleteStaff(String staffId) {
         synchronized (writeLock) {
             String sql = "UPDATE staff SET is_active = 0 WHERE staff_id = ?";

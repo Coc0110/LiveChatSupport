@@ -59,7 +59,10 @@ public class TransferSessionDialog {
 
         ListView<OnlineStaffItem> listView = new ListView<>();
         listView.setPrefHeight(180);
-        listView.setPlaceholder(new Label("Đang tải danh sách nhân viên trực tuyến..."));
+        Label loadingLbl = new Label("Đang tải danh sách nhân viên trực tuyến...");
+        loadingLbl.setFont(Font.font("Segoe UI", 13));
+        loadingLbl.setStyle("-fx-text-fill: " + (dark ? "#94a3b8" : "#64748b") + "; -fx-font-weight: 500;");
+        listView.setPlaceholder(loadingLbl);
         listView.setStyle("-fx-background-color: " + (dark ? "#25272a" : "#f0f2f5") 
                 + "; -fx-border-color: " + (dark ? "#3a3b3c" : "#d8dadf") + "; -fx-border-radius: 8; -fx-background-radius: 8;");
 
@@ -128,6 +131,7 @@ public class TransferSessionDialog {
         txtNote.setWrapText(true);
         txtNote.setStyle("-fx-control-inner-background: " + (dark ? "#25272a" : "#f0f2f5") 
                 + "; -fx-text-fill: " + (dark ? "#e4e6eb" : "#1c1e21") 
+                + "; -fx-prompt-text-fill: " + (dark ? "#94a3b8" : "#9ca3af")
                 + "; -fx-border-color: " + (dark ? "#3a3b3c" : "#d8dadf") + "; -fx-border-radius: 8; -fx-background-radius: 8;");
 
         // Action Buttons
@@ -137,14 +141,20 @@ public class TransferSessionDialog {
                 + "; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 8 18; -fx-background-radius: 8; -fx-cursor: hand;");
         btnCancel.setOnAction(e -> stage.close());
 
+        String btnConfirmDisabledStyle = "-fx-background-color: " + (dark ? "#2a2d34" : "#e2e8f0") 
+                + "; -fx-text-fill: " + (dark ? "#64748b" : "#94a3b8") 
+                + "; -fx-opacity: 1.0; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 8 18; -fx-background-radius: 8; -fx-cursor: default;";
+        String btnConfirmEnabledStyle = "-fx-background-color: " + brand 
+                + "; -fx-text-fill: white; -fx-opacity: 1.0; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 8 18; -fx-background-radius: 8; -fx-cursor: hand;";
+
         Button btnConfirm = new Button("Xác nhận chuyển");
         btnConfirm.setDisable(true);
-        btnConfirm.setStyle("-fx-background-color: " + brand 
-                + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 13px; -fx-padding: 8 18; -fx-background-radius: 8; -fx-cursor: hand;");
+        btnConfirm.setStyle(btnConfirmDisabledStyle);
 
         listView.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
             boolean valid = newV != null && !newV.isBusy();
             btnConfirm.setDisable(!valid);
+            btnConfirm.setStyle(valid ? btnConfirmEnabledStyle : btnConfirmDisabledStyle);
         });
 
         btnConfirm.setOnAction(e -> {
@@ -189,7 +199,10 @@ public class TransferSessionDialog {
                 Platform.runLater(() -> {
                     listView.getItems().setAll(staffList);
                     if (staffList.isEmpty()) {
-                        listView.setPlaceholder(new Label("Không có nhân viên CSKH nào khác đang trực tuyến."));
+                        Label emptyLbl = new Label("Không có nhân viên CSKH nào khác đang trực tuyến.");
+                        emptyLbl.setFont(Font.font("Segoe UI", 13));
+                        emptyLbl.setStyle("-fx-text-fill: " + (dark ? "#94a3b8" : "#64748b") + "; -fx-font-weight: 500;");
+                        listView.setPlaceholder(emptyLbl);
                     }
                 });
             }

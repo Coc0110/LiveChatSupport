@@ -19,6 +19,7 @@ public class SettingsDialog {
 
     private enum Tab {
         APPEARANCE,
+        SOUND,
         NETWORK
     }
 
@@ -46,6 +47,9 @@ public class SettingsDialog {
         Button btnTabAppearance = createSidebarTab("Giao diện", 
             "M12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21C13.1046 21 14 20.1046 14 19C14 18.52 13.82 18.08 13.53 17.74C13.25 17.41 13.08 16.99 13.08 16.5C13.08 15.4 13.98 14.5 15.08 14.5H16.5C18.99 14.5 21 12.49 21 10C21 6.13 16.97 3 12 3ZM6.5 12C5.67 12 5 11.33 5 10.5C5 9.67 5.67 9 6.5 9C7.33 9 8 9.67 8 10.5C8 11.33 7.33 12 6.5 12ZM9.5 8C8.67 8 8 7.33 8 6.5C8 5.67 8.67 5 9.5 5C10.33 5 11 5.67 11 6.5C11 7.33 10.33 8 9.5 8ZM14.5 8C13.67 8 13 7.33 13 6.5C13 5.67 13.67 5 14.5 5C15.33 5 16 5.67 16 6.5C16 7.33 15.33 8 14.5 8ZM17.5 12C16.67 12 16 11.33 16 10.5C16 9.67 16.67 9 17.5 9C18.33 9 19 9.67 19 10.5C19 11.33 18.33 12 17.5 12Z");
 
+        Button btnTabSound = createSidebarTab("Âm thanh", 
+            "M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z");
+
         Button btnTabNetwork = createSidebarTab("Kết nối mạng", 
             "M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM11 19.93C7.05 19.44 4 16.08 4 12C4 11.38 4.08 10.79 4.21 10.21L9 15V16C9 17.1 9.9 18 11 18V19.93ZM17.9 17.39C17.64 16.58 16.9 16 16 16H15V13C15 12.45 14.55 12 14 12H8V10H10C10.55 10 11 9.55 11 9V7H13C14.1 7 15 6.1 15 5V4.59C17.93 5.78 20 8.65 20 12C20 14.08 19.2 15.97 17.9 17.39Z");
 
@@ -59,10 +63,11 @@ public class SettingsDialog {
             "M13 3H11V13H13V3ZM17.83 5.17L16.41 6.59C18.05 7.91 19 9.87 19 12C19 15.87 15.87 19 12 19C8.13 19 5 15.87 5 12C5 9.87 5.95 7.91 7.58 6.58L6.17 5.17C4.23 6.82 3 9.26 3 12C3 16.97 7.03 21 12 21C16.97 21 21 16.97 21 12C21 9.26 19.77 6.82 17.83 5.17Z");
 
         setupTabHover(btnTabAppearance);
+        setupTabHover(btnTabSound);
         setupTabHover(btnTabNetwork);
         setupExitBtn(btnExitApp);
 
-        sidebar.getChildren().addAll(lblSidebarTitle, btnTabAppearance, btnTabNetwork, spacer, sepSidebar, btnExitApp);
+        sidebar.getChildren().addAll(lblSidebarTitle, btnTabAppearance, btnTabSound, btnTabNetwork, spacer, sepSidebar, btnExitApp);
         mainLayout.setLeft(sidebar);
 
         // --- Content Area (Right Column) ---
@@ -178,7 +183,60 @@ public class SettingsDialog {
             btnResetTheme
         );
 
-        // --- Build Content for Tab 2: Network / IP & Port ---
+        // --- Build Content for Tab 2: Sound Settings ---
+        VBox soundContent = new VBox(14);
+
+        Label lblSoundHeader = new Label("CÀI ĐẶT ÂM BÁO (SOUND NOTIFICATIONS)");
+        lblSoundHeader.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+
+        Label lblSoundDesc = new Label("Tùy chỉnh âm thanh thông báo khi có tin nhắn hoặc cuộc gọi mới:");
+        lblSoundDesc.setFont(Font.font("Segoe UI", 13));
+
+        VBox soundCard = new VBox(14);
+        soundCard.setPadding(new Insets(16));
+        soundCard.setStyle("-fx-background-radius: 10; -fx-border-radius: 10; -fx-border-width: 1;");
+
+        CheckBox chkSound = new CheckBox("Bật âm thanh thông báo khi có tin nhắn mới");
+        chkSound.setSelected(ServerConfig.isSoundEnabled());
+        chkSound.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        chkSound.setCursor(javafx.scene.Cursor.HAND);
+
+        Label lblSoundHint = new Label(ServerConfig.isSoundEnabled() ? "Chuông thông báo đang được BẬT." : "Chuông thông báo đang TẮT. Tin nhắn đến sẽ không phát âm thanh.");
+        lblSoundHint.setFont(Font.font("Segoe UI", 12.5));
+
+        chkSound.setOnAction(e -> {
+            boolean enabled = chkSound.isSelected();
+            ServerConfig.setSoundEnabled(enabled);
+            lblSoundHint.setText(enabled ? "Chuông thông báo đang được BẬT." : "Chuông thông báo đang TẮT. Tin nhắn đến sẽ không phát âm thanh.");
+            lblSoundHint.setStyle("-fx-text-fill: " + (enabled ? "#16a34a" : "#dc2626") + ";");
+        });
+
+        HBox soundActionRow = new HBox(12);
+        soundActionRow.setAlignment(Pos.CENTER_LEFT);
+
+        Button btnTestSound = new Button("🔔 Phát thử âm báo");
+        btnTestSound.setPrefHeight(36);
+        btnTestSound.setCursor(javafx.scene.Cursor.HAND);
+        btnTestSound.setOnAction(e -> {
+            com.cmp180.livechat.common.SoundManager.playNotificationSound();
+        });
+
+        soundActionRow.getChildren().add(btnTestSound);
+        soundCard.getChildren().addAll(chkSound, lblSoundHint, soundActionRow);
+
+        VBox soundTipBox = new VBox(4);
+        soundTipBox.setPadding(new Insets(10, 14, 10, 14));
+        soundTipBox.setStyle("-fx-background-radius: 8;");
+        Label lblSoundTipTitle = new Label("Ghi chú âm thanh:");
+        lblSoundTipTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+        Label lblSoundTipContent = new Label("• Âm báo chuông chime 2 âm sắc nhẹ nhàng, không gây ồn ào nơi làm việc.\n• Cài đặt được lưu tự động trên máy và có hiệu lực ngay lập tức cho cả nhân viên và khách hàng.");
+        lblSoundTipContent.setFont(Font.font("Segoe UI", 12));
+        lblSoundTipContent.setWrapText(true);
+        soundTipBox.getChildren().addAll(lblSoundTipTitle, lblSoundTipContent);
+
+        soundContent.getChildren().addAll(lblSoundHeader, lblSoundDesc, soundCard, soundTipBox);
+
+        // --- Build Content for Tab 3: Network / IP & Port ---
         VBox networkContent = new VBox(14);
 
         Label lblNetHeader = new Label("CẤU HÌNH MÁY CHỦ (SERVER)");
@@ -201,13 +259,22 @@ public class SettingsDialog {
         hostBox.getChildren().addAll(lblHost, txtHost);
 
         VBox portBox = new VBox(4);
-        Label lblPort = new Label("Cổng máy chủ (Port):");
+        Label lblPort = new Label("Cổng TCP máy chủ (Port):");
         lblPort.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
         TextField txtPort = new TextField(String.valueOf(ServerConfig.getPort()));
         txtPort.setPrefHeight(38);
         txtPort.setPromptText("Ví dụ: 5000");
         txtPort.setStyle("-fx-background-radius: 8; -fx-border-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;");
         portBox.getChildren().addAll(lblPort, txtPort);
+
+        VBox udpPortBox = new VBox(4);
+        Label lblUdpPort = new Label("Cổng UDP Media (Voice Call):");
+        lblUdpPort.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+        TextField txtUdpPort = new TextField(String.valueOf(ServerConfig.getUdpPort()));
+        txtUdpPort.setPrefHeight(38);
+        txtUdpPort.setPromptText("Ví dụ: 5000");
+        txtUdpPort.setStyle("-fx-background-radius: 8; -fx-border-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;");
+        udpPortBox.getChildren().addAll(lblUdpPort, txtUdpPort);
 
         Label lblNetStatus = new Label();
         lblNetStatus.setFont(Font.font("Segoe UI", 12.5));
@@ -221,6 +288,7 @@ public class SettingsDialog {
         btnSaveNet.setOnAction(e -> {
             String h = txtHost.getText().trim();
             String pStr = txtPort.getText().trim();
+            String udpStr = txtUdpPort.getText().trim();
             if (h.isEmpty()) {
                 lblNetStatus.setText("Địa chỉ IP không được để trống!");
                 lblNetStatus.setStyle("-fx-text-fill: #E53935; -fx-font-weight: bold;");
@@ -229,8 +297,11 @@ public class SettingsDialog {
             try {
                 int p = Integer.parseInt(pStr);
                 if (p <= 0 || p > 65535) throw new NumberFormatException();
+                int udpP = Integer.parseInt(udpStr);
+                if (udpP <= 0 || udpP > 65535) throw new NumberFormatException();
                 ServerConfig.setHost(h);
                 ServerConfig.setPort(p);
+                ServerConfig.setUdpPort(udpP);
                 try {
                     if (CustomerContext.getInstance().getNetworkService() != null) {
                         CustomerContext.getInstance().getNetworkService().setServerAddress(h, p);
@@ -241,10 +312,10 @@ public class SettingsDialog {
                         StaffContext.getInstance().getNetworkService().setServerAddress(h, p);
                     }
                 } catch (Exception ignored) {}
-                lblNetStatus.setText("Đã lưu cấu hình kết nối (" + h + ":" + p + ") thành công!");
+                lblNetStatus.setText("Đã lưu cấu hình kết nối (" + h + " | TCP:" + p + ", UDP:" + udpP + ") thành công!");
                 lblNetStatus.setStyle("-fx-text-fill: #2E7D32; -fx-font-weight: bold;");
             } catch (NumberFormatException ex) {
-                lblNetStatus.setText("Cổng (Port) phải là số từ 1 đến 65535!");
+                lblNetStatus.setText("Cổng TCP và UDP phải là số từ 1 đến 65535!");
                 lblNetStatus.setStyle("-fx-text-fill: #E53935; -fx-font-weight: bold;");
             }
         });
@@ -266,20 +337,21 @@ public class SettingsDialog {
             } catch (Exception ignored) {}
             txtHost.setText(ServerConfig.DEFAULT_HOST);
             txtPort.setText(String.valueOf(ServerConfig.DEFAULT_PORT));
-            lblNetStatus.setText("Đã khôi phục về mặc định 127.0.0.1 : 5000");
+            txtUdpPort.setText(String.valueOf(ServerConfig.DEFAULT_UDP_PORT));
+            lblNetStatus.setText("Đã khôi phục về mặc định 127.0.0.1 (TCP: 5000, UDP: 5000)");
             lblNetStatus.setStyle("-fx-text-fill: #2E7D32;");
         });
 
         btnNetActionBox.getChildren().addAll(btnSaveNet, btnResetNet);
 
-        formBox.getChildren().addAll(hostBox, portBox, btnNetActionBox, lblNetStatus);
+        formBox.getChildren().addAll(hostBox, portBox, udpPortBox, btnNetActionBox, lblNetStatus);
 
         VBox tipBox = new VBox(4);
         tipBox.setPadding(new Insets(10, 14, 10, 14));
         tipBox.setStyle("-fx-background-radius: 8;");
         Label lblTipTitle = new Label("Gợi ý kết nối:");
         lblTipTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
-        Label lblTipContent = new Label("• Mạng nội bộ (LAN): Nhập địa chỉ IPv4 máy chủ của bạn (ví dụ: 192.168.1.5).\n• Máy chủ Cloud: Nhập địa chỉ tên miền và Port tương ứng được cấp (ví dụ từ Playit.gg hoặc VPS).");
+        Label lblTipContent = new Label("• Mạng nội bộ (LAN): Nhập địa chỉ IPv4 máy chủ của bạn (ví dụ: 192.168.1.5).\n• Máy chủ Cloud: Nhập địa chỉ tên miền và Port tương ứng được cấp (ví dụ từ Playit.gg hoặc VPS).\n• Cổng UDP dùng để truyền tải âm thanh cuộc gọi đàm thoại trực tiếp thời gian thực.");
         lblTipContent.setFont(Font.font("Segoe UI", 12));
         lblTipContent.setWrapText(true);
         tipBox.getChildren().addAll(lblTipTitle, lblTipContent);
@@ -299,19 +371,36 @@ public class SettingsDialog {
                 tabContentContainer.getChildren().add(appearanceContent);
                 lblContentTitle.setText("Cài đặt giao diện");
                 styleSidebarTabBtn(btnTabAppearance, true, dark, brand, brandLight);
+                styleSidebarTabBtn(btnTabSound, false, dark, brand, brandLight);
+                styleSidebarTabBtn(btnTabNetwork, false, dark, brand, brandLight);
+            } else if (currentTab[0] == Tab.SOUND) {
+                tabContentContainer.getChildren().add(soundContent);
+                lblContentTitle.setText("Cài đặt âm thanh");
+                chkSound.setSelected(ServerConfig.isSoundEnabled());
+                lblSoundHint.setText(ServerConfig.isSoundEnabled() ? "Chuông thông báo đang được BẬT." : "Chuông thông báo đang TẮT. Tin nhắn đến sẽ không phát âm thanh.");
+                lblSoundHint.setStyle("-fx-text-fill: " + (ServerConfig.isSoundEnabled() ? "#16a34a" : "#dc2626") + ";");
+                styleSidebarTabBtn(btnTabAppearance, false, dark, brand, brandLight);
+                styleSidebarTabBtn(btnTabSound, true, dark, brand, brandLight);
                 styleSidebarTabBtn(btnTabNetwork, false, dark, brand, brandLight);
             } else {
                 tabContentContainer.getChildren().add(networkContent);
                 lblContentTitle.setText("Cài đặt kết nối mạng");
                 txtHost.setText(ServerConfig.getHost());
                 txtPort.setText(String.valueOf(ServerConfig.getPort()));
+                txtUdpPort.setText(String.valueOf(ServerConfig.getUdpPort()));
                 styleSidebarTabBtn(btnTabAppearance, false, dark, brand, brandLight);
+                styleSidebarTabBtn(btnTabSound, false, dark, brand, brandLight);
                 styleSidebarTabBtn(btnTabNetwork, true, dark, brand, brandLight);
             }
         };
 
         btnTabAppearance.setOnAction(e -> {
             currentTab[0] = Tab.APPEARANCE;
+            updateActiveTab.run();
+        });
+
+        btnTabSound.setOnAction(e -> {
+            currentTab[0] = Tab.SOUND;
             updateActiveTab.run();
         });
 
@@ -405,14 +494,26 @@ public class SettingsDialog {
 
             btnResetTheme.setStyle("-fx-background-color: transparent; -fx-text-fill: " + (dark ? "#b0b3b8" : "#65676b") + "; -fx-font-size: 12px;");
 
+            // Sound Form styling
+            lblSoundHeader.setStyle("-fx-text-fill: " + (dark ? "#8e9297" : "#65676b") + ";");
+            lblSoundDesc.setStyle("-fx-text-fill: " + (dark ? "#b0b3b8" : "#65676b") + ";");
+            soundCard.setStyle("-fx-background-color: " + (dark ? "#242526" : "#f8f9fa") + "; -fx-border-color: " + (dark ? "#2f3031" : "#e4e6eb") + "; -fx-border-radius: 10; -fx-background-radius: 10; -fx-border-width: 1;");
+            chkSound.setStyle("-fx-text-fill: " + (dark ? "#e4e6eb" : "#1c1e21") + ";");
+            btnTestSound.setStyle("-fx-background-color: " + (dark ? "#323438" : "#e4e6eb") + "; -fx-text-fill: " + (dark ? "#e4e6eb" : "#050505") + "; -fx-background-radius: 8; -fx-font-size: 12.5px; -fx-padding: 6 16;");
+            soundTipBox.setStyle("-fx-background-color: " + (dark ? "rgba(255,255,255,0.05)" : "#eef3f8") + "; -fx-background-radius: 8;");
+            lblSoundTipTitle.setStyle("-fx-text-fill: " + (dark ? "#e4e6eb" : "#1c1e21") + ";");
+            lblSoundTipContent.setStyle("-fx-text-fill: " + (dark ? "#b0b3b8" : "#555555") + ";");
+
             // Network Form styling
             lblNetHeader.setStyle("-fx-text-fill: " + (dark ? "#8e9297" : "#65676b") + ";");
             lblNetDesc.setStyle("-fx-text-fill: " + (dark ? "#b0b3b8" : "#65676b") + ";");
             formBox.setStyle("-fx-background-color: " + (dark ? "#242526" : "#f8f9fa") + "; -fx-border-color: " + (dark ? "#2f3031" : "#e4e6eb") + "; -fx-border-radius: 10; -fx-background-radius: 10; -fx-border-width: 1;");
             lblHost.setStyle("-fx-text-fill: " + (dark ? "#e4e6eb" : "#1c1e21") + ";");
             lblPort.setStyle("-fx-text-fill: " + (dark ? "#e4e6eb" : "#1c1e21") + ";");
+            lblUdpPort.setStyle("-fx-text-fill: " + (dark ? "#e4e6eb" : "#1c1e21") + ";");
             txtHost.setStyle("-fx-background-color: " + (dark ? "#323438" : "#ffffff") + "; -fx-text-fill: " + (dark ? "#e4e6eb" : "#050505") + "; -fx-border-color: " + (dark ? "#484b51" : "#c4c9d0") + "; -fx-background-radius: 8; -fx-border-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;");
             txtPort.setStyle("-fx-background-color: " + (dark ? "#323438" : "#ffffff") + "; -fx-text-fill: " + (dark ? "#e4e6eb" : "#050505") + "; -fx-border-color: " + (dark ? "#484b51" : "#c4c9d0") + "; -fx-background-radius: 8; -fx-border-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;");
+            txtUdpPort.setStyle("-fx-background-color: " + (dark ? "#323438" : "#ffffff") + "; -fx-text-fill: " + (dark ? "#e4e6eb" : "#050505") + "; -fx-border-color: " + (dark ? "#484b51" : "#c4c9d0") + "; -fx-background-radius: 8; -fx-border-radius: 8; -fx-padding: 0 12; -fx-font-size: 13px;");
 
             btnSaveNet.setStyle("-fx-background-color: " + brand + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 7 16;");
             btnResetNet.setStyle("-fx-background-color: transparent; -fx-text-fill: " + (dark ? "#b0b3b8" : "#65676b") + "; -fx-border-color: " + (dark ? "#484b51" : "#c4c9d0") + "; -fx-background-radius: 8; -fx-border-radius: 8; -fx-padding: 6 14;");

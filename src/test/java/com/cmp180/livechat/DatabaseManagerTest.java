@@ -246,5 +246,40 @@ public class DatabaseManagerTest {
         assertEquals(email, fetchedByPhone.email);
         assertEquals(tier, fetchedByPhone.tier);
     }
+
+    @Test
+    @DisplayName("Kiểm tra cập nhật tên đăng nhập và mật khẩu Staff (Họ tên cố định)")
+    void testUpdateStaffCredentials() {
+        String testUser = "staff_cred_" + UUID.randomUUID().toString().substring(0, 8);
+        String pass = "OldPass123";
+        String fullName = "Staff Credential Test";
+        boolean created = db.addStaff(testUser, pass, fullName, "STAFF");
+        assertTrue(created);
+
+        DatabaseManager.StaffRecord s = db.authenticateStaff(testUser, pass);
+        assertNotNull(s);
+
+        // Đổi tên đăng nhập và mật khẩu mới
+        String newUser = testUser + "_updated";
+        String newPass = "NewPass456";
+        boolean updated = db.updateStaffCredentials(s.staffId, newUser, newPass);
+        assertTrue(updated, "Cập nhật credentials staff phải thành công");
+
+        // Đăng nhập bằng tên và pass mới
+        DatabaseManager.StaffRecord newAuth = db.authenticateStaff(newUser, newPass);
+        assertNotNull(newAuth, "Phải đăng nhập được với username và password mới");
+        assertEquals(fullName, newAuth.fullName, "Họ và tên nhân viên phải được giữ nguyên cố định");
+
+        // Đăng nhập bằng username cũ phải thất bại
+        assertNull(db.authenticateStaff(testUser, pass));
+
+        // Trùng username với tài khoản khác phải thất bại
+        boolean dupUpdate = db.updateStaffCredentials(s.staffId, "staff01", "123456");
+        assertFalse(dupUpdate, "Không được đổi tên trùng với staff khác đang hoạt động");
+
+        // Kiểm tra verifyStaffPassword
+        assertTrue(db.verifyStaffPassword(s.staffId, newPass), "Mật khẩu đúng phải xác thực thành công");
+        assertFalse(db.verifyStaffPassword(s.staffId, "WrongPass"), "Mật khẩu sai phải xác thực thất bại");
+    }
 }
 

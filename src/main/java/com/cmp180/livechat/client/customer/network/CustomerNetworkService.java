@@ -88,6 +88,9 @@ public class CustomerNetworkService {
     }
 
     public synchronized void connectAndLogin(String host, int port, String phone, String customerName, String issueTopic, String reopenSessionId) {
+        // Dọn dẹp bất kỳ listener cũ nào của CustomerChatController để tránh gọi callback trùng lặp
+        listeners.removeIf(l -> l.getClass().getName().contains("CustomerChatController"));
+
         if (host != null && !host.trim().isEmpty()) this.serverHost = host.trim();
         if (port > 0) this.serverPort = port;
         if (phone != null && !phone.trim().isEmpty()) this.customerPhone = phone.trim();
