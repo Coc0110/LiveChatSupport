@@ -83,6 +83,13 @@ public class VideoManager {
         }
     }
 
+    /**
+     * Nguồn camera mặc định: Nếu máy có webcam thì là cam thật, ngược lại là cam ảo (Avatar).
+     */
+    public synchronized VideoSource getDefaultCameraSource() {
+        return isWebcamAvailable() ? VideoSource.WEBCAM : VideoSource.VIRTUAL_AVATAR;
+    }
+
     public synchronized VideoSource getVideoSource() {
         return currentSource;
     }
@@ -116,10 +123,8 @@ public class VideoManager {
         this.isCameraEnabled.set(true);
         this.frameCount = 0;
 
-        // Nếu chọn webcam nhưng máy không có, tự chuyển sang Virtual Avatar
-        if (currentSource == VideoSource.WEBCAM && !isWebcamAvailable()) {
-            currentSource = VideoSource.VIRTUAL_AVATAR;
-        }
+        // Mặc định: Nếu có webcam vật lý thì là cam thật, ngược lại là cam ảo (Avatar)
+        this.currentSource = getDefaultCameraSource();
 
         // Khởi động luồng thu hình
         captureThread = new Thread(this::captureLoop, "Video-Capture-Thread");
@@ -131,31 +136,6 @@ public class VideoManager {
     }
 
     private void captureLoop() {
-        // Thử mở webcam nếu ở chế độ WEBCAM
-        if (currentSource == VideoSource.WEBCAM) {
-            try {
-                webcam = Webcam.getDefault();
-                if (webcam != null) {
-                    // Chọn độ phân giải vừa vặn để truyền UDP nhanh
-                    Dimension[] dims = webcam.getViewSizes();
-                    Dimension bestDim = new Dimension(320, 240);
-                    for (Dimension d : dims) {
-                        if (d.width <= 480 && d.height <= 360) {
-                            bestDim = d;
-                            break;
-                        }
-                    }
-                    webcam.setViewSize(bestDim);
-                    webcam.open();
-                } else {
-                    currentSource = VideoSource.VIRTUAL_AVATAR;
-                }
-            } catch (Throwable t) {
-                System.err.println("[VideoManager] Không thể mở webcam vật lý, chuyển sang camera mô phỏng: " + t.getMessage());
-                currentSource = VideoSource.VIRTUAL_AVATAR;
-            }
-        }
-
         // Tần số khung hình ~15-18 FPS (~60ms mỗi frame)
         final long intervalMs = 60;
 
@@ -172,6 +152,25 @@ public class VideoManager {
                 } else {
                     switch (currentSource) {
                         case WEBCAM:
+                            if (webcam == null || !webcam.isOpen()) {
+                                try {
+                                    webcam = Webcam.getDefault();
+                                    if (webcam != null && !webcam.isOpen()) {
+                                        Dimension[] dims = webcam.getViewSizes();
+                                        Dimension bestDim = new Dimension(320, 240);
+                                        for (Dimension d : dims) {
+                                            if (d.width <= 480 && d.height <= 360) {
+                                                bestDim = d;
+                                                break;
+                                            }
+                                        }
+                                        webcam.setViewSize(bestDim);
+                                        webcam.open();
+                                    }
+                                } catch (Throwable t) {
+                                    currentSource = VideoSource.VIRTUAL_AVATAR;
+                                }
+                            }
                             if (webcam != null && webcam.isOpen()) {
                                 frame = webcam.getImage();
                             }
@@ -231,12 +230,9 @@ public class VideoManager {
         if (screenRobot == null) return null;
         try {
             Dimension screenDim = Toolkit.getDefaultToolkit().getScreenSize();
-            // Lấy 80% vùng trung tâm màn hình để hiển thị rõ
-            int w = (int) (screenDim.width * 0.85);
-            int h = (int) (screenDim.height * 0.85);
-            int x = (screenDim.width - w) / 2;
-            int y = (screenDim.height - h) / 2;
-            BufferedImage full = screenRobot.createScreenCapture(new Rectangle(x, y, w, h));
+            // Chụp toàn màn hình
+            Rectangle screenRect = new Rectangle(0, 0, screenDim.width, screenDim.height);
+            BufferedImage full = screenRobot.createScreenCapture(screenRect);
 
             // Thu nhỏ xuống 480x270 (16:9) để gửi nhanh qua UDP
             BufferedImage scaled = new BufferedImage(480, 270, BufferedImage.TYPE_INT_RGB);
@@ -244,12 +240,12 @@ public class VideoManager {
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             g.drawImage(full, 0, 0, 480, 270, null);
 
-            // Vẽ badge "Đang chia sẻ màn hình"
-            g.setColor(new java.awt.Color(16, 185, 129, 210));
-            g.fillRoundRect(10, 10, 150, 22, 10, 10);
+            // Vẽ badge "Đang chia sẻ toàn màn hình"
+            g.setColor(new java.awt.Color(37, 99, 235, 220));
+            g.fillRoundRect(10, 10, 160, 22, 10, 10);
             g.setColor(java.awt.Color.WHITE);
             g.setFont(new java.awt.Font("Segoe UI", java.awt.Font.BOLD, 10));
-            g.drawString("🖥 Đang chia sẻ màn hình", 16, 25);
+            g.drawString("🖥 Đang chia sẻ toàn màn hình", 14, 25);
             g.dispose();
 
             return scaled;

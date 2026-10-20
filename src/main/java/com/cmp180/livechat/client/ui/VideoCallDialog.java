@@ -40,7 +40,7 @@ public class VideoCallDialog {
     private static final String SVG_PHONE = "M7.64551 3C8.46332 3 9.19873 3.4979 9.50246 4.25722L10.5577 6.89309C10.8305 7.57516 10.7066 8.35195 10.2363 8.9163L9.66895 9.59668C9.00673 10.3913 9.06079 11.5596 9.79222 12.2911L11.7082 14.2088C12.4396 14.9402 13.6089 14.9929 14.4035 14.3307L15.0839 13.7632C15.6483 13.2929 16.4249 13.1701 17.1069 13.4429L19.7434 14.4971C20.5027 14.8009 21.0005 15.5361 21.0005 16.354L21 19.1052C21 20.1516 20.1519 21 19.1055 21C10.2108 21 3 13.7892 3 4.89453C3 3.8481 3.8483 3 4.89474 3H7.64551Z";
     private static final String SVG_MIC = "M11.665 7.915v1.31a5.257 5.257 0 0 1-1.514 3.694 5.174 5.174 0 0 1-1.641 1.126 5.04 5.04 0 0 1-1.456.384v1.899h2.312a.554.554 0 0 1 0 1.108H3.634a.554.554 0 0 1 0-1.108h2.312v-1.899a5.045 5.045 0 0 1-1.456-.384 5.174 5.174 0 0 1-1.641-1.126 5.257 5.257 0 0 1-1.514-3.695v-1.31a.554.554 0 1 1 1.109 0v1.31a4.131 4.131 0 0 0 1.195 2.917 3.989 3.989 0 0 0 5.722 0 4.133 4.133 0 0 0 1.195-2.917v-1.31a.554.554 0 1 1 1.109 0zM3.77 10.37a2.875 2.875 0 0 1-.233-1.146V4.738A2.905 2.905 0 0 1 3.77 3.58a3 3 0 0 1 1.59-1.59 2.902 2.902 0 0 1 1.158-.233 2.865 2.865 0 0 1 1.152.233 2.977 2.977 0 0 1 1.793 2.748l-.012 4.487a2.958 2.958 0 0 1-.856 2.09 3.025 3.025 0 0 1-.937.634 2.865 2.865 0 0 1-1.152.233 2.905 2.905 0 0 1-1.158-.233A2.957 2.957 0 0 1 3.77 10.37z";
     private static final String SVG_VIDEO = "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z";
-    private static final String SVG_SWITCH = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15";
+    private static final String SVG_SCREEN_SHARE = "M6.24957 17H6.19691C5.07858 17 4.5192 17 4.0918 16.7822C3.71547 16.5905 3.40973 16.2837 3.21799 15.9074C3 15.4796 3 14.9203 3 13.8002V8.2002C3 7.08009 3 6.51962 3.21799 6.0918C3.40973 5.71547 3.71547 5.40973 4.0918 5.21799C4.51962 5 5.08009 5 6.2002 5H17.8002C18.9203 5 19.4796 5 19.9074 5.21799C20.2837 5.40973 20.5905 5.71547 20.7822 6.0918C21 6.5192 21 7.07899 21 8.19691V13.8031C21 14.921 21 15.48 20.7822 15.9074C20.5905 16.2837 20.2841 16.5905 19.9077 16.7822C19.4803 17 18.921 17 17.8031 17H17.7529M16 20H8L12 15L16 20Z";
 
     private final Stage stage;
     private final String peerName;
@@ -53,7 +53,7 @@ public class VideoCallDialog {
     private final Label lblDuration;
     private final Button btnMute;
     private final Button btnToggleCam;
-    private final Button btnSwitchSource;
+    private final Button btnShareScreen;
     private final Button btnEnd;
 
     private final Timeline timer;
@@ -189,11 +189,10 @@ public class VideoCallDialog {
         btnToggleCam.setOnAction(e -> toggleCamera());
         updateCamButtonState(VideoManager.getInstance().isCameraEnabled());
 
-        // Nút Đổi nguồn camera (Webcam / Virtual Avatar / Screen Share)
-        btnSwitchSource = createRoundButton();
-        btnSwitchSource.setGraphic(createSwitchGraphic());
-        Tooltip.install(btnSwitchSource, new Tooltip("Đổi nguồn Camera / Chia sẻ màn hình"));
-        btnSwitchSource.setOnAction(e -> showSourceMenu());
+        // Nút Chia sẻ toàn màn hình
+        btnShareScreen = createRoundButton();
+        btnShareScreen.setOnAction(e -> toggleShareScreen());
+        updateShareScreenButtonState(VideoManager.getInstance().getVideoSource() == VideoManager.VideoSource.SCREEN_SHARE);
 
         // Nút Gác máy
         btnEnd = createRoundButton();
@@ -204,7 +203,7 @@ public class VideoCallDialog {
         btnEnd.setOnAction(e -> hangUp());
         Tooltip.install(btnEnd, new Tooltip("Kết thúc cuộc gọi"));
 
-        controlBar.getChildren().addAll(btnMute, btnToggleCam, btnSwitchSource, btnEnd);
+        controlBar.getChildren().addAll(btnMute, btnToggleCam, btnShareScreen, btnEnd);
         StackPane.setAlignment(controlBar, Pos.BOTTOM_CENTER);
         StackPane.setMargin(controlBar, new Insets(0, 0, 24, 0));
 
@@ -304,20 +303,43 @@ public class VideoCallDialog {
         btnToggleCam.setStyle("-fx-background-color: " + bg + "; -fx-background-radius: 50; -fx-padding: 0;");
     }
 
-    private void showSourceMenu() {
-        ContextMenu menu = new ContextMenu();
+    private void toggleShareScreen() {
+        boolean isSharing = (VideoManager.getInstance().getVideoSource() == VideoManager.VideoSource.SCREEN_SHARE);
+        if (isSharing) {
+            // Tắt chia sẻ màn hình -> Trở về camera (cam thật nếu có, hoặc cam ảo)
+            VideoManager.getInstance().setVideoSource(VideoManager.getInstance().getDefaultCameraSource());
+            updateShareScreenButtonState(false);
+        } else {
+            // Bật chia sẻ toàn màn hình
+            VideoManager.getInstance().setVideoSource(VideoManager.VideoSource.SCREEN_SHARE);
+            updateShareScreenButtonState(true);
+        }
+    }
 
-        MenuItem itemWebcam = new MenuItem("📷 Webcam vật lý");
-        itemWebcam.setOnAction(e -> VideoManager.getInstance().setVideoSource(VideoManager.VideoSource.WEBCAM));
+    private void updateShareScreenButtonState(boolean isSharing) {
+        btnShareScreen.setGraphic(createScreenShareGraphic(isSharing));
+        Tooltip.install(btnShareScreen, new Tooltip(isSharing ? "Dừng chia sẻ màn hình" : "Chia sẻ toàn màn hình"));
+        String bg = isSharing ? "#2563eb" : "#334155";
+        btnShareScreen.setStyle("-fx-background-color: " + bg + "; -fx-background-radius: 50; -fx-padding: 0;");
+        btnShareScreen.setOnMouseEntered(e -> {
+            btnShareScreen.setStyle("-fx-background-color: " + (isSharing ? "#1d4ed8" : "#475569") + "; -fx-background-radius: 50; -fx-padding: 0;");
+        });
+        btnShareScreen.setOnMouseExited(e -> {
+            btnShareScreen.setStyle("-fx-background-color: " + bg + "; -fx-background-radius: 50; -fx-padding: 0;");
+        });
+    }
 
-        MenuItem itemAvatar = new MenuItem("✨ Camera ảo / Avatar mô phỏng");
-        itemAvatar.setOnAction(e -> VideoManager.getInstance().setVideoSource(VideoManager.VideoSource.VIRTUAL_AVATAR));
-
-        MenuItem itemScreen = new MenuItem("🖥 Chia sẻ màn hình trực tiếp");
-        itemScreen.setOnAction(e -> VideoManager.getInstance().setVideoSource(VideoManager.VideoSource.SCREEN_SHARE));
-
-        menu.getItems().addAll(itemWebcam, itemAvatar, itemScreen);
-        menu.show(btnSwitchSource, javafx.geometry.Side.TOP, 0, -10);
+    private Node createScreenShareGraphic(boolean isActive) {
+        SVGPath path = new SVGPath();
+        path.setContent(SVG_SCREEN_SHARE);
+        path.setFill(Color.TRANSPARENT);
+        path.setStroke(isActive ? Color.WHITE : Color.web("#f1f5f9"));
+        path.setStrokeWidth(2.0);
+        path.setStrokeLineCap(StrokeLineCap.ROUND);
+        path.setStrokeLineJoin(StrokeLineJoin.ROUND);
+        path.setScaleX(0.88);
+        path.setScaleY(0.88);
+        return path;
     }
 
     private Node createMicGraphic(boolean isMuted) {
@@ -358,18 +380,6 @@ public class VideoCallDialog {
         return g;
     }
 
-    private Node createSwitchGraphic() {
-        SVGPath sw = new SVGPath();
-        sw.setContent(SVG_SWITCH);
-        sw.setFill(Color.TRANSPARENT);
-        sw.setStroke(Color.WHITE);
-        sw.setStrokeWidth(2.0);
-        sw.setStrokeLineCap(StrokeLineCap.ROUND);
-        sw.setStrokeLineJoin(StrokeLineJoin.ROUND);
-        sw.setScaleX(0.85);
-        sw.setScaleY(0.85);
-        return sw;
-    }
 
     private Node createPhoneGraphic() {
         SVGPath phone = new SVGPath();

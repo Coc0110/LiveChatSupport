@@ -216,19 +216,7 @@ public class SessionManager {
         // Lưu phiên vào SQLite Database
         DatabaseManager.getInstance().createSession(session.getSessionId(), customer.getDbCustomerId(), staff.getClientId(), customer.getIssueTopic());
 
-        // Nếu khách hàng có lịch sử trước đó (tư vấn dở / mở lại / từng chat các phiên trước), nạp và gửi toàn bộ lịch sử cho cả Nhân viên và Khách hàng
-        if (customer.getChatHistory().isEmpty() && customer.getDbCustomerId() != null) {
-            List<DatabaseManager.MessageRecord> dbMsgs = DatabaseManager.getInstance().getAllMessagesByCustomer(customer.getDbCustomerId());
-            for (DatabaseManager.MessageRecord m : dbMsgs) {
-                ClientHandler.HistoryEntry he = new ClientHandler.HistoryEntry(
-                    m.messageId, m.senderRole, m.senderName, m.content, m.replyToSender, m.replyToText, m.timestamp,
-                    m.fileName, m.fileSize, m.fileData, m.isImage
-                );
-                he.isRecalled = m.isRecalled;
-                customer.getChatHistory().add(he);
-            }
-        }
-
+        // Nếu khách hàng có lịch sử nạp từ chuỗi phiên cũ (Mở lại phiên / Đang tư vấn dở), gửi lịch sử cho cả Nhân viên và Khách hàng
         if (!customer.getChatHistory().isEmpty()) {
             for (ClientHandler.HistoryEntry entry : customer.getChatHistory()) {
                 String meta = entry.senderRole + "|" + entry.senderName + "|" + entry.timestamp + "|" + (entry.isRecalled ? "RECALLED" : "NORMAL");

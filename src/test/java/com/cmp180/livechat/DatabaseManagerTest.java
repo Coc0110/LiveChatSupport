@@ -281,5 +281,77 @@ public class DatabaseManagerTest {
         assertTrue(db.verifyStaffPassword(s.staffId, newPass), "Mật khẩu đúng phải xác thực thành công");
         assertFalse(db.verifyStaffPassword(s.staffId, "WrongPass"), "Mật khẩu sai phải xác thực thất bại");
     }
+
+    @Test
+    @DisplayName("Kiểm tra chuẩn hoá topic và kiểm tra chuỗi phiên ghép")
+    void testTopicNormalizationAndChaining() {
+        assertTrue(DatabaseManager.isChainedTopic("Hỏi tiếp: Tư vấn Mua hàng"));
+        assertTrue(DatabaseManager.isChainedTopic("hỏi tiếp:  Bảo hành"));
+        assertTrue(DatabaseManager.isChainedTopic("Re: Khiếu nại"));
+        assertFalse(DatabaseManager.isChainedTopic("Tư vấn Mua hàng"));
+        assertFalse(DatabaseManager.isChainedTopic("Hỗ trợ Kỹ thuật & Cài đặt"));
+
+        assertEquals("Tư vấn Mua hàng", DatabaseManager.normalizeTopic("Hỏi tiếp: Tư vấn Mua hàng"));
+        assertEquals("Tư vấn Mua hàng", DatabaseManager.normalizeTopic("Hỏi tiếp: Hỏi tiếp: Tư vấn Mua hàng"));
+        assertEquals("Bảo hành & Đổi trả", DatabaseManager.normalizeTopic("Re: Bảo hành & Đổi trả"));
+        assertEquals("Vấn đề khác", DatabaseManager.normalizeTopic("Vấn đề khác"));
+    }
+
+    @Test
+    @DisplayName("Kiểm tra getMessagesForReopenSession lọc đúng chuỗi phiên và không làm rò rỉ chủ đề khác")
+    void testGetMessagesForReopenSession() throws InterruptedException {
+        String testPhone = "0977" + (System.currentTimeMillis() % 1000000);
+        DatabaseManager.CustomerRecord cust = db.registerOrUpdateCustomer(testPhone, "Khách Ghép Phiên");
+        DatabaseManager.StaffRecord staff = db.authenticateStaff("staff01", "123456");
+        assertNotNull(cust);
+        assertNotNull(staff);
+
+        // Phiên 1: Standalone topic "Tư vấn Mua hàng"
+        String sess1 = UUID.randomUUID().toString();
+        db.createSession(sess1, cust.customerId, staff.staffId, "Tư vấn Mua hàng");
+        db.saveMessage(sess1, UUID.randomUUID().toString(), "CUSTOMER", cust.fullName, "Tin nhắn 1 - Phiên 1", null, null, null, 0, false, System.currentTimeMillis() - 3000);
+        db.closeSession(sess1, 5, "Tốt");
+
+        Thread.sleep(10);
+
+        // Phiên 2: Khác chủ đề "Hỗ trợ Kỹ thuật & Cài đặt" (không liên quan)
+        String sessOther = UUID.randomUUID().toString();
+        db.createSession(sessOther, cust.customerId, staff.staffId, "Hỗ trợ Kỹ thuật & Cài đặt");
+        db.saveMessage(sessOther, UUID.randomUUID().toString(), "CUSTOMER", cust.fullName, "Tin nhắn Kỹ thuật - Không được lọt", null, null, null, 0, false, System.currentTimeMillis() - 2000);
+        db.closeSession(sessOther, 4, "Tạm ổn");
+
+        Thread.sleep(10);
+
+        // Phiên 3: Phiên ghép "Hỏi tiếp: Tư vấn Mua hàng" (nối tiếp phiên 1)
+        String sess2 = UUID.randomUUID().toString();
+        db.createSession(sess2, cust.customerId, staff.staffId, "Hỏi tiếp: Tư vấn Mua hàng");
+        db.saveMessage(sess2, UUID.randomUUID().toString(), "CUSTOMER", cust.fullName, "Tin nhắn 2 - Phiên 3", null, null, null, 0, false, System.currentTimeMillis() - 1000);
+        db.closeSession(sess2, 5, "Hài lòng");
+
+        Thread.sleep(10);
+
+        // Phiên 4: Diễn ra sau phiên 3 (subsequent session)
+        String sessSubsequent = UUID.randomUUID().toString();
+        db.createSession(sessSubsequent, cust.customerId, staff.staffId, "Hỏi tiếp: Tư vấn Mua hàng");
+        db.saveMessage(sessSubsequent, UUID.randomUUID().toString(), "CUSTOMER", cust.fullName, "Tin nhắn tương lai", null, null, null, 0, false, System.currentTimeMillis());
+        db.closeSession(sessSubsequent, 5, "Xong");
+
+        // 1. Mở lại phiên 1 (standalone): chỉ được có tin nhắn của phiên 1
+        List<DatabaseManager.MessageRecord> msgsSess1 = db.getMessagesForReopenSession(sess1);
+        assertEquals(1, msgsSess1.size());
+        assertEquals("Tin nhắn 1 - Phiên 1", msgsSess1.get(0).content);
+
+        // 2. Mở lại phiên 3 ("Hỏi tiếp: Tư vấn Mua hàng"):
+        // Phải nạp phiên 1 VÀ phiên 3, TUYỆT ĐỐI không có phiên Kỹ thuật và không có phiên tương lai
+        List<DatabaseManager.MessageRecord> msgsSess2 = db.getMessagesForReopenSession(sess2);
+        assertEquals(2, msgsSess2.size(), "Phải nạp đúng 2 tin nhắn từ chuỗi phiên 1 và phiên 3");
+        assertEquals("Tin nhắn 1 - Phiên 1", msgsSess2.get(0).content);
+        assertEquals("Tin nhắn 2 - Phiên 3", msgsSess2.get(1).content);
+
+        // 3. Mở lại phiên Kỹ thuật: chỉ có tin nhắn của phiên Kỹ thuật
+        List<DatabaseManager.MessageRecord> msgsOther = db.getMessagesForReopenSession(sessOther);
+        assertEquals(1, msgsOther.size());
+        assertEquals("Tin nhắn Kỹ thuật - Không được lọt", msgsOther.get(0).content);
+    }
 }
 

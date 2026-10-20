@@ -409,7 +409,7 @@ public class LCSChatController implements StaffNetworkListener {
             listMessages.getItems().addAll(chatHistories.get(customerId));
         }
         if (listMessages.getItems().size() > 0) {
-            listMessages.scrollTo(listMessages.getItems().size() - 1);
+            scrollToBottom();
         }
 
         isUpdatingSelection = true;
@@ -523,7 +523,7 @@ public class LCSChatController implements StaffNetworkListener {
         ChatMessage msg = new ChatMessage(msgId, content, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId);
         chatHistories.computeIfAbsent(currentCustomerId, k -> new ArrayList<>()).add(msg);
         listMessages.getItems().add(msg);
-        listMessages.scrollTo(listMessages.getItems().size() - 1);
+        scrollToBottom();
         txtMessage.clear();
         handleCancelReply();
         
@@ -535,6 +535,36 @@ public class LCSChatController implements StaffNetworkListener {
                 break;
             }
         }
+    }
+
+    private void scrollToBottom() {
+        if (listMessages == null || listMessages.getItems().isEmpty()) return;
+        Platform.runLater(() -> {
+            listMessages.scrollTo(listMessages.getItems().size() - 1);
+            for (javafx.scene.Node node : listMessages.lookupAll(".scroll-bar")) {
+                if (node instanceof javafx.scene.control.ScrollBar) {
+                    javafx.scene.control.ScrollBar sb = (javafx.scene.control.ScrollBar) node;
+                    if (sb.getOrientation() == javafx.geometry.Orientation.VERTICAL) {
+                        sb.setValue(sb.getMax());
+                    }
+                }
+            }
+            javafx.animation.PauseTransition pt = new javafx.animation.PauseTransition(javafx.util.Duration.millis(60));
+            pt.setOnFinished(e -> {
+                if (listMessages != null && !listMessages.getItems().isEmpty()) {
+                    listMessages.scrollTo(listMessages.getItems().size() - 1);
+                    for (javafx.scene.Node node : listMessages.lookupAll(".scroll-bar")) {
+                        if (node instanceof javafx.scene.control.ScrollBar) {
+                            javafx.scene.control.ScrollBar sb = (javafx.scene.control.ScrollBar) node;
+                            if (sb.getOrientation() == javafx.geometry.Orientation.VERTICAL) {
+                                sb.setValue(sb.getMax());
+                            }
+                        }
+                    }
+                }
+            });
+            pt.play();
+        });
     }
 
     @FXML
@@ -664,7 +694,7 @@ public class LCSChatController implements StaffNetworkListener {
         ChatMessage msg = new ChatMessage(msgId, caption, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId, fileName, fileSize, fileData, isImage);
         chatHistories.computeIfAbsent(currentCustomerId, k -> new ArrayList<>()).add(msg);
         listMessages.getItems().add(msg);
-        listMessages.scrollTo(listMessages.getItems().size() - 1);
+        scrollToBottom();
         handleCancelReply();
 
         for (CustomerItem c : localQueue) {
@@ -843,7 +873,7 @@ public class LCSChatController implements StaffNetworkListener {
             historyList.add(historyMsg);
             if (customerId.equals(currentCustomerId)) {
                 listMessages.getItems().setAll(historyList);
-                listMessages.scrollTo(listMessages.getItems().size() - 1);
+                scrollToBottom();
             }
         });
     }
@@ -889,7 +919,7 @@ public class LCSChatController implements StaffNetworkListener {
             
             if (isSelected) {
                 listMessages.getItems().add(msg);
-                listMessages.scrollTo(listMessages.getItems().size() - 1);
+                scrollToBottom();
             }
             
             for (CustomerItem c : localQueue) {
@@ -921,7 +951,7 @@ public class LCSChatController implements StaffNetworkListener {
             
             if (isSelected) {
                 listMessages.getItems().add(msg);
-                listMessages.scrollTo(listMessages.getItems().size() - 1);
+                scrollToBottom();
             }
             
             for (CustomerItem c : localQueue) {
@@ -947,12 +977,11 @@ public class LCSChatController implements StaffNetworkListener {
                     lblTyping.setText((senderName != null ? senderName : "Khách hàng") + " đang soạn tin...");
                     typingBar.setVisible(true);
                     typingBar.setManaged(true);
-                    if (listMessages != null && !listMessages.getItems().isEmpty()) {
-                        listMessages.scrollTo(listMessages.getItems().size() - 1);
-                    }
+                    scrollToBottom();
                 } else {
                     typingBar.setVisible(false);
                     typingBar.setManaged(false);
+                    scrollToBottom();
                 }
             }
         });
@@ -1045,7 +1074,7 @@ public class LCSChatController implements StaffNetworkListener {
                 ChatMessage msg = new ChatMessage(reason, ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
                 chatHistories.computeIfAbsent(currentCustomerId, k -> new ArrayList<>()).add(msg);
                 listMessages.getItems().add(msg);
-                listMessages.scrollTo(listMessages.getItems().size() - 1);
+                scrollToBottom();
                 lblStatus.setText("Phiên đã kết thúc");
                 statusDot.setFill(Color.web("#888888"));
 
@@ -1196,7 +1225,7 @@ public class LCSChatController implements StaffNetworkListener {
             ChatMessage msg = new ChatMessage(msgId, "Tin nhắn thoại (" + durationSec + "s)", ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId, fileName, res.wavData.length, res.wavData, false);
             chatHistories.computeIfAbsent(currentCustomerId, k -> new ArrayList<>()).add(msg);
             listMessages.getItems().add(msg);
-            listMessages.scrollTo(listMessages.getItems().size() - 1);
+            scrollToBottom();
             handleCancelReply();
 
             for (CustomerItem ci : localQueue) {
@@ -1256,7 +1285,7 @@ public class LCSChatController implements StaffNetworkListener {
         String msgId = UUID.randomUUID().toString();
         ChatMessage msg = new ChatMessage(eventText, ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
         listMessages.getItems().add(msg);
-        listMessages.scrollTo(listMessages.getItems().size() - 1);
+        scrollToBottom();
         if (broadcast && targetCustId != null && StaffContext.getInstance().getNetworkService().isConnected()) {
             StaffContext.getInstance().getNetworkService().sendChatMessage(eventText, targetCustId, msgId, null, null);
         }
@@ -1578,7 +1607,7 @@ public class LCSChatController implements StaffNetworkListener {
             boolean isSelected = senderId.equals(currentCustomerId);
             if (isSelected) {
                 listMessages.getItems().add(msg);
-                listMessages.scrollTo(listMessages.getItems().size() - 1);
+                scrollToBottom();
             }
 
             for (CustomerItem c : localQueue) {

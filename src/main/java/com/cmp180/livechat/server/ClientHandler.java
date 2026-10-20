@@ -248,18 +248,13 @@ public class ClientHandler implements Runnable {
         if (msg.getReceiverId() != null && msg.getReceiverId().startsWith("REOPEN:")) {
             String reopenSessionId = msg.getReceiverId().substring("REOPEN:".length());
             this.interrupted = true;
-            List<DatabaseManager.MessageRecord> oldMsgs;
-            if (this.dbCustomerId != null) {
-                oldMsgs = DatabaseManager.getInstance().getAllMessagesByCustomer(this.dbCustomerId);
-            } else {
-                oldMsgs = DatabaseManager.getInstance().getMessagesBySession(reopenSessionId);
-            }
+            List<DatabaseManager.MessageRecord> oldMsgs = DatabaseManager.getInstance().getMessagesForReopenSession(reopenSessionId);
             for (DatabaseManager.MessageRecord m : oldMsgs) {
                 HistoryEntry he = new HistoryEntry(m.messageId, m.senderRole, m.senderName, m.content, m.replyToSender, m.replyToText, m.replyToId, m.timestamp, m.fileName, m.fileSize, m.fileData, m.isImage);
                 he.isRecalled = m.isRecalled;
                 this.chatHistory.add(he);
             }
-            server.log("[MỞ LẠI PHIÊN CŨ] Khách hàng '" + this.name + "' mở lại toàn bộ lịch sử (" + oldMsgs.size() + " tin nhắn qua tất cả các phiên).");
+            server.log("[MỞ LẠI PHIÊN CŨ] Khách hàng '" + this.name + "' nạp lịch sử chuỗi phiên (" + oldMsgs.size() + " tin nhắn liên quan).");
         } else if ("RECONNECT".equalsIgnoreCase(msg.getReceiverId())) {
             this.interrupted = true;
         }

@@ -334,9 +334,39 @@ public class CustomerChatController implements CustomerNetworkListener {
         CustomerContext.getInstance().getNetworkService().sendChatMessage(content, currentStaffId, msgId, replySender, replyText, replyId);
         ChatMessage msg = new ChatMessage(msgId, content, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId);
         listMessages.getItems().add(msg);
-        listMessages.scrollTo(listMessages.getItems().size() - 1);
+        scrollToBottom();
         txtMessage.clear();
         handleCancelReply();
+    }
+
+    private void scrollToBottom() {
+        if (listMessages == null || listMessages.getItems().isEmpty()) return;
+        Platform.runLater(() -> {
+            listMessages.scrollTo(listMessages.getItems().size() - 1);
+            for (javafx.scene.Node node : listMessages.lookupAll(".scroll-bar")) {
+                if (node instanceof javafx.scene.control.ScrollBar) {
+                    javafx.scene.control.ScrollBar sb = (javafx.scene.control.ScrollBar) node;
+                    if (sb.getOrientation() == javafx.geometry.Orientation.VERTICAL) {
+                        sb.setValue(sb.getMax());
+                    }
+                }
+            }
+            javafx.animation.PauseTransition pt = new javafx.animation.PauseTransition(javafx.util.Duration.millis(60));
+            pt.setOnFinished(e -> {
+                if (listMessages != null && !listMessages.getItems().isEmpty()) {
+                    listMessages.scrollTo(listMessages.getItems().size() - 1);
+                    for (javafx.scene.Node node : listMessages.lookupAll(".scroll-bar")) {
+                        if (node instanceof javafx.scene.control.ScrollBar) {
+                            javafx.scene.control.ScrollBar sb = (javafx.scene.control.ScrollBar) node;
+                            if (sb.getOrientation() == javafx.geometry.Orientation.VERTICAL) {
+                                sb.setValue(sb.getMax());
+                            }
+                        }
+                    }
+                }
+            });
+            pt.play();
+        });
     }
 
     @FXML
@@ -465,7 +495,7 @@ public class CustomerChatController implements CustomerNetworkListener {
 
         ChatMessage msg = new ChatMessage(msgId, caption, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId, fileName, fileSize, fileData, isImage);
         listMessages.getItems().add(msg);
-        listMessages.scrollTo(listMessages.getItems().size() - 1);
+        scrollToBottom();
         handleCancelReply();
     }
 
@@ -593,7 +623,7 @@ public class CustomerChatController implements CustomerNetworkListener {
                 if (statusDot != null) statusDot.setFill(javafx.scene.paint.Color.web("#eab308"));
                 lblStatus.setText("Đang chờ nhân viên khác tiếp nhận...");
                 listMessages.getItems().add(new ChatMessage(message, ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
-                listMessages.scrollTo(listMessages.getItems().size() - 1);
+                scrollToBottom();
             }
         });
     }
@@ -618,7 +648,7 @@ public class CustomerChatController implements CustomerNetworkListener {
             if (btnVideoCall != null) btnVideoCall.setDisable(false);
             if (btnRecordVoice != null) btnRecordVoice.setDisable(false);
             listMessages.getItems().add(new ChatMessage("Bạn đang chat với " + staffName, ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
-            listMessages.scrollTo(listMessages.getItems().size() - 1);
+            scrollToBottom();
             SoundManager.playNotificationSound();
         });
     }
@@ -638,7 +668,7 @@ public class CustomerChatController implements CustomerNetworkListener {
         Platform.runLater(() -> {
             ChatMessage msg = new ChatMessage(messageId, message, ChatMessage.Type.STAFF_MSG, senderName, System.currentTimeMillis(), replyToSender, replyToText, replyToId);
             listMessages.getItems().add(msg);
-            listMessages.scrollTo(listMessages.getItems().size() - 1);
+            scrollToBottom();
             SoundManager.playNotificationSound();
         });
     }
@@ -653,7 +683,7 @@ public class CustomerChatController implements CustomerNetworkListener {
         Platform.runLater(() -> {
             ChatMessage msg = new ChatMessage(messageId, caption, ChatMessage.Type.STAFF_MSG, senderName, System.currentTimeMillis(), replyToSender, replyToText, replyToId, fileName, fileSize, fileData, isImage);
             listMessages.getItems().add(msg);
-            listMessages.scrollTo(listMessages.getItems().size() - 1);
+            scrollToBottom();
             SoundManager.playNotificationSound();
         });
     }
@@ -667,12 +697,11 @@ public class CustomerChatController implements CustomerNetworkListener {
                     lblTyping.setText((senderName != null ? senderName : "Hỗ trợ viên") + " đang soạn tin...");
                     typingBar.setVisible(true);
                     typingBar.setManaged(true);
-                    if (listMessages != null && !listMessages.getItems().isEmpty()) {
-                        listMessages.scrollTo(listMessages.getItems().size() - 1);
-                    }
+                    scrollToBottom();
                 } else {
                     typingBar.setVisible(false);
                     typingBar.setManaged(false);
+                    scrollToBottom();
                 }
             }
         });
@@ -705,7 +734,7 @@ public class CustomerChatController implements CustomerNetworkListener {
             ChatMessage historyMsg = new ChatMessage(messageId, message, type, senderName, timestamp, replyToSender, replyToText, replyToId, fileName, fileSize, fileData, isImage);
             historyMsg.setRecalled(isRecalled);
             listMessages.getItems().add(historyMsg);
-            listMessages.scrollTo(listMessages.getItems().size() - 1);
+            scrollToBottom();
         });
     }
 
@@ -1079,7 +1108,7 @@ public class CustomerChatController implements CustomerNetworkListener {
 
             ChatMessage msg = new ChatMessage(msgId, "Tin nhắn thoại (" + durationSec + "s)", ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId, fileName, res.wavData.length, res.wavData, false);
             listMessages.getItems().add(msg);
-            listMessages.scrollTo(listMessages.getItems().size() - 1);
+            scrollToBottom();
             handleCancelReply();
         }
     }
@@ -1131,7 +1160,7 @@ public class CustomerChatController implements CustomerNetworkListener {
         String msgId = UUID.randomUUID().toString();
         ChatMessage msg = new ChatMessage(eventText, ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
         listMessages.getItems().add(msg);
-        listMessages.scrollTo(listMessages.getItems().size() - 1);
+        scrollToBottom();
         if (broadcast && targetStaffId != null && CustomerContext.getInstance().getNetworkService().isConnected()) {
             CustomerContext.getInstance().getNetworkService().sendChatMessage(eventText, targetStaffId, msgId, null, null);
         }
@@ -1457,7 +1486,7 @@ public class CustomerChatController implements CustomerNetworkListener {
             String display = (durationText != null && !durationText.isEmpty()) ? ("Tin nhắn thoại (" + durationText + ")") : "Tin nhắn thoại";
             ChatMessage msg = new ChatMessage(messageId, display, ChatMessage.Type.STAFF_MSG, senderName, System.currentTimeMillis(), replyToSender, replyToText, replyToId, "voice_" + System.currentTimeMillis() + ".wav", audioData != null ? audioData.length : 0, audioData, false);
             listMessages.getItems().add(msg);
-            listMessages.scrollTo(listMessages.getItems().size() - 1);
+            scrollToBottom();
             SoundManager.playNotificationSound();
         });
     }

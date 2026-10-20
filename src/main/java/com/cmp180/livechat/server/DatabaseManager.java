@@ -4,6 +4,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -711,6 +712,43 @@ public class DatabaseManager {
         return null;
     }
 
+    public SessionRecord getSessionById(String sessionId) {
+        if (sessionId == null || sessionId.trim().isEmpty()) return null;
+        String sql = """
+            SELECT cs.session_id, cs.customer_id, c.full_name AS cust_name, c.phone_or_email AS cust_phone,
+                   cs.staff_id, COALESCE(s.full_name, 'Chưa gán') AS staff_name,
+                   cs.issue_topic, cs.status, cs.rating, cs.feedback, cs.created_at, cs.closed_at
+            FROM chat_sessions cs
+            LEFT JOIN customers c ON cs.customer_id = c.customer_id
+            LEFT JOIN staff s ON cs.staff_id = s.staff_id
+            WHERE cs.session_id = ?
+        """;
+        try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, sessionId.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new SessionRecord(
+                            rs.getString("session_id"),
+                            rs.getString("customer_id"),
+                            rs.getString("cust_name"),
+                            rs.getString("cust_phone"),
+                            rs.getString("staff_id"),
+                            rs.getString("staff_name"),
+                            rs.getString("issue_topic"),
+                            rs.getString("status"),
+                            rs.getInt("rating"),
+                            rs.getString("feedback"),
+                            rs.getLong("created_at"),
+                            rs.getLong("closed_at")
+                    );
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi tìm session theo ID: " + e.getMessage());
+        }
+        return null;
+    }
+
     // ==========================================
     // CÁC HÀM XỬ LÝ TIN NHẮN (MESSAGES)
     // ==========================================
@@ -965,6 +1003,153 @@ public class DatabaseManager {
             System.err.println("Lỗi lấy toàn bộ lịch sử tin nhắn của khách hàng: " + e.getMessage());
         }
         return list;
+    }
+
+    public static boolean isChainedTopic(String topic) {
+        if (topic == null) return false;
+        String lower = topic.trim().toLowerCase();
+        return lower.startsWith("hỏi tiếp:") || lower.startsWith("re:");
+    }
+
+    public static String normalizeTopic(String topic) {
+        if (topic == null) return "";
+        String normalized = topic.trim();
+        while (true) {
+            String lower = normalized.toLowerCase();
+            if (lower.startsWith("hỏi tiếp:")) {
+                normalized = normalized.substring("hỏi tiếp:".length()).trim();
+            } else if (lower.startsWith("re:")) {
+                normalized = normalized.substring("re:".length()).trim();
+            } else {
+                break;
+            }
+        }
+        return normalized;
+    }
+
+    public List<MessageRecord> getMessagesBySessionIds(List<String> sessionIds) {
+        List<MessageRecord> list = new ArrayList<>();
+        if (sessionIds == null || sessionIds.isEmpty()) return list;
+
+        String placeholders = String.join(",", Collections.nCopies(sessionIds.size(), "?"));
+        String sql = "SELECT * FROM messages WHERE session_id IN (" + placeholders + ") ORDER BY timestamp ASC";
+        try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (int i = 0; i < sessionIds.size(); i++) {
+                ps.setString(i + 1, sessionIds.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String filePath = null;
+                    try {
+                        filePath = rs.getString("file_path");
+                    } catch (SQLException ignored) {}
+
+                    byte[] fileData = null;
+                    if (filePath != null && !filePath.trim().isEmpty()) {
+                        File f = new File(filePath);
+                        if (f.exists() && f.isFile()) {
+                            try {
+                                fileData = Files.readAllBytes(f.toPath());
+                            } catch (Exception ex) {
+                                System.err.println("Không thể đọc tệp lưu trữ: " + filePath + " (" + ex.getMessage() + ")");
+                            }
+                        }
+                    }
+
+                    String replyToId = null;
+                    try {
+                        replyToId = rs.getString("reply_to_id");
+                    } catch (SQLException ignored) {}
+
+                    list.add(new MessageRecord(
+                            rs.getString("message_id"),
+                            rs.getString("session_id"),
+                            rs.getString("sender_role"),
+                            rs.getString("sender_name"),
+                            rs.getString("content"),
+                            rs.getString("reply_to_sender"),
+                            rs.getString("reply_to_text"),
+                            replyToId,
+                            rs.getString("file_name"),
+                            rs.getLong("file_size"),
+                            rs.getInt("is_image") == 1,
+                            rs.getInt("is_recalled") == 1,
+                            rs.getLong("timestamp"),
+                            filePath,
+                            fileData
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi lấy messages theo danh sách session: " + e.getMessage());
+        }
+        return list;
+    }
+
+    /**
+     * Lấy danh sách tin nhắn cho phiên hỗ trợ được mở lại.
+     * Chỉ nạp đúng phiên đó (và các phiên liền trước cùng chuỗi đề tài nếu phiên được mở lại là phiên ghép "Hỏi tiếp...").
+     * Tuyệt đối không nạp tin nhắn từ các chủ đề khác hoặc các phiên diễn ra sau phiên mục tiêu.
+     */
+    public List<MessageRecord> getMessagesForReopenSession(String targetSessionId) {
+        List<MessageRecord> list = new ArrayList<>();
+        if (targetSessionId == null || targetSessionId.trim().isEmpty()) return list;
+
+        SessionRecord target = getSessionById(targetSessionId);
+        if (target == null) {
+            return getMessagesBySession(targetSessionId);
+        }
+
+        List<String> chainSessionIds = new ArrayList<>();
+        chainSessionIds.add(target.sessionId);
+
+        // Nếu target là một phiên ghép (bắt đầu bằng "Hỏi tiếp:" hoặc "Re:"),
+        // truy ngược các phiên trước đó cùng chủ đề của khách hàng này
+        if (target.customerId != null && isChainedTopic(target.issueTopic)) {
+            String normTargetTopic = normalizeTopic(target.issueTopic);
+            SessionRecord curr = target;
+
+            while (curr != null && isChainedTopic(curr.issueTopic)) {
+                String sql = """
+                    SELECT session_id, customer_id, issue_topic, created_at
+                    FROM chat_sessions
+                    WHERE customer_id = ? AND created_at < ?
+                    ORDER BY created_at DESC
+                """;
+                SessionRecord prevMatch = null;
+                try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+                    ps.setString(1, curr.customerId);
+                    ps.setLong(2, curr.createdAt);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            String prevTopic = rs.getString("issue_topic");
+                            if (normalizeTopic(prevTopic).equalsIgnoreCase(normTargetTopic)) {
+                                prevMatch = new SessionRecord(
+                                        rs.getString("session_id"),
+                                        rs.getString("customer_id"),
+                                        null, null, null, null,
+                                        prevTopic, null, 0, null,
+                                        rs.getLong("created_at"), 0
+                                );
+                                break;
+                            }
+                        }
+                    }
+                } catch (SQLException e) {
+                    System.err.println("Lỗi truy ngược phiên trong chuỗi: " + e.getMessage());
+                    break;
+                }
+
+                if (prevMatch != null && !chainSessionIds.contains(prevMatch.sessionId)) {
+                    chainSessionIds.add(0, prevMatch.sessionId);
+                    curr = prevMatch;
+                } else {
+                    break;
+                }
+            }
+        }
+
+        return getMessagesBySessionIds(chainSessionIds);
     }
 
     // ==========================================

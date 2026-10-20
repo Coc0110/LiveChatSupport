@@ -33,6 +33,15 @@ public class VideoManagerTest {
     }
 
     @Test
+    @DisplayName("Kiểm tra tự động chọn nguồn camera mặc định (Webcam nếu có, hoặc Virtual Avatar)")
+    public void testDefaultCameraSource() {
+        VideoManager vm = VideoManager.getInstance();
+        VideoManager.VideoSource defaultSource = vm.getDefaultCameraSource();
+        assertNotNull(defaultSource);
+        assertTrue(defaultSource == VideoManager.VideoSource.WEBCAM || defaultSource == VideoManager.VideoSource.VIRTUAL_AVATAR);
+    }
+
+    @Test
     @DisplayName("Kiểm tra thư viện Webcam Capture nạp thành công")
     public void testWebcamLibraryLoads() {
         System.setProperty("bridj.quiet", "true");
