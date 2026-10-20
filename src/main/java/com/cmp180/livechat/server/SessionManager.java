@@ -30,6 +30,37 @@ public class SessionManager {
         return count;
     }
 
+    public synchronized boolean isStaffOnline(String staffId) {
+        if (staffId == null) return false;
+        for (ClientHandler staff : allStaffs) {
+            if (staffId.equals(staff.getClientId()) && staff.getSocket() != null && !staff.getSocket().isClosed()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public synchronized boolean isCustomerOnline(String dbCustomerId, String customerPhone, ClientHandler current) {
+        for (ClientHandler c : waitingCustomers) {
+            if (c != current && c.getSocket() != null && !c.getSocket().isClosed()) {
+                if ((dbCustomerId != null && dbCustomerId.equals(c.getDbCustomerId())) ||
+                    (customerPhone != null && !customerPhone.isEmpty() && customerPhone.equals(c.getCustomerPhone()))) {
+                    return true;
+                }
+            }
+        }
+        for (ChatSession s : activeSessionsList) {
+            ClientHandler c = s.getCustomer();
+            if (c != null && c != current && c.getSocket() != null && !c.getSocket().isClosed()) {
+                if ((dbCustomerId != null && dbCustomerId.equals(c.getDbCustomerId())) ||
+                    (customerPhone != null && !customerPhone.isEmpty() && customerPhone.equals(c.getCustomerPhone()))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public synchronized void registerClient(ClientHandler client) {
         if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(client.getRole())) {
             waitingCustomers.removeIf(c -> c.getClientId().equals(client.getClientId()));
@@ -286,12 +317,14 @@ public class SessionManager {
             return;
         }
 
-        // 1.3. Xử lý cuộc gọi thoại (Voice Call Signaling & Audio Streaming)
+        // 1.3. Xử lý cuộc gọi thoại & cuộc gọi video (Voice & Video Call Signaling & Streaming)
         if (Protocol.CMD_CALL_REQ.equals(msg.getCommand()) ||
+            Protocol.CMD_VIDEO_CALL_REQ.equals(msg.getCommand()) ||
             Protocol.CMD_CALL_ACCEPT.equals(msg.getCommand()) ||
             Protocol.CMD_CALL_REJECT.equals(msg.getCommand()) ||
             Protocol.CMD_CALL_END.equals(msg.getCommand()) ||
-            Protocol.CMD_CALL_DATA.equals(msg.getCommand())) {
+            Protocol.CMD_CALL_DATA.equals(msg.getCommand()) ||
+            Protocol.CMD_VIDEO_DATA.equals(msg.getCommand())) {
 
             if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(sender.getRole())) {
                 for (ChatSession session : activeSessionsList) {
@@ -308,7 +341,7 @@ public class SessionManager {
                     }
                 }
             }
-            if (Protocol.CMD_CALL_REQ.equals(msg.getCommand())) {
+            if (Protocol.CMD_CALL_REQ.equals(msg.getCommand()) || Protocol.CMD_VIDEO_CALL_REQ.equals(msg.getCommand())) {
                 sender.sendMessage(new Message(Protocol.CMD_CALL_REJECT, "Server", "Đối phương hiện không sẵn sàng nhận cuộc gọi."));
             }
             return;

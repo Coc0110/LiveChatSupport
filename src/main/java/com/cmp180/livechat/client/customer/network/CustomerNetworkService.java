@@ -46,6 +46,12 @@ public class CustomerNetworkService {
         listeners.remove(listener);
     }
 
+    public void removeListenersByType(String classNameFragment) {
+        if (classNameFragment != null) {
+            listeners.removeIf(l -> l.getClass().getName().contains(classNameFragment));
+        }
+    }
+
     public void setServerAddress(String host, int port) {
         if (host != null && !host.trim().isEmpty()) this.serverHost = host.trim();
         if (port > 0) this.serverPort = port;
@@ -88,9 +94,6 @@ public class CustomerNetworkService {
     }
 
     public synchronized void connectAndLogin(String host, int port, String phone, String customerName, String issueTopic, String reopenSessionId) {
-        // Dọn dẹp bất kỳ listener cũ nào của CustomerChatController để tránh gọi callback trùng lặp
-        listeners.removeIf(l -> l.getClass().getName().contains("CustomerChatController"));
-
         if (host != null && !host.trim().isEmpty()) this.serverHost = host.trim();
         if (port > 0) this.serverPort = port;
         if (phone != null && !phone.trim().isEmpty()) this.customerPhone = phone.trim();
@@ -255,6 +258,12 @@ public class CustomerNetworkService {
                         }
                         break;
 
+                    case Protocol.CMD_VIDEO_CALL_REQ:
+                        for (CustomerNetworkListener l : listeners) {
+                            l.onIncomingVideoCall(msg.getSenderId(), msg.getReceiverId());
+                        }
+                        break;
+
                     case Protocol.CMD_CALL_ACCEPT:
                         for (CustomerNetworkListener l : listeners) {
                             l.onCallAccepted(msg.getSenderId());
@@ -276,6 +285,12 @@ public class CustomerNetworkService {
                     case Protocol.CMD_CALL_DATA:
                         for (CustomerNetworkListener l : listeners) {
                             l.onCallDataReceived(msg.getFileData());
+                        }
+                        break;
+
+                    case Protocol.CMD_VIDEO_DATA:
+                        for (CustomerNetworkListener l : listeners) {
+                            l.onVideoDataReceived(msg.getFileData());
                         }
                         break;
 
@@ -479,6 +494,11 @@ public class CustomerNetworkService {
         sendMessage(new Message(Protocol.CMD_CALL_REQ, this.customerPhone, targetId, "Khách hàng"));
     }
 
+    public void sendVideoCallRequest(String targetId) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_VIDEO_CALL_REQ, this.customerPhone, targetId, "Khách hàng"));
+    }
+
     public void sendCallAccept(String targetId) {
         if (!isConnected) return;
         sendMessage(new Message(Protocol.CMD_CALL_ACCEPT, this.customerPhone, targetId, "Đồng ý"));
@@ -497,6 +517,11 @@ public class CustomerNetworkService {
     public void sendCallData(String targetId, byte[] pcmChunk) {
         if (!isConnected || pcmChunk == null) return;
         sendMessage(new Message(Protocol.CMD_CALL_DATA, this.customerPhone, targetId, null, null, null, null, null, 0, pcmChunk, false));
+    }
+
+    public void sendVideoData(String targetId, byte[] videoChunk) {
+        if (!isConnected || videoChunk == null) return;
+        sendMessage(new Message(Protocol.CMD_VIDEO_DATA, this.customerPhone, targetId, null, null, null, null, null, 0, videoChunk, false));
     }
 
     public String getServerHost() { return serverHost; }

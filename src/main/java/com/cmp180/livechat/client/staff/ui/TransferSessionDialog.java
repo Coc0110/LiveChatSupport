@@ -67,6 +67,32 @@ public class TransferSessionDialog {
                 + "; -fx-border-color: " + (dark ? "#3a3b3c" : "#d8dadf") + "; -fx-border-radius: 8; -fx-background-radius: 8;");
 
         listView.setCellFactory(lv -> new ListCell<OnlineStaffItem>() {
+            private void updateStyle() {
+                OnlineStaffItem item = getItem();
+                if (item == null || isEmpty()) {
+                    setStyle("-fx-background-color: transparent;");
+                    return;
+                }
+                if (item.isBusy()) {
+                    setDisable(true);
+                    setStyle("-fx-opacity: 0.5; -fx-background-color: transparent;");
+                } else if (isSelected()) {
+                    setDisable(false);
+                    setStyle("-fx-background-color: " + (dark ? "rgba(59, 130, 246, 0.25)" : "#e0f2fe") 
+                            + "; -fx-border-color: " + brand 
+                            + "; -fx-border-width: 1.5; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand;");
+                } else {
+                    setDisable(false);
+                    setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-border-width: 1.5; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand;");
+                }
+            }
+
+            @Override
+            public void updateSelected(boolean selected) {
+                super.updateSelected(selected);
+                updateItem(getItem(), isEmpty());
+            }
+
             @Override
             protected void updateItem(OnlineStaffItem item, boolean empty) {
                 super.updateItem(item, empty);
@@ -105,17 +131,17 @@ public class TransferSessionDialog {
                         statusLbl.setStyle("-fx-text-fill: #10b981; -fx-font-size: 12px; -fx-font-weight: bold;");
                     }
 
-                    row.getChildren().addAll(avatarPane, infoBox, statusLbl);
+                    if (isSelected() && !item.isBusy()) {
+                        Label checkBadge = new Label("✓ Đã chọn");
+                        checkBadge.setStyle("-fx-background-color: " + brand + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-background-radius: 10; -fx-padding: 3 8;");
+                        row.getChildren().addAll(avatarPane, infoBox, statusLbl, checkBadge);
+                    } else {
+                        row.getChildren().addAll(avatarPane, infoBox, statusLbl);
+                    }
+
                     setGraphic(row);
                     setText(null);
-
-                    if (item.isBusy()) {
-                        setDisable(true);
-                        setStyle("-fx-opacity: 0.5; -fx-background-color: transparent;");
-                    } else {
-                        setDisable(false);
-                        setStyle("-fx-background-color: transparent;");
-                    }
+                    updateStyle();
                 }
             }
         });

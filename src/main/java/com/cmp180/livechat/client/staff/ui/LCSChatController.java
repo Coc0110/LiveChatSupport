@@ -58,8 +58,10 @@ import com.cmp180.livechat.client.ui.SettingsDialog;
 import com.cmp180.livechat.client.ui.FilePreviewDialog;
 import com.cmp180.livechat.client.ui.ImageViewerDialog;
 import com.cmp180.livechat.common.VoiceManager;
+import com.cmp180.livechat.common.VideoManager;
 import com.cmp180.livechat.client.ui.IncomingCallDialog;
 import com.cmp180.livechat.client.ui.VoiceCallDialog;
+import com.cmp180.livechat.client.ui.VideoCallDialog;
 import com.cmp180.livechat.client.ui.UserProfileDialog;
 import com.cmp180.livechat.client.ui.ServerConfig;
 import com.cmp180.livechat.common.UdpMediaClient;
@@ -103,13 +105,18 @@ public class LCSChatController implements StaffNetworkListener {
     @FXML private Label lblIssue;
     @FXML private Label lblStatus;
     @FXML private Circle statusDot;
+    @FXML private HBox typingBar;
+    @FXML private Label lblTyping;
+    @FXML private Circle typingDot;
     @FXML private Button btnEndSession;
     @FXML private Button btnTransferSession;
     @FXML private Button btnCustomerProfile;
     @FXML private Button btnVoiceCall;
+    @FXML private Button btnVideoCall;
     @FXML private Button btnRecordVoice;
     private boolean isRecordingVoice = false;
     private VoiceCallDialog activeCallDialog = null;
+    private VideoCallDialog activeVideoCallDialog = null;
     private UdpMediaClient udpMediaClient = null;
     @FXML private HBox inputBar;
     @FXML private HBox recordingBar;
@@ -127,6 +134,7 @@ public class LCSChatController implements StaffNetworkListener {
     private boolean isTypingReported = false;
     
     @FXML private HBox replyBar;
+    @FXML private ImageView replyImagePreview;
     @FXML private Label lblReplySender;
     @FXML private Label lblReplyText;
     @FXML private Button btnCancelReply;
@@ -208,12 +216,7 @@ public class LCSChatController implements StaffNetworkListener {
             EmojiPickerPopup.attach(btnEmoji, txtMessage);
         }
 
-        if (btnAttachImage != null) btnAttachImage.setDisable(true);
-        if (btnAttachFile != null) btnAttachFile.setDisable(true);
-        if (btnQuickReplies != null) btnQuickReplies.setDisable(true);
-        if (btnCustomerProfile != null) btnCustomerProfile.setDisable(true);
-        if (btnVoiceCall != null) btnVoiceCall.setDisable(true);
-        if (btnRecordVoice != null) btnRecordVoice.setDisable(true);
+        updateInputState(false);
 
         if (txtMessage != null) {
             txtMessage.textProperty().addListener((obs, oldVal, newVal) -> {
@@ -275,18 +278,61 @@ public class LCSChatController implements StaffNetworkListener {
 
         listClients.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (isUpdatingSelection) return;
-            if (newVal != null && newVal.isActive()) {
+            if (newVal != null) {
                 if (newVal.hasUnread()) {
                     newVal.setUnread(false);
                     sortAndRefreshQueue();
                 }
                 selectCustomer(newVal.getId(), newVal.getFullName());
+            } else {
+                currentCustomerId = null;
+                lblCurrentClient.setText("Chưa chọn khách hàng");
+                lblStatus.setText("Đang sẵn sàng tư vấn");
+                statusDot.setFill(Color.web("#00C853"));
+                listMessages.getItems().clear();
+                updateInputState(false);
             }
         });
         
         refreshTimer = new Timeline(new KeyFrame(Duration.seconds(10), e -> listClients.refresh()));
         refreshTimer.setCycleCount(Timeline.INDEFINITE);
         refreshTimer.play();
+    }
+
+    private CustomerItem getCustomerItem(String customerId) {
+        if (customerId == null) return null;
+        for (CustomerItem c : localQueue) {
+            if (customerId.equals(c.getId())) return c;
+        }
+        return null;
+    }
+
+    private boolean isCurrentCustomerActive() {
+        if (currentCustomerId == null) return false;
+        CustomerItem c = getCustomerItem(currentCustomerId);
+        return c != null && c.isActive();
+    }
+
+    private void updateInputState(boolean hasActiveClient) {
+        if (txtMessage != null) {
+            txtMessage.setDisable(!hasActiveClient);
+            if (!hasActiveClient) {
+                txtMessage.setPromptText("Chưa chọn khách hàng đang hoạt động...");
+            } else {
+                txtMessage.setPromptText("Nhập tin nhắn...");
+            }
+        }
+        if (btnSend != null) btnSend.setDisable(!hasActiveClient);
+        if (btnEmoji != null) btnEmoji.setDisable(!hasActiveClient);
+        if (btnAttachImage != null) btnAttachImage.setDisable(!hasActiveClient);
+        if (btnAttachFile != null) btnAttachFile.setDisable(!hasActiveClient);
+        if (btnQuickReplies != null) btnQuickReplies.setDisable(!hasActiveClient);
+        if (btnCustomerProfile != null) btnCustomerProfile.setDisable(currentCustomerId == null);
+        if (btnEndSession != null) btnEndSession.setDisable(!hasActiveClient);
+        if (btnTransferSession != null) btnTransferSession.setDisable(!hasActiveClient);
+        if (btnVoiceCall != null) btnVoiceCall.setDisable(!hasActiveClient);
+        if (btnVideoCall != null) btnVideoCall.setDisable(!hasActiveClient);
+        if (btnRecordVoice != null) btnRecordVoice.setDisable(!hasActiveClient);
     }
 
     private boolean isUpdatingSelection = false;
@@ -336,17 +382,27 @@ public class LCSChatController implements StaffNetworkListener {
             issue = fullDisplayName.substring(idx);
         }
         lblCurrentClient.setText(name);
-        lblIssue.setText(issue);
-        lblStatus.setText("Đang trong cuộc trò chuyện");
-        statusDot.setFill(Color.web("#00C853"));
-        if (btnAttachImage != null) btnAttachImage.setDisable(false);
-        if (btnAttachFile != null) btnAttachFile.setDisable(false);
-        if (btnQuickReplies != null) btnQuickReplies.setDisable(false);
-        if (btnCustomerProfile != null) btnCustomerProfile.setDisable(false);
-        if (btnEndSession != null) btnEndSession.setDisable(false);
-        if (btnTransferSession != null) btnTransferSession.setDisable(false);
-        if (btnVoiceCall != null) btnVoiceCall.setDisable(false);
-        if (btnRecordVoice != null) btnRecordVoice.setDisable(false);
+        if (lblIssue != null) {
+            lblIssue.setText("");
+            lblIssue.setVisible(false);
+            lblIssue.setManaged(false);
+        }
+        if (typingBar != null) {
+            typingBar.setVisible(false);
+            typingBar.setManaged(false);
+        }
+
+        CustomerItem targetItem = getCustomerItem(customerId);
+        boolean isActive = (targetItem != null && targetItem.isActive());
+        if (isActive) {
+            lblStatus.setText("Đang trong cuộc trò chuyện");
+            statusDot.setFill(Color.web("#00C853"));
+            updateInputState(true);
+        } else {
+            lblStatus.setText("Phiên đã kết thúc");
+            statusDot.setFill(Color.web("#888888"));
+            updateInputState(false);
+        }
         
         listMessages.getItems().clear();
         if (chatHistories.containsKey(customerId)) {
@@ -358,9 +414,9 @@ public class LCSChatController implements StaffNetworkListener {
 
         isUpdatingSelection = true;
         try {
-            for (CustomerItem c : localQueue) {
-                if (c.getId().equals(customerId)) {
-                    listClients.getSelectionModel().select(c);
+            for (CustomerItem ci : localQueue) {
+                if (ci.getId().equals(customerId)) {
+                    listClients.getSelectionModel().select(ci);
                     break;
                 }
             }
@@ -420,8 +476,11 @@ public class LCSChatController implements StaffNetworkListener {
 
     @FXML
     private void handleSend(ActionEvent event) {
+        if (!isCurrentCustomerActive() || currentCustomerId == null) {
+            return;
+        }
         String content = txtMessage.getText().trim();
-        if (content.isEmpty() || currentCustomerId == null) {
+        if (content.isEmpty()) {
             return;
         }
 
@@ -627,15 +686,43 @@ public class LCSChatController implements StaffNetworkListener {
         String sender = (msg.getType() == ChatMessage.Type.MY_MSG) ? "chính mình" : msg.getSenderName();
         if (lblReplySender != null) lblReplySender.setText("Đang trả lời " + sender + ":");
         String replyDisplay = msg.isFile() 
-                ? ("[" + (msg.isVoice() ? "Tin nhắn thoại" : (msg.isImage() ? "Hình ảnh" : "Tệp")) + "] " + msg.getFileName() + (msg.getText() != null && !msg.getText().isEmpty() ? (" - " + msg.getText()) : ""))
+                ? ("[" + (msg.isVoice() ? "Tin nhắn thoại" : (msg.isImage() ? "Hình ảnh" : "Tệp")) + "] " + (msg.getText() != null && !msg.getText().isEmpty() ? msg.getText() : msg.getFileName()))
                 : msg.getText();
         if (lblReplyText != null) lblReplyText.setText(replyDisplay);
+
+        if (replyImagePreview != null) {
+            if (msg.isImage() && msg.getFileData() != null) {
+                try {
+                    Image thumb = new Image(new ByteArrayInputStream(msg.getFileData()), 80, 80, true, true);
+                    replyImagePreview.setImage(thumb);
+                    Rectangle clip = new Rectangle(40, 40);
+                    clip.setArcWidth(8);
+                    clip.setArcHeight(8);
+                    replyImagePreview.setClip(clip);
+                    replyImagePreview.setVisible(true);
+                    replyImagePreview.setManaged(true);
+                } catch (Exception ex) {
+                    replyImagePreview.setImage(null);
+                    replyImagePreview.setVisible(false);
+                    replyImagePreview.setManaged(false);
+                }
+            } else {
+                replyImagePreview.setImage(null);
+                replyImagePreview.setVisible(false);
+                replyImagePreview.setManaged(false);
+            }
+        }
         txtMessage.requestFocus();
     }
 
     @FXML
     private void handleCancelReply() {
         this.replyingTo = null;
+        if (replyImagePreview != null) {
+            replyImagePreview.setImage(null);
+            replyImagePreview.setVisible(false);
+            replyImagePreview.setManaged(false);
+        }
         if (replyBar != null) {
             replyBar.setVisible(false);
             replyBar.setManaged(false);
@@ -855,12 +942,18 @@ public class LCSChatController implements StaffNetworkListener {
     public void onTypingStatusChanged(String customerId, String senderName, boolean isTyping) {
         Platform.runLater(() -> {
             if (currentCustomerId == null || !currentCustomerId.equals(customerId)) return;
-            if (isTyping) {
-                lblStatus.setText((senderName != null ? senderName : "Khách hàng") + " đang soạn tin...");
-                lblStatus.setStyle("-fx-text-fill: #3b82f6; -fx-font-style: italic;");
-            } else {
-                lblStatus.setText("Đang trong cuộc trò chuyện");
-                lblStatus.setStyle("");
+            if (typingBar != null && lblTyping != null) {
+                if (isTyping) {
+                    lblTyping.setText((senderName != null ? senderName : "Khách hàng") + " đang soạn tin...");
+                    typingBar.setVisible(true);
+                    typingBar.setManaged(true);
+                    if (listMessages != null && !listMessages.getItems().isEmpty()) {
+                        listMessages.scrollTo(listMessages.getItems().size() - 1);
+                    }
+                } else {
+                    typingBar.setVisible(false);
+                    typingBar.setManaged(false);
+                }
             }
         });
     }
@@ -938,20 +1031,16 @@ public class LCSChatController implements StaffNetworkListener {
     public void onSessionEnded(String reason) {
         Platform.runLater(() -> {
             handleCancelReply();
-            if (btnAttachImage != null) btnAttachImage.setDisable(true);
-            if (btnAttachFile != null) btnAttachFile.setDisable(true);
-            if (btnQuickReplies != null) btnQuickReplies.setDisable(true);
-            if (btnCustomerProfile != null) btnCustomerProfile.setDisable(true);
-            if (btnVoiceCall != null) btnVoiceCall.setDisable(true);
-            if (btnRecordVoice != null) btnRecordVoice.setDisable(true);
+            updateInputState(false);
             if (activeCallDialog != null) { activeCallDialog.closeDirectly(); activeCallDialog = null; }
+            if (activeVideoCallDialog != null) { activeVideoCallDialog.closeDirectly(); activeVideoCallDialog = null; }
             IncomingCallDialog.close();
             VoiceManager.getInstance().stopPlayback();
             VoiceManager.getInstance().stopCallAudio();
+            VideoManager.getInstance().stopVideoCapture();
             stopCallMedia();
             if (isRecordingVoice) { handleCancelRecord(); }
-            if (btnEndSession != null) btnEndSession.setDisable(true);
-            if (btnTransferSession != null) btnTransferSession.setDisable(true);
+            if (typingBar != null) { typingBar.setVisible(false); typingBar.setManaged(false); }
             if (currentCustomerId != null) {
                 ChatMessage msg = new ChatMessage(reason, ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
                 chatHistories.computeIfAbsent(currentCustomerId, k -> new ArrayList<>()).add(msg);
@@ -1142,6 +1231,11 @@ public class LCSChatController implements StaffNetworkListener {
             udpMediaClient.setVoiceConsumer(chunk -> {
                 VoiceManager.getInstance().playCallChunk(chunk);
             });
+            udpMediaClient.setVideoConsumer(chunk -> {
+                if (activeVideoCallDialog != null) {
+                    activeVideoCallDialog.onRemoteFrameReceived(chunk);
+                }
+            });
             udpMediaClient.start();
             System.out.println(String.format("[Staff] Khởi chạy UDP Media: myId=%s, peerId=%s, host=%s:%d", myId, peerId, host, port));
         } catch (Exception e) {
@@ -1171,7 +1265,7 @@ public class LCSChatController implements StaffNetworkListener {
     @FXML
     private void handleVoiceCall(ActionEvent event) {
         if (currentCustomerId == null || !StaffContext.getInstance().getNetworkService().isConnected()) return;
-        if (activeCallDialog != null) return;
+        if (activeCallDialog != null || activeVideoCallDialog != null) return;
 
         String targetCustId = currentCustomerId;
         String custName = lblCurrentClient.getText().trim();
@@ -1201,16 +1295,64 @@ public class LCSChatController implements StaffNetworkListener {
         activeCallDialog.show();
     }
 
+    @FXML
+    private void handleVideoCall(ActionEvent event) {
+        if (currentCustomerId == null || !StaffContext.getInstance().getNetworkService().isConnected()) return;
+        if (activeCallDialog != null || activeVideoCallDialog != null) return;
+
+        String targetCustId = currentCustomerId;
+        String custName = lblCurrentClient.getText().trim();
+        String staffName = StaffContext.getInstance().getStaffName();
+
+        StaffContext.getInstance().getNetworkService().sendVideoCallRequest(targetCustId);
+
+        activeVideoCallDialog = new VideoCallDialog(
+            btnVideoCall.getScene().getWindow(),
+            custName,
+            true,
+            () -> {
+                int sec = (activeVideoCallDialog != null) ? activeVideoCallDialog.getSecondsElapsed() : 0;
+                boolean wasConnected = (activeVideoCallDialog != null) && activeVideoCallDialog.isConnected();
+                StaffContext.getInstance().getNetworkService().sendCallEnd(targetCustId);
+                VoiceManager.getInstance().stopCallAudio();
+                VideoManager.getInstance().stopVideoCapture();
+                stopCallMedia();
+                activeVideoCallDialog = null;
+
+                if (wasConnected) {
+                    String dur = String.format("%02d:%02d", sec / 60, sec % 60);
+                    recordCallEvent("📹 Cuộc gọi video kết thúc (Thời lượng: " + dur + ")", targetCustId, true);
+                } else {
+                    recordCallEvent("📹 Cuộc gọi video nhỡ", targetCustId, true);
+                }
+            }
+        );
+        activeVideoCallDialog.show();
+        VideoManager.getInstance().startVideoCapture(
+            staffName,
+            localJpeg -> {
+                if (activeVideoCallDialog != null) {
+                    activeVideoCallDialog.onLocalFrameReceived(localJpeg);
+                }
+            },
+            networkJpeg -> {
+                if (udpMediaClient != null) {
+                    udpMediaClient.sendVideo(networkJpeg);
+                }
+            }
+        );
+    }
+
     @Override
     public void onIncomingCall(String callerName, String callerId) {
         Platform.runLater(() -> {
-            if (activeCallDialog != null) {
+            if (activeCallDialog != null || activeVideoCallDialog != null) {
                 StaffContext.getInstance().getNetworkService().sendCallReject(callerId, "Bận");
                 return;
             }
 
             Window owner = btnVoiceCall != null && btnVoiceCall.getScene() != null ? btnVoiceCall.getScene().getWindow() : null;
-            IncomingCallDialog.show(owner, callerName, accepted -> {
+            IncomingCallDialog.show(owner, callerName, false, accepted -> {
                 if (accepted) {
                     StaffContext.getInstance().getNetworkService().sendCallAccept(callerId);
                     activeCallDialog = new VoiceCallDialog(
@@ -1250,6 +1392,69 @@ public class LCSChatController implements StaffNetworkListener {
     }
 
     @Override
+    public void onIncomingVideoCall(String callerName, String callerId) {
+        Platform.runLater(() -> {
+            if (activeCallDialog != null || activeVideoCallDialog != null) {
+                StaffContext.getInstance().getNetworkService().sendCallReject(callerId, "Bận");
+                return;
+            }
+
+            Window owner = btnVideoCall != null && btnVideoCall.getScene() != null ? btnVideoCall.getScene().getWindow() : null;
+            IncomingCallDialog.show(owner, callerName, true, accepted -> {
+                if (accepted) {
+                    StaffContext.getInstance().getNetworkService().sendCallAccept(callerId);
+                    String staffName = StaffContext.getInstance().getStaffName();
+                    activeVideoCallDialog = new VideoCallDialog(
+                        owner,
+                        callerName,
+                        false,
+                        () -> {
+                            int sec = (activeVideoCallDialog != null) ? activeVideoCallDialog.getSecondsElapsed() : 0;
+                            boolean wasConnected = (activeVideoCallDialog != null) && activeVideoCallDialog.isConnected();
+                            StaffContext.getInstance().getNetworkService().sendCallEnd(callerId);
+                            VoiceManager.getInstance().stopCallAudio();
+                            VideoManager.getInstance().stopVideoCapture();
+                            stopCallMedia();
+                            activeVideoCallDialog = null;
+
+                            if (wasConnected) {
+                                String dur = String.format("%02d:%02d", sec / 60, sec % 60);
+                                recordCallEvent("📹 Cuộc gọi video kết thúc (Thời lượng: " + dur + ")", callerId, true);
+                            } else {
+                                recordCallEvent("📹 Cuộc gọi video nhỡ", callerId, true);
+                            }
+                        }
+                    );
+                    activeVideoCallDialog.show();
+                    activeVideoCallDialog.setConnected();
+                    startCallMedia(callerId);
+                    VoiceManager.getInstance().startCallAudio(chunk -> {
+                        if (udpMediaClient != null) {
+                            udpMediaClient.sendVoice(chunk);
+                        }
+                    });
+                    VideoManager.getInstance().startVideoCapture(
+                        staffName,
+                        localJpeg -> {
+                            if (activeVideoCallDialog != null) {
+                                activeVideoCallDialog.onLocalFrameReceived(localJpeg);
+                            }
+                        },
+                        networkJpeg -> {
+                            if (udpMediaClient != null) {
+                                udpMediaClient.sendVideo(networkJpeg);
+                            }
+                        }
+                    );
+                } else {
+                    StaffContext.getInstance().getNetworkService().sendCallReject(callerId, "Từ chối");
+                    recordCallEvent("📹 Cuộc gọi video • Bị từ chối", callerId, true);
+                }
+            });
+        });
+    }
+
+    @Override
     public void onCallAccepted(String peerName) {
         Platform.runLater(() -> {
             if (activeCallDialog != null) {
@@ -1261,6 +1466,30 @@ public class LCSChatController implements StaffNetworkListener {
                             udpMediaClient.sendVoice(chunk);
                         }
                     });
+                }
+            } else if (activeVideoCallDialog != null) {
+                activeVideoCallDialog.setConnected();
+                if (currentCustomerId != null) {
+                    startCallMedia(currentCustomerId);
+                    VoiceManager.getInstance().startCallAudio(chunk -> {
+                        if (udpMediaClient != null) {
+                            udpMediaClient.sendVoice(chunk);
+                        }
+                    });
+                    String staffName = StaffContext.getInstance().getStaffName();
+                    VideoManager.getInstance().startVideoCapture(
+                        staffName,
+                        localJpeg -> {
+                            if (activeVideoCallDialog != null) {
+                                activeVideoCallDialog.onLocalFrameReceived(localJpeg);
+                            }
+                        },
+                        networkJpeg -> {
+                            if (udpMediaClient != null) {
+                                udpMediaClient.sendVideo(networkJpeg);
+                            }
+                        }
+                    );
                 }
             }
         });
@@ -1277,9 +1506,24 @@ public class LCSChatController implements StaffNetworkListener {
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Cuộc gọi");
                 alert.setHeaderText(null);
-                alert.setContentText("Cuộc gọi đã bị từ chối: " + (reason != null && !reason.isEmpty() ? reason : "Khách hàng bận"));
+                alert.setContentText("Cuộc gọi thoại đã bị từ chối: " + (reason != null && !reason.isEmpty() ? reason : "Khách hàng bận"));
                 if (btnVoiceCall != null && btnVoiceCall.getScene() != null && btnVoiceCall.getScene().getWindow() != null) {
                     alert.initOwner(btnVoiceCall.getScene().getWindow());
+                }
+                ThemeManager.applyTheme(alert);
+                alert.showAndWait();
+            } else if (activeVideoCallDialog != null) {
+                activeVideoCallDialog.closeDirectly();
+                activeVideoCallDialog = null;
+                VoiceManager.getInstance().stopCallAudio();
+                VideoManager.getInstance().stopVideoCapture();
+                stopCallMedia();
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Cuộc gọi video");
+                alert.setHeaderText(null);
+                alert.setContentText("Cuộc gọi video đã bị từ chối: " + (reason != null && !reason.isEmpty() ? reason : "Khách hàng bận"));
+                if (btnVideoCall != null && btnVideoCall.getScene() != null && btnVideoCall.getScene().getWindow() != null) {
+                    alert.initOwner(btnVideoCall.getScene().getWindow());
                 }
                 ThemeManager.applyTheme(alert);
                 alert.showAndWait();
@@ -1297,12 +1541,26 @@ public class LCSChatController implements StaffNetworkListener {
                 VoiceManager.getInstance().stopCallAudio();
                 stopCallMedia();
             }
+            if (activeVideoCallDialog != null) {
+                activeVideoCallDialog.closeDirectly();
+                activeVideoCallDialog = null;
+                VoiceManager.getInstance().stopCallAudio();
+                VideoManager.getInstance().stopVideoCapture();
+                stopCallMedia();
+            }
         });
     }
 
     @Override
     public void onCallDataReceived(byte[] audioData) {
         VoiceManager.getInstance().playCallChunk(audioData);
+    }
+
+    @Override
+    public void onVideoDataReceived(byte[] videoData) {
+        if (activeVideoCallDialog != null) {
+            activeVideoCallDialog.onRemoteFrameReceived(videoData);
+        }
     }
 
     @Override
@@ -1677,7 +1935,7 @@ public class LCSChatController implements StaffNetworkListener {
                 bubbleBox.getChildren().clear();
                 quoteBox.getChildren().clear();
 
-                if (item.getText() != null && item.getText().startsWith("📞")) {
+                if (item.getText() != null && (item.getText().startsWith("📞") || item.getText().startsWith("📹"))) {
                     renderCallPill(item);
                     return;
                 }
@@ -1706,18 +1964,65 @@ public class LCSChatController implements StaffNetworkListener {
                         lblQuoteSender.setText(item.getReplyToSender() != null ? item.getReplyToSender() : "Trả lời");
 
                         boolean isQuoteRecalled = "Tin nhắn đã được thu hồi".equals(item.getReplyToText());
+                        ChatMessage repliedMsg = null;
                         if (!isQuoteRecalled && item.getReplyToId() != null) {
                             for (ChatMessage m : listMessages.getItems()) {
-                                if (item.getReplyToId().equals(m.getId()) && m.isRecalled()) {
-                                    isQuoteRecalled = true;
+                                if (item.getReplyToId().equals(m.getId())) {
+                                    repliedMsg = m;
+                                    if (m.isRecalled()) {
+                                        isQuoteRecalled = true;
+                                    }
                                     break;
+                                }
+                            }
+                            if (repliedMsg == null && currentCustomerId != null && chatHistories.containsKey(currentCustomerId)) {
+                                for (ChatMessage m : chatHistories.get(currentCustomerId)) {
+                                    if (item.getReplyToId().equals(m.getId())) {
+                                        repliedMsg = m;
+                                        if (m.isRecalled()) isQuoteRecalled = true;
+                                        break;
+                                    }
                                 }
                             }
                         }
 
                         String quoteDisplayText = isQuoteRecalled ? "Tin nhắn đã được thu hồi" : item.getReplyToText();
                         lblQuoteText.setText(quoteDisplayText);
-                        quoteBox.getChildren().setAll(lblQuoteSender, lblQuoteText);
+
+                        if (!isQuoteRecalled && repliedMsg != null && repliedMsg.isImage() && repliedMsg.getFileData() != null) {
+                            HBox quoteInner = new HBox(8);
+                            quoteInner.setAlignment(Pos.CENTER_LEFT);
+
+                            VBox textCol = new VBox(2);
+                            textCol.setAlignment(Pos.CENTER_LEFT);
+                            HBox.setHgrow(textCol, Priority.ALWAYS);
+                            textCol.getChildren().addAll(lblQuoteSender, lblQuoteText);
+
+                            ImageView quoteThumb = new ImageView();
+                            quoteThumb.setFitWidth(36);
+                            quoteThumb.setFitHeight(36);
+                            quoteThumb.setPreserveRatio(false);
+                            Rectangle clip = new Rectangle(36, 36);
+                            clip.setArcWidth(8);
+                            clip.setArcHeight(8);
+                            quoteThumb.setClip(clip);
+                            try {
+                                Image thumbImg = new Image(new ByteArrayInputStream(repliedMsg.getFileData()), 72, 72, true, true);
+                                quoteThumb.setImage(thumbImg);
+                            } catch (Exception ignored) {}
+
+                            final ChatMessage finalReplied = repliedMsg;
+                            quoteThumb.setCursor(Cursor.HAND);
+                            quoteThumb.setOnMouseClicked(ev -> {
+                                ev.consume();
+                                ImageViewerDialog.show(getScene().getWindow(), finalReplied.getFileName(), finalReplied.getFileData());
+                            });
+
+                            quoteInner.getChildren().addAll(textCol, quoteThumb);
+                            quoteBox.getChildren().setAll(quoteInner);
+                        } else {
+                            quoteBox.getChildren().setAll(lblQuoteSender, lblQuoteText);
+                        }
 
                         if (item.getType() == ChatMessage.Type.MY_MSG) {
                             quoteBox.setStyle("-fx-background-color: rgba(0, 0, 0, 0.15); -fx-background-radius: 8; -fx-padding: 4 8 4 8; -fx-border-color: rgba(255, 255, 255, 0.8); -fx-border-width: 0 0 0 3;");

@@ -30,9 +30,11 @@ public interface CustomerNetworkListener {
         onVoiceMessageReceived(senderName, messageId, durationText, replyToSender, replyToText, audioData);
     }
     default void onIncomingCall(String callerName, String callerId) {}
+    default void onIncomingVideoCall(String callerName, String callerId) {}
     default void onCallAccepted(String peerName) {}
     default void onCallRejected(String reason) {}
     default void onCallEnded() {}
     default void onCallDataReceived(byte[] audioData) {}
+    default void onVideoDataReceived(byte[] videoData) {}
 }
 

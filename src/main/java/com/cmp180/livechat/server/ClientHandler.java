@@ -136,10 +136,12 @@ public class ClientHandler implements Runnable {
             case Protocol.CMD_TYPING:
             case Protocol.CMD_VOICE_MSG:
             case Protocol.CMD_CALL_REQ:
+            case Protocol.CMD_VIDEO_CALL_REQ:
             case Protocol.CMD_CALL_ACCEPT:
             case Protocol.CMD_CALL_REJECT:
             case Protocol.CMD_CALL_END:
             case Protocol.CMD_CALL_DATA:
+            case Protocol.CMD_VIDEO_DATA:
                 sessionManager.routeMessage(this, msg);
                 break;
                 
@@ -233,6 +235,14 @@ public class ClientHandler implements Runnable {
         if (server.getUdpRelayServer() != null) {
             server.getUdpRelayServer().registerAlias(this.customerPhone, this.clientId);
         }
+
+        // Kiểm tra xem khách hàng này đã đang kết nối ở thiết bị khác chưa
+        if (sessionManager.isCustomerOnline(this.dbCustomerId, this.customerPhone, this)) {
+            server.log("[ĐĂNG NHẬP THẤT BẠI] Khách hàng '" + this.name + "' (SĐT: " + this.customerPhone + ") đã đang kết nối ở một thiết bị khác.");
+            sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Số điện thoại " + this.customerPhone + " hiện đang được kết nối trong một phiên chat khác!"));
+            return;
+        }
+
         sendMessage(new Message(Protocol.CMD_LOGIN_SUCCESS, this.clientId, this.name));
 
         if (msg.getReceiverId() != null && msg.getReceiverId().startsWith("REOPEN:")) {
@@ -273,6 +283,13 @@ public class ClientHandler implements Runnable {
         this.name = staffRec.fullName;
         this.role = Protocol.ROLE_STAFF;
         this.primarySkill = (staffRec.primarySkill != null) ? staffRec.primarySkill : "Tất cả";
+
+        // Kiểm tra xem nhân viên này đã đang đăng nhập ở thiết bị khác chưa
+        if (sessionManager.isStaffOnline(staffRec.staffId)) {
+            server.log("[ĐĂNG NHẬP THẤT BẠI] CSKH '" + staffRec.fullName + "' (Username: " + staffRec.username + ") hiện đang đăng nhập ở một thiết bị khác.");
+            sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Tài khoản '" + staffRec.username + "' hiện đang đăng nhập ở một thiết bị/cửa sổ khác! Vui lòng đăng xuất trước."));
+            return;
+        }
 
         server.log("[ĐĂNG NHẬP THÀNH CÔNG] CSKH '" + staffRec.fullName + "' (Username: " + staffRec.username + ", Chuyên môn: " + this.primarySkill + ")");
         sendMessage(new Message(Protocol.CMD_LOGIN_SUCCESS, staffRec.staffId, staffRec.fullName));
@@ -389,6 +406,8 @@ public class ClientHandler implements Runnable {
         } catch (IOException ignored) { }
     }
 
+    public Socket getSocket() { return socket; }
+    public boolean isSocketOpen() { return socket != null && !socket.isClosed(); }
     public String getClientId() { return clientId; }
     public String getName() { return name; }
     public String getRole() { return role; }

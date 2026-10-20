@@ -688,8 +688,9 @@ public class CustomerLoginController implements CustomerNetworkListener {
         CustomerContext.getInstance().setCustomerPhone(currentPhone);
         CustomerContext.getInstance().setCustomerName(currentCustomerName);
 
-        // Hủy đăng ký listener của màn hình login trước khi chuyển sang chat
+        // Hủy đăng ký listener của màn hình login và mọi controller chat cũ trước khi chuyển sang chat
         CustomerContext.getInstance().getNetworkService().removeListener(this);
+        CustomerContext.getInstance().getNetworkService().removeListenersByType("CustomerChatController");
 
         try {
             Stage stage = (Stage) panePhone.getScene().getWindow();

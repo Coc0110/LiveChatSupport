@@ -7,6 +7,8 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
+import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Modality;
@@ -84,21 +86,36 @@ public class SettingsDialog {
         Region topSpacer = new Region();
         HBox.setHgrow(topSpacer, Priority.ALWAYS);
 
-        Button btnClose = new Button("✕");
-        btnClose.setFont(Font.font("Segoe UI", FontWeight.BOLD, 14));
+        Button btnClose = new Button();
         btnClose.setPrefSize(30, 30);
         btnClose.setMinSize(30, 30);
+        btnClose.setMaxSize(30, 30);
         btnClose.setCursor(javafx.scene.Cursor.HAND);
         btnClose.setOnAction(e -> stage.close());
+        Tooltip.install(btnClose, new Tooltip("Đóng"));
+
+        SVGPath closeIcon = new SVGPath();
+        closeIcon.setContent("M18 6L6 18M6 6l12 12");
+        closeIcon.setFill(Color.TRANSPARENT);
+        closeIcon.setStroke(Color.web(ThemeManager.isDarkMode() ? "#b0b3b8" : "#65676b"));
+        closeIcon.setStrokeWidth(2.0);
+        closeIcon.setStrokeLineCap(StrokeLineCap.ROUND);
+        closeIcon.setStrokeLineJoin(StrokeLineJoin.ROUND);
+        closeIcon.setScaleX(0.65);
+        closeIcon.setScaleY(0.65);
+        btnClose.setGraphic(closeIcon);
+        btnClose.setStyle("-fx-background-color: transparent; -fx-background-radius: 15; -fx-padding: 0;");
+
         btnClose.setOnMouseEntered(e -> {
             boolean dark = ThemeManager.isDarkMode();
             btnClose.setStyle("-fx-background-color: " + (dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.06)") 
-                + "; -fx-text-fill: " + (dark ? "#ffffff" : "#1c1e21") + "; -fx-background-radius: 15;");
+                + "; -fx-background-radius: 15; -fx-padding: 0;");
+            closeIcon.setStroke(Color.web("#ef4444"));
         });
         btnClose.setOnMouseExited(e -> {
             boolean dark = ThemeManager.isDarkMode();
-            btnClose.setStyle("-fx-background-color: transparent; -fx-text-fill: " 
-                + (dark ? "#b0b3b8" : "#65676b") + "; -fx-background-radius: 15;");
+            btnClose.setStyle("-fx-background-color: transparent; -fx-background-radius: 15; -fx-padding: 0;");
+            closeIcon.setStroke(Color.web(dark ? "#b0b3b8" : "#65676b"));
         });
 
         topBar.getChildren().addAll(lblContentTitle, topSpacer, btnClose);
@@ -448,7 +465,8 @@ public class SettingsDialog {
 
             lblSidebarTitle.setStyle("-fx-text-fill: " + (dark ? "#e4e6eb" : "#050505") + ";");
             lblContentTitle.setStyle("-fx-text-fill: " + (dark ? "#e4e6eb" : "#050505") + ";");
-            btnClose.setStyle("-fx-background-color: transparent; -fx-text-fill: " + (dark ? "#b0b3b8" : "#65676b") + "; -fx-background-radius: 15;");
+            closeIcon.setStroke(Color.web(dark ? "#b0b3b8" : "#65676b"));
+            btnClose.setStyle("-fx-background-color: transparent; -fx-background-radius: 15; -fx-padding: 0;");
 
             lblAppHeader.setStyle("-fx-text-fill: " + (dark ? "#8e9297" : "#65676b") + ";");
             lblColorHeader.setStyle("-fx-text-fill: " + (dark ? "#8e9297" : "#65676b") + ";");

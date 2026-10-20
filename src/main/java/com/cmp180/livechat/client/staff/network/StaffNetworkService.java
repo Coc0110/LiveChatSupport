@@ -255,6 +255,12 @@ public class StaffNetworkService {
                     }
                     break;
 
+                case Protocol.CMD_VIDEO_CALL_REQ:
+                    for (StaffNetworkListener l : listeners) {
+                        l.onIncomingVideoCall(msg.getSenderId(), msg.getReceiverId());
+                    }
+                    break;
+
                 case Protocol.CMD_CALL_ACCEPT:
                     for (StaffNetworkListener l : listeners) {
                         l.onCallAccepted(msg.getSenderId());
@@ -276,6 +282,12 @@ public class StaffNetworkService {
                 case Protocol.CMD_CALL_DATA:
                     for (StaffNetworkListener l : listeners) {
                         l.onCallDataReceived(msg.getFileData());
+                    }
+                    break;
+
+                case Protocol.CMD_VIDEO_DATA:
+                    for (StaffNetworkListener l : listeners) {
+                        l.onVideoDataReceived(msg.getFileData());
                     }
                     break;
 
@@ -475,6 +487,11 @@ public class StaffNetworkService {
         sendMessage(new Message(Protocol.CMD_CALL_REQ, this.staffName, targetId, "Nhân viên CSKH"));
     }
 
+    public void sendVideoCallRequest(String targetId) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_VIDEO_CALL_REQ, this.staffName, targetId, "Nhân viên CSKH"));
+    }
+
     public void sendCallAccept(String targetId) {
         if (!isConnected) return;
         sendMessage(new Message(Protocol.CMD_CALL_ACCEPT, this.staffName, targetId, "Đồng ý"));
@@ -493,6 +510,11 @@ public class StaffNetworkService {
     public void sendCallData(String targetId, byte[] pcmChunk) {
         if (!isConnected || pcmChunk == null) return;
         sendMessage(new Message(Protocol.CMD_CALL_DATA, this.staffName, targetId, null, null, null, null, null, 0, pcmChunk, false));
+    }
+
+    public void sendVideoData(String targetId, byte[] videoChunk) {
+        if (!isConnected || videoChunk == null) return;
+        sendMessage(new Message(Protocol.CMD_VIDEO_DATA, this.staffName, targetId, null, null, null, null, null, 0, videoChunk, false));
     }
 
     public String getServerHost() { return serverHost; }

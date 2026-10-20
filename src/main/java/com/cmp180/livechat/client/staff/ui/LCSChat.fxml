@@ -6,6 +6,7 @@
 <?import javafx.scene.control.ListView?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.Tooltip?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Priority?>
@@ -78,11 +79,7 @@
                               <Font name="Segoe UI Bold" size="18.0" />
                            </font>
                         </Label>
-                        <Label fx:id="lblIssue" text="" styleClass="text-sub">
-                           <font>
-                              <Font name="Segoe UI" size="14.0" />
-                           </font>
-                        </Label>
+                        <Label fx:id="lblIssue" managed="false" styleClass="text-sub" text="" visible="false" />
                      </HBox>
                      <HBox alignment="CENTER_LEFT" spacing="5">
                         <javafx.scene.shape.Circle fx:id="statusDot" radius="4" fill="#888888" />
@@ -115,6 +112,13 @@
                            <SVGPath content="M7.64551 3C8.46332 3 9.19873 3.4979 9.50246 4.25722L10.5577 6.89309C10.8305 7.57516 10.7066 8.35195 10.2363 8.9163L9.66895 9.59668C9.00673 10.3913 9.06079 11.5596 9.79222 12.2911L11.7082 14.2088C12.4396 14.9402 13.6089 14.9929 14.4035 14.3307L15.0839 13.7632C15.6483 13.2929 16.4249 13.1701 17.1069 13.4429L19.7434 14.4971C20.5027 14.8009 21.0005 15.5361 21.0005 16.354L21 19.1052C21 20.1516 20.1519 21 19.1055 21C10.2108 21 3 13.7892 3 4.89453C3 3.8481 3.8483 3 4.89474 3H7.64551Z" fill="transparent" stroke="#10b981" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
                         </graphic>
                      </Button>
+                     <!-- Nút Gọi video (Video Call) -->
+                     <Button fx:id="btnVideoCall" disable="true" mnemonicParsing="false" onAction="#handleVideoCall" prefHeight="38.0" prefWidth="38.0" styleClass="btn-icon-action, btn-action-video">
+                        <tooltip><Tooltip text="Gọi video trực tiếp" /></tooltip>
+                        <graphic>
+                           <SVGPath content="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" fill="transparent" stroke="#3b82f6" strokeLineCap="ROUND" strokeLineJoin="ROUND" strokeWidth="2" />
+                        </graphic>
+                     </Button>
                      <!-- 1. Nút X (Kết thúc phiên) -->
                      <Button fx:id="btnEndSession" disable="true" mnemonicParsing="false" onAction="#handleEndSession" prefHeight="38.0" prefWidth="38.0" styleClass="btn-icon-action, btn-action-close">
                         <tooltip><Tooltip text="Kết thúc phiên chat" /></tooltip>
@@ -129,7 +133,22 @@
          
          <!-- Khung hiển thị tin nhắn -->
          <center>
-            <ListView fx:id="listMessages" focusTraversable="false" prefHeight="200.0" prefWidth="200.0" style="-fx-border-width: 0;" styleClass="bg-gray, chat-list" BorderPane.alignment="CENTER" />
+            <VBox styleClass="bg-gray" BorderPane.alignment="CENTER">
+               <children>
+                  <ListView fx:id="listMessages" focusTraversable="false" prefHeight="200.0" prefWidth="200.0" style="-fx-border-width: 0;" styleClass="bg-gray, chat-list" VBox.vgrow="ALWAYS" />
+                  <!-- Thẻ tag trạng thái đang nhập tin nhắn dính liền vào góc dưới bên trái ở trong khung chat -->
+                  <HBox fx:id="typingBar" alignment="CENTER_LEFT" managed="false" visible="false">
+                     <children>
+                        <HBox alignment="CENTER_LEFT" spacing="6" styleClass="typing-tag-chat">
+                           <children>
+                              <javafx.scene.shape.Circle fx:id="typingDot" radius="3.0" styleClass="typing-dot" />
+                              <Label fx:id="lblTyping" styleClass="typing-text" text="Đang soạn tin..." />
+                           </children>
+                        </HBox>
+                     </children>
+                  </HBox>
+               </children>
+            </VBox>
          </center>
          
          <!-- Khu vực soạn tin nhắn -->
@@ -139,6 +158,7 @@
                   <!-- Reply preview bar -->
                   <HBox fx:id="replyBar" alignment="CENTER_LEFT" managed="false" spacing="10" styleClass="reply-bar" visible="false">
                      <children>
+                        <ImageView fx:id="replyImagePreview" fitHeight="40.0" fitWidth="40.0" pickOnBounds="true" preserveRatio="true" visible="false" managed="false" />
                         <VBox alignment="CENTER_LEFT" spacing="2" HBox.hgrow="ALWAYS">
                            <children>
                               <Label fx:id="lblReplySender" styleClass="reply-sender-label" text="Đang trả lời: " />

@@ -38,12 +38,13 @@ public class Protocol {
     public static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
     public static final int MAX_TEXT_LENGTH = 4000; // Giới hạn 4.000 ký tự mỗi tin nhắn văn bản
 
-    // Voice Chat & Voice Call
+    // Voice Chat & Voice Call & Video Call
     public static final String CMD_VOICE_MSG = "VOICE_MSG";
     public static final String CMD_CALL_REQ = "CALL_REQ";
+    public static final String CMD_VIDEO_CALL_REQ = "VIDEO_CALL_REQ";
     public static final String CMD_CALL_ACCEPT = "CALL_ACCEPT";
     public static final String CMD_CALL_REJECT = "CALL_REJECT";
     public static final String CMD_CALL_END = "CALL_END";
     public static final String CMD_CALL_DATA = "CALL_DATA";
+    public static final String CMD_VIDEO_DATA = "VIDEO_DATA";
 }
-
