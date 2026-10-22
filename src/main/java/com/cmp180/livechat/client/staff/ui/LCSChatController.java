@@ -4,6 +4,7 @@ import com.cmp180.livechat.client.staff.context.StaffContext;
 import com.cmp180.livechat.client.staff.network.StaffNetworkListener;
 import com.cmp180.livechat.client.staff.model.CustomerItem;
 import com.cmp180.livechat.client.staff.model.ChatMessage;
+import com.cmp180.livechat.common.ProfanityFilter;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -405,8 +406,17 @@ public class LCSChatController implements StaffNetworkListener {
         }
         
         listMessages.getItems().clear();
-        if (chatHistories.containsKey(customerId)) {
-            listMessages.getItems().addAll(chatHistories.get(customerId));
+        List<ChatMessage> existing = chatHistories.get(customerId);
+        if (existing != null && !existing.isEmpty()) {
+            listMessages.getItems().addAll(existing);
+        } else {
+            List<ChatMessage> cached = StaffContext.getInstance().getNetworkService().getCachedChatHistory(customerId);
+            if (cached != null && !cached.isEmpty()) {
+                chatHistories.computeIfAbsent(customerId, k -> new ArrayList<>()).addAll(cached);
+                listMessages.getItems().addAll(cached);
+            } else {
+                StaffContext.getInstance().getNetworkService().requestCustomerChatHistory(customerId);
+            }
         }
         if (listMessages.getItems().size() > 0) {
             scrollToBottom();
@@ -479,10 +489,12 @@ public class LCSChatController implements StaffNetworkListener {
         if (!isCurrentCustomerActive() || currentCustomerId == null) {
             return;
         }
-        String content = txtMessage.getText().trim();
-        if (content.isEmpty()) {
+        String raw = txtMessage.getText().trim();
+        if (raw.isEmpty()) {
             return;
         }
+
+        String content = ProfanityFilter.filter(raw);
 
         if (content.length() > Protocol.MAX_TEXT_LENGTH) {
             Alert alert = new Alert(Alert.AlertType.WARNING);
@@ -684,14 +696,15 @@ public class LCSChatController implements StaffNetworkListener {
     }
 
     private void sendFilePayload(String fileName, long fileSize, byte[] fileData, boolean isImage, String caption) {
+        String cleanCaption = (caption != null && !caption.trim().isEmpty()) ? ProfanityFilter.filter(caption.trim()) : "";
         String msgId = UUID.randomUUID().toString();
         String replyId = (replyingTo != null) ? replyingTo.getId() : null;
         String replySender = (replyingTo != null) ? (replyingTo.getType() == ChatMessage.Type.MY_MSG ? "chính mình" : replyingTo.getSenderName()) : null;
         String replyText = (replyingTo != null) ? (replyingTo.isRecalled() ? "Tin nhắn đã được thu hồi" : (replyingTo.isFile() ? ("[" + (replyingTo.isVoice() ? "Tin nhắn thoại" : (replyingTo.isImage() ? "Hình ảnh" : "Tệp")) + "] " + replyingTo.getFileName()) : replyingTo.getText())) : null;
 
-        StaffContext.getInstance().getNetworkService().sendFileMessage(fileName, fileSize, fileData, isImage, caption, currentCustomerId, msgId, replySender, replyText, replyId);
+        StaffContext.getInstance().getNetworkService().sendFileMessage(fileName, fileSize, fileData, isImage, cleanCaption, currentCustomerId, msgId, replySender, replyText, replyId);
 
-        ChatMessage msg = new ChatMessage(msgId, caption, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId, fileName, fileSize, fileData, isImage);
+        ChatMessage msg = new ChatMessage(msgId, cleanCaption, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId, fileName, fileSize, fileData, isImage);
         chatHistories.computeIfAbsent(currentCustomerId, k -> new ArrayList<>()).add(msg);
         listMessages.getItems().add(msg);
         scrollToBottom();
@@ -870,7 +883,16 @@ public class LCSChatController implements StaffNetworkListener {
             if (historyList.isEmpty()) {
                 historyList.add(new ChatMessage("--- Lịch sử tư vấn trước đó ---", ChatMessage.Type.SYSTEM_MSG, "Hệ thống", timestamp));
             }
-            historyList.add(historyMsg);
+            boolean exists = false;
+            for (ChatMessage m : historyList) {
+                if (m.getId() != null && m.getId().equals(messageId)) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                historyList.add(historyMsg);
+            }
             if (customerId.equals(currentCustomerId)) {
                 listMessages.getItems().setAll(historyList);
                 scrollToBottom();
@@ -882,7 +904,17 @@ public class LCSChatController implements StaffNetworkListener {
     public void onPairedWithCustomer(String customerName, String customerId) {
         Platform.runLater(() -> {
             ChatMessage msg = new ChatMessage("Bạn đã được kết nối với " + customerName, ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
-            chatHistories.computeIfAbsent(customerId, k -> new ArrayList<>()).add(msg);
+            List<ChatMessage> list = chatHistories.computeIfAbsent(customerId, k -> new ArrayList<>());
+            boolean hasPairMsg = false;
+            for (ChatMessage m : list) {
+                if (m.getText() != null && m.getText().startsWith("Bạn đã được kết nối với")) {
+                    hasPairMsg = true;
+                    break;
+                }
+            }
+            if (!hasPairMsg) {
+                list.add(msg);
+            }
             
             for (CustomerItem c : localQueue) {
                 if (c.getId().equals(customerId)) {

@@ -2,6 +2,7 @@ package com.cmp180.livechat.client.staff.network;
 
 import com.cmp180.livechat.common.Message;
 import com.cmp180.livechat.common.Protocol;
+import com.cmp180.livechat.client.staff.model.ChatMessage;
 import com.cmp180.livechat.client.staff.model.CustomerItem;
 import com.cmp180.livechat.client.staff.model.OnlineStaffItem;
 
@@ -11,8 +12,11 @@ import java.io.ObjectOutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class StaffNetworkService {
@@ -27,6 +31,7 @@ public class StaffNetworkService {
     private ObjectInputStream in;
     
     private final List<StaffNetworkListener> listeners = new CopyOnWriteArrayList<>();
+    private final Map<String, List<ChatMessage>> cachedChatHistories = new ConcurrentHashMap<>();
 
     private volatile boolean isRunning = false;
     private volatile boolean isConnected = false;
@@ -196,6 +201,7 @@ public class StaffNetworkService {
                             isRecalled = true;
                         }
                     }
+                    cacheChatHistoryMessage(msg.getReceiverId(), role, senderName, ts, decryptedHistory, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), isRecalled, msg.getFileName(), msg.getFileSize(), decHistData, msg.isImage());
                     for (StaffNetworkListener l : listeners) {
                         l.onChatHistoryReceived(msg.getReceiverId(), role, senderName, ts, decryptedHistory, msg.getMessageId(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId(), isRecalled, msg.getFileName(), msg.getFileSize(), decHistData, msg.isImage());
                     }
@@ -424,6 +430,47 @@ public class StaffNetworkService {
 
     public String getStaffName() {
         return staffName;
+    }
+
+    private void cacheChatHistoryMessage(String customerId, String role, String senderName, long ts, String text, String messageId, String replyToSender, String replyToText, String replyToId, boolean isRecalled, String fileName, long fileSize, byte[] fileData, boolean isImage) {
+        if (customerId == null || customerId.trim().isEmpty()) return;
+        ChatMessage.Type type;
+        if ("STAFF".equalsIgnoreCase(role)) {
+            type = ChatMessage.Type.MY_MSG;
+        } else if ("SYSTEM".equalsIgnoreCase(role)) {
+            type = ChatMessage.Type.SYSTEM_MSG;
+        } else {
+            type = ChatMessage.Type.CUSTOMER_MSG;
+        }
+        ChatMessage item = new ChatMessage(messageId, text, type, senderName, ts, replyToSender, replyToText, replyToId, fileName, fileSize, fileData, isImage);
+        item.setRecalled(isRecalled);
+
+        List<ChatMessage> list = cachedChatHistories.computeIfAbsent(customerId, k -> new CopyOnWriteArrayList<>());
+        if (list.isEmpty()) {
+            list.add(new ChatMessage("--- Lịch sử tư vấn trước đó ---", ChatMessage.Type.SYSTEM_MSG, "Hệ thống", ts));
+        }
+        boolean exists = false;
+        for (ChatMessage m : list) {
+            if (m.getId() != null && m.getId().equals(messageId)) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            list.add(item);
+        }
+    }
+
+    public List<ChatMessage> getCachedChatHistory(String customerId) {
+        if (customerId == null) return Collections.emptyList();
+        List<ChatMessage> list = cachedChatHistories.get(customerId);
+        return (list != null) ? new ArrayList<>(list) : Collections.emptyList();
+    }
+
+    public void requestCustomerChatHistory(String customerId) {
+        if (customerId != null && !customerId.trim().isEmpty()) {
+            sendMessage(new Message(Protocol.CMD_REQ_CHAT_HISTORY, staffId, customerId.trim(), ""));
+        }
     }
 
     private List<CustomerItem> parseQueueData(String data) {

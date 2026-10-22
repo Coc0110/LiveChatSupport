@@ -1,6 +1,7 @@
 package com.cmp180.livechat.server;
 
 import com.cmp180.livechat.common.Message;
+import com.cmp180.livechat.common.ProfanityFilter;
 import com.cmp180.livechat.common.Protocol;
 import java.util.Queue;
 import java.util.List;
@@ -65,7 +66,7 @@ public class SessionManager {
         if (Protocol.ROLE_CUSTOMER.equalsIgnoreCase(client.getRole())) {
             waitingCustomers.removeIf(c -> c.getClientId().equals(client.getClientId()));
             waitingCustomers.add(client);
-            client.sendMessage(new Message(Protocol.CMD_WAITING, "Server", "Đang chờ nhân viên CSKH tiếp nhận..."));
+            client.sendMessage(new Message(Protocol.CMD_WAITING, "Server", "Đang chờ nhân viên kết nối..."));
             server.log("[HÀNG CHỜ] Khách hàng '" + client.getName() + "' (SĐT: " + client.getCustomerPhone() + ") đã vào hàng chờ." + (client.isInterrupted() ? " (Đang tư vấn dở)" : ""));
             broadcastQueueToStaff();
             tryAutoDispatch();
@@ -217,6 +218,18 @@ public class SessionManager {
         DatabaseManager.getInstance().createSession(session.getSessionId(), customer.getDbCustomerId(), staff.getClientId(), customer.getIssueTopic());
 
         // Nếu khách hàng có lịch sử nạp từ chuỗi phiên cũ (Mở lại phiên / Đang tư vấn dở), gửi lịch sử cho cả Nhân viên và Khách hàng
+        if (customer.getChatHistory().isEmpty() && customer.getDbCustomerId() != null && DatabaseManager.isChainedTopic(customer.getIssueTopic())) {
+            List<DatabaseManager.MessageRecord> chainMsgs = DatabaseManager.getInstance().getMessagesForCustomerTopicChain(customer.getDbCustomerId(), customer.getIssueTopic());
+            for (DatabaseManager.MessageRecord m : chainMsgs) {
+                ClientHandler.HistoryEntry he = new ClientHandler.HistoryEntry(
+                    m.messageId, m.senderRole, m.senderName, m.content, m.replyToSender, m.replyToText, m.replyToId,
+                    m.timestamp, m.fileName, m.fileSize, m.fileData, m.isImage
+                );
+                he.isRecalled = m.isRecalled;
+                customer.getChatHistory().add(he);
+            }
+        }
+
         if (!customer.getChatHistory().isEmpty()) {
             for (ClientHandler.HistoryEntry entry : customer.getChatHistory()) {
                 String meta = entry.senderRole + "|" + entry.senderName + "|" + entry.timestamp + "|" + (entry.isRecalled ? "RECALLED" : "NORMAL");
@@ -236,6 +249,22 @@ public class SessionManager {
     
     public void routeMessage(ClientHandler sender, Message msg) {
         String receiverId = msg.getReceiverId();
+
+        // Kiểm duyệt ngôn từ vi phạm tiêu chuẩn cộng đồng trước khi xử lý định tuyến & lưu DB
+        if (Protocol.CMD_CHAT.equals(msg.getCommand()) || Protocol.CMD_FILE.equals(msg.getCommand())) {
+            if (msg.getContent() != null && !msg.getContent().isEmpty()) {
+                String plain = com.cmp180.livechat.common.SecurityManager.decrypt(msg.getContent());
+                if (ProfanityFilter.containsProfanity(plain)) {
+                    String clean = ProfanityFilter.filter(plain);
+                    msg.setContent(com.cmp180.livechat.common.SecurityManager.encrypt(clean));
+                }
+            }
+            if (msg.getReplyToText() != null && !msg.getReplyToText().isEmpty()) {
+                if (ProfanityFilter.containsProfanity(msg.getReplyToText())) {
+                    msg.setReplyToText(ProfanityFilter.filter(msg.getReplyToText()));
+                }
+            }
+        }
 
         // 1. Xử lý thu hồi tin nhắn
         if (Protocol.CMD_RECALL_MSG.equals(msg.getCommand())) {
@@ -437,14 +466,14 @@ public class SessionManager {
                 ClientHandler customer = session.getCustomer();
                 if (customer != null) {
                     customer.setInterrupted(true);
-                    String disconnectNote = "Nhân viên " + client.getName() + " đã mất kết nối.";
+                    String disconnectNote = "Nhân viên " + client.getName() + " mất kết nối. Đang trong hàng chờ...";
                     customer.addHistory("SYSTEM", "Hệ thống", com.cmp180.livechat.common.SecurityManager.encrypt(disconnectNote));
                     if (!waitingCustomers.contains(customer)) {
                         waitingCustomers.add(customer);
                     }
                     customer.sendMessage(new Message(Protocol.CMD_WAITING, "Server",
-                            "Nhân viên " + client.getName() + " đã mất kết nối. Bạn đã được đưa lại vào hàng chờ để nhân viên khác tiếp nhận..."));
-                    server.log("[CHUYỂN HÀNG CHỜ] Nhân viên '" + client.getName() + "' mất kết nối. Khách hàng '" + customer.getName() + "' được đưa lại vào hàng chờ (Đang tư vấn dở).");
+                            "Nhân viên " + client.getName() + " mất kết nối. Đang trong hàng chờ..."));
+                    server.log("[CHUYỂN HÀNG CHỜ] Nhân viên '" + client.getName() + "' mất kết nối. Khách hàng '" + customer.getName() + "' được đưa lại vào hàng chờ (Đang trong hàng chờ).");
                 }
             } else {
                 // Khách hàng ngắt kết nối -> Kết thúc phiên như bình thường
@@ -497,6 +526,73 @@ public class SessionManager {
     private void updateDashboard() {
         if (server.getGui() != null) {
             server.getGui().updateDashboard(waitingCustomers.size(), allStaffs.size(), activeSessionsList.size());
+        }
+    }
+
+    public synchronized void sendCustomerChatHistoryToStaff(ClientHandler staff, String customerId) {
+        if (staff == null || customerId == null) return;
+
+        ChatSession targetSession = null;
+        for (ChatSession s : activeSessionsList) {
+            if (s.getCustomer().getClientId().equals(customerId)) {
+                targetSession = s;
+                break;
+            }
+        }
+
+        ClientHandler customer = null;
+        if (targetSession != null) {
+            customer = targetSession.getCustomer();
+        } else {
+            for (ClientHandler c : waitingCustomers) {
+                if (c.getClientId().equals(customerId)) {
+                    customer = c;
+                    break;
+                }
+            }
+        }
+
+        if (customer == null) return;
+
+        // Nếu customer.chatHistory rỗng nhưng là chủ đề ghép hoặc đã có tin nhắn trong phiên hiện tại
+        if (customer.getChatHistory().isEmpty()) {
+            if (targetSession != null) {
+                List<DatabaseManager.MessageRecord> dbMsgs = DatabaseManager.getInstance().getMessagesBySession(targetSession.getSessionId());
+                for (DatabaseManager.MessageRecord m : dbMsgs) {
+                    ClientHandler.HistoryEntry he = new ClientHandler.HistoryEntry(
+                        m.messageId, m.senderRole, m.senderName, m.content, m.replyToSender, m.replyToText, m.replyToId,
+                        m.timestamp, m.fileName, m.fileSize, m.fileData, m.isImage
+                    );
+                    he.isRecalled = m.isRecalled;
+                    customer.getChatHistory().add(he);
+                }
+            }
+            if (customer.getDbCustomerId() != null && DatabaseManager.isChainedTopic(customer.getIssueTopic())) {
+                List<DatabaseManager.MessageRecord> chainMsgs = DatabaseManager.getInstance().getMessagesForCustomerTopicChain(customer.getDbCustomerId(), customer.getIssueTopic());
+                for (DatabaseManager.MessageRecord m : chainMsgs) {
+                    boolean already = false;
+                    for (ClientHandler.HistoryEntry existing : customer.getChatHistory()) {
+                        if (existing.messageId.equals(m.messageId)) {
+                            already = true;
+                            break;
+                        }
+                    }
+                    if (!already) {
+                        ClientHandler.HistoryEntry he = new ClientHandler.HistoryEntry(
+                            m.messageId, m.senderRole, m.senderName, m.content, m.replyToSender, m.replyToText, m.replyToId,
+                            m.timestamp, m.fileName, m.fileSize, m.fileData, m.isImage
+                        );
+                        he.isRecalled = m.isRecalled;
+                        customer.getChatHistory().add(he);
+                    }
+                }
+            }
+        }
+
+        // Gửi toàn bộ lịch sử này cho nhân viên yêu cầu
+        for (ClientHandler.HistoryEntry entry : customer.getChatHistory()) {
+            String meta = entry.senderRole + "|" + entry.senderName + "|" + entry.timestamp + "|" + (entry.isRecalled ? "RECALLED" : "NORMAL");
+            staff.sendMessage(new Message(Protocol.CMD_CHAT_HISTORY, meta, customer.getClientId(), entry.encryptedContent, entry.messageId, entry.replyToSender, entry.replyToText, entry.replyToId, entry.fileName, entry.fileSize, entry.fileData, entry.isImage));
         }
     }
 

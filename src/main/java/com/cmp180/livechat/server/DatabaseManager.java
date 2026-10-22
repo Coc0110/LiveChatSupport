@@ -141,25 +141,134 @@ public class DatabaseManager {
         }
     }
 
+    // Danh sách 45 nhân viên CSKH gán cứng từ danh sách sinh viên (MSSV, Họ và tên)
+    public static final String[][] DEFAULT_STUDENT_STAFF = {
+        {"2380600001", "Đoàn Văn Ái"},
+        {"2380600025", "Trương Thanh Hoài An"},
+        {"2380600088", "Võ Đình Nguyễn Minh Anh"},
+        {"2380602692", "Hoàng Trung Anh"},
+        {"2380600187", "Lê Quang Bắc"},
+        {"2380600165", "Nguyễn Trần Lê Bảo"},
+        {"2380600183", "Trương Gia Bảo"},
+        {"2380600479", "Dương Khánh Đăng"},
+        {"2380612598", "Nguyễn Hải Đăng"},
+        {"2280600626", "Nguyễn Văn Đạt"},
+        {"2380600533", "Lê Việt Đức"},
+        {"2380600550", "Trần Quang Đức"},
+        {"2188503419", "Trịnh Minh Hoàng"},
+        {"2380614932", "Nguyễn Quang Huy"},
+        {"2380600951", "Võ Duy Kha"},
+        {"2380600981", "Lê Tuấn Khang"},
+        {"2380600990", "Nguyễn Hoàng Khang"},
+        {"2380601010", "Trần Thanh Khang"},
+        {"2380601076", "Phạm Đăng Khoa"},
+        {"2380601205", "Đỗ Khắc Levis"},
+        {"2380613189", "Huỳnh Phát Lộc"},
+        {"2380601285", "Đinh Thành Lợi"},
+        {"2380601295", "Phạm Trần Khánh Luân"},
+        {"2380601313", "Trần Ngọc Mai"},
+        {"2380601358", "Nguyễn Lê Quang Minh"},
+        {"2380601439", "Đoàn Trọng Nghĩa"},
+        {"2380601470", "Nguyễn Trần Như Ngọc"},
+        {"2380601531", "Nguyễn Trọng Nhân"},
+        {"2380601666", "Nguyễn Thanh Phi"},
+        {"2280602394", "Châu Hoàng Phú"},
+        {"2380601745", "Nguyễn Vũ Bảo Phúc"},
+        {"2380601783", "Lê Hồng Phương"},
+        {"2380601858", "Phan Anh Quốc"},
+        {"2380601970", "Vũ Thái Tài"},
+        {"2380601994", "Nguyễn Hữu Tân"},
+        {"2380602068", "Đỗ Võ Ngọc Thắm"},
+        {"2380602160", "Đoàn Minh Thuận"},
+        {"2380602216", "Bùi Văn Tiến"},
+        {"2380602227", "Mạc Thanh Tiến"},
+        {"2380602253", "Trần Đức Tín"},
+        {"2380602264", "Đặng Thái Toàn"},
+        {"2380608412", "Ngô Đình Hoài Trung"},
+        {"2380602510", "Nguyễn Minh Văn"},
+        {"2380614342", "Phạm Ngọc Vũ"},
+        {"2380602621", "Lê Hoàng Phong Vỹ"}
+    };
+
     private void seedDefaultStaff(Connection conn) {
-        String countSql = "SELECT COUNT(*) FROM staff";
-        try (Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(countSql)) {
-            if (rs.next() && rs.getInt(1) == 0) {
-                // Thêm 3 tài khoản mẫu với mật khẩu băm SHA-256 kèm chuyên ngành
-                insertStaffDirect(conn, "staff01", com.cmp180.livechat.common.SecurityManager.hashPassword("123456"), "Nguyễn Văn An", "STAFF", "Tư vấn Mua Laptop & Build PC");
-                insertStaffDirect(conn, "staff02", com.cmp180.livechat.common.SecurityManager.hashPassword("123456"), "Trần Thị Bích", "STAFF", "Hỗ trợ Kỹ thuật & Cài đặt");
-                insertStaffDirect(conn, "admin", com.cmp180.livechat.common.SecurityManager.hashPassword("admin123"), "Quản Trị Viên", "ADMIN", "Tất cả");
-                System.out.println("-> [DATABASE] Đã nạp 3 tài khoản CSKH mặc định (staff01, staff02, admin).");
+        // 1. Luôn bảo đảm các tài khoản hệ thống & demo cơ bản tồn tại
+        ensureStaff(conn, "admin", "admin123", "Quản Trị Viên", "ADMIN", "Tất cả");
+        ensureStaff(conn, "staff01", "123456", "Nguyễn Văn An", "STAFF", "Tư vấn Mua Laptop & Build PC");
+        ensureStaff(conn, "staff02", "123456", "Trần Thị Bích", "STAFF", "Hỗ trợ Kỹ thuật & Cài đặt");
+
+        // 2. Gán cứng 45 tài khoản nhân viên CSKH từ danh sách sinh viên
+        // Tên đăng nhập là MSSV (hoặc có thể đăng nhập bằng Họ và tên), mật khẩu là MSSV
+        int seededCount = 0;
+        for (String[] item : DEFAULT_STUDENT_STAFF) {
+            String mssv = item[0];
+            String fullName = item[1];
+            if (ensureStaff(conn, mssv, mssv, fullName, "STAFF", "Tất cả")) {
+                seededCount++;
             }
+        }
+        if (seededCount > 0) {
+            System.out.println("-> [DATABASE] Đã nạp thành công " + seededCount + " tài khoản CSKH sinh viên mới vào cơ sở dữ liệu.");
+        }
+    }
+
+    private boolean ensureStaff(Connection conn, String username, String rawPassword, String fullName, String role, String primarySkill) {
+        try {
+            // Kiểm tra xem username (MSSV) đã tồn tại chưa
+            String sqlUser = "SELECT staff_id FROM staff WHERE username = ?";
+            try (PreparedStatement psUser = conn.prepareStatement(sqlUser)) {
+                psUser.setString(1, username);
+                try (ResultSet rsUser = psUser.executeQuery()) {
+                    if (rsUser.next()) {
+                        String sId = rsUser.getString("staff_id");
+                        // Cập nhật lại mật khẩu và họ tên để đảm bảo mật khẩu luôn đúng với MSSV
+                        String updateSql = "UPDATE staff SET password = ?, full_name = ?, role = ?, is_active = 1 WHERE staff_id = ?";
+                        try (PreparedStatement ups = conn.prepareStatement(updateSql)) {
+                            ups.setString(1, com.cmp180.livechat.common.SecurityManager.hashPassword(rawPassword));
+                            ups.setString(2, fullName);
+                            ups.setString(3, role);
+                            ups.setString(4, sId);
+                            ups.executeUpdate();
+                        }
+                        return false;
+                    }
+                }
+            }
+
+            // Nếu username chưa có, kiểm tra xem có tài khoản cũ trùng full_name không (vd: đặt nhầm username là tên)
+            String sqlName = "SELECT staff_id FROM staff WHERE full_name = ?";
+            try (PreparedStatement psName = conn.prepareStatement(sqlName)) {
+                psName.setString(1, fullName);
+                try (ResultSet rsName = psName.executeQuery()) {
+                    if (rsName.next()) {
+                        String sId = rsName.getString("staff_id");
+                        String updateSql = "UPDATE staff SET username = ?, password = ?, role = ?, is_active = 1 WHERE staff_id = ?";
+                        try (PreparedStatement ups = conn.prepareStatement(updateSql)) {
+                            ups.setString(1, username);
+                            ups.setString(2, com.cmp180.livechat.common.SecurityManager.hashPassword(rawPassword));
+                            ups.setString(3, role);
+                            ups.setString(4, sId);
+                            ups.executeUpdate();
+                        }
+                        return false;
+                    }
+                }
+            }
+
+            // Chưa tồn tại -> Thêm mới hoàn toàn
+            insertStaffDirect(conn, username, com.cmp180.livechat.common.SecurityManager.hashPassword(rawPassword), fullName, role, primarySkill);
+            return true;
         } catch (SQLException e) {
-            System.err.println("Lỗi seed dữ liệu staff: " + e.getMessage());
+            System.err.println("Lỗi kiểm tra/nạp staff [" + username + " - " + fullName + "]: " + e.getMessage());
+            return false;
         }
     }
 
     private void insertStaffDirect(Connection conn, String username, String password, String fullName, String role, String primarySkill) throws SQLException {
         String sql = "INSERT INTO staff (staff_id, username, password, full_name, role, primary_skill, is_active, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?)";
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, UUID.randomUUID().toString());
+            // Tạo UUID xác định từ username để giữ nguyên staff_id nhất quán khi khởi tạo CSDL
+            String staffId = java.util.UUID.nameUUIDFromBytes(("staff:" + username).getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+            ps.setString(1, staffId);
             ps.setString(2, username);
             ps.setString(3, password);
             ps.setString(4, fullName);
@@ -199,11 +308,17 @@ public class DatabaseManager {
     }
 
     public StaffRecord authenticateStaff(String username, String password) {
-        String sql = "SELECT staff_id, username, password, full_name, role, COALESCE(primary_skill, 'Tất cả') AS primary_skill FROM staff WHERE username = ? AND is_active = 1";
+        if (username == null || password == null) return null;
+        String cleanUser = username.trim();
+        // Cho phép nhân viên đăng nhập bằng MSSV (username) hoặc Họ và tên đầy đủ
+        String sql = "SELECT staff_id, username, password, full_name, role, COALESCE(primary_skill, 'Tất cả') AS primary_skill " +
+                     "FROM staff WHERE (username = ? OR LOWER(username) = LOWER(?) OR LOWER(full_name) = LOWER(?)) AND is_active = 1";
         try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, username);
+            ps.setString(1, cleanUser);
+            ps.setString(2, cleanUser);
+            ps.setString(3, cleanUser);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
+                while (rs.next()) {
                     String storedHash = rs.getString("password");
                     if (com.cmp180.livechat.common.SecurityManager.verifyPassword(password, storedHash)) {
                         // Tự động nâng cấp tài khoản cũ (chưa dùng Salt) lên Salted SHA-256
@@ -1150,6 +1265,47 @@ public class DatabaseManager {
         }
 
         return getMessagesBySessionIds(chainSessionIds);
+    }
+
+    /**
+     * Lấy danh sách tin nhắn cho chuỗi chủ đề của khách hàng (khi khách kết nối lại hoặc mở tiếp chủ đề "Hỏi tiếp...").
+     * Nếu không phải chủ đề chuỗi ("Hỏi tiếp:"), trả về danh sách rỗng để phiên mới bắt đầu trong sạch.
+     */
+    public List<MessageRecord> getMessagesForCustomerTopicChain(String customerId, String topic) {
+        List<MessageRecord> list = new ArrayList<>();
+        if (customerId == null || customerId.trim().isEmpty() || topic == null || topic.trim().isEmpty()) {
+            return list;
+        }
+        if (!isChainedTopic(topic)) {
+            return list;
+        }
+        String normTopic = normalizeTopic(topic);
+        String sql = """
+            SELECT session_id, issue_topic, created_at
+            FROM chat_sessions
+            WHERE customer_id = ?
+            ORDER BY created_at DESC
+        """;
+        String latestMatchSessionId = null;
+        try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, customerId.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String pastTopic = rs.getString("issue_topic");
+                    if (normalizeTopic(pastTopic).equalsIgnoreCase(normTopic)) {
+                        latestMatchSessionId = rs.getString("session_id");
+                        break;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Lỗi tìm phiên gần nhất cho chuỗi đề tài: " + e.getMessage());
+        }
+
+        if (latestMatchSessionId != null) {
+            return getMessagesForReopenSession(latestMatchSessionId);
+        }
+        return list;
     }
 
     // ==========================================

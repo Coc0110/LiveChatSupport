@@ -19,6 +19,7 @@ public class Protocol {
     public static final String CMD_ERROR = "ERROR";
     public static final String CMD_GET_QUEUE = "GET_QUEUE";
     public static final String CMD_CHAT_HISTORY = "CHAT_HISTORY";
+    public static final String CMD_REQ_CHAT_HISTORY = "REQ_CHAT_HISTORY";
     public static final String CMD_RECALL_MSG = "RECALL_MSG";
     public static final String CMD_LOGIN_SUCCESS = "LOGIN_SUCCESS";
     public static final String CMD_RATING = "RATING";

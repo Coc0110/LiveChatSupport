@@ -165,12 +165,12 @@ public class LoginController implements StaffNetworkListener {
         if (loginTimeout != null) {
             loginTimeout.stop();
         }
-        StaffContext.getInstance().getNetworkService().removeListener(this);
         Platform.runLater(() -> {
             try {
                 Stage stage = (Stage) btnLogin.getScene().getWindow();
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("LCSChat.fxml"));
                 Parent root = loader.load();
+                StaffContext.getInstance().getNetworkService().removeListener(this);
                 
                 boolean wasMaximized = stage.isMaximized();
                 boolean wasFullScreen = stage.isFullScreen();

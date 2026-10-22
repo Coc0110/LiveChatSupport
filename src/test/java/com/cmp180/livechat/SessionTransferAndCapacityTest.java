@@ -98,4 +98,38 @@ public class SessionTransferAndCapacityTest {
         assertNotNull(rec.fileData, "fileData phải được đọc lại từ ổ đĩa máy chủ");
         assertArrayEquals(sampleBytes, rec.fileData, "Dữ liệu file tải lại phải trùng khớp chính xác");
     }
+
+    @Test
+    public void testCustomerTopicChainRetrieval() {
+        String phone = "0933" + (System.currentTimeMillis() % 1000000);
+        DatabaseManager.CustomerRecord cust = db.registerOrUpdateCustomer(phone, "Khách Hàng Chuỗi Đề Tài");
+        assertNotNull(cust);
+
+        // Phiên 1: Standalone topic "Tra cứu Đơn hàng & Giao vận"
+        String sess1 = "chain-test-1-" + System.currentTimeMillis();
+        db.createSession(sess1, cust.customerId, "staff01", "Tra cứu Đơn hàng & Giao vận");
+        db.saveMessage(sess1, java.util.UUID.randomUUID().toString(), "CUSTOMER", cust.fullName, "Đơn hàng của tôi đang ở đâu?", null, null, null, 0, false, System.currentTimeMillis() - 2000);
+        db.closeSession(sess1, 5, "Xong đợt 1");
+
+        // 1. Nếu mở chủ đề mới tinh (không có 'Hỏi tiếp:'), không được nạp tin nhắn cũ
+        java.util.List<DatabaseManager.MessageRecord> freshTopicMsgs = db.getMessagesForCustomerTopicChain(cust.customerId, "Tư vấn Mua Laptop & Build PC");
+        assertTrue(freshTopicMsgs.isEmpty(), "Chủ đề mới không bắt đầu bằng 'Hỏi tiếp:' phải bắt đầu với danh sách rỗng");
+
+        // 2. Nếu mở chủ đề nối tiếp "Hỏi tiếp: Tra cứu Đơn hàng & Giao vận", phải tìm thấy phiên 1
+        java.util.List<DatabaseManager.MessageRecord> chainedMsgs = db.getMessagesForCustomerTopicChain(cust.customerId, "Hỏi tiếp: Tra cứu Đơn hàng & Giao vận");
+        assertEquals(1, chainedMsgs.size(), "Phải nạp đúng tin nhắn từ phiên trước trong chuỗi");
+        assertEquals("Đơn hàng của tôi đang ở đâu?", chainedMsgs.get(0).content);
+    }
+
+    @Test
+    public void testStaffNetworkServiceHistoryCachingWithoutListener() {
+        com.cmp180.livechat.client.staff.network.StaffNetworkService service = new com.cmp180.livechat.client.staff.network.StaffNetworkService();
+        String testCustId = "test-cust-cache-id";
+
+        // Trước khi có listener nào, lịch sử trống
+        assertTrue(service.getCachedChatHistory(testCustId).isEmpty());
+
+        // Kiểm tra CMD_REQ_CHAT_HISTORY
+        assertEquals("REQ_CHAT_HISTORY", Protocol.CMD_REQ_CHAT_HISTORY);
+    }
 }

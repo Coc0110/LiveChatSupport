@@ -67,6 +67,7 @@ public class Message implements Serializable {
     public String getSenderId() { return senderId; }
     public String getReceiverId() { return receiverId; }
     public String getContent() { return content; }
+    public void setContent(String content) { this.content = content; }
     public String getMessageId() { return messageId; }
     public String getReplyToSender() { return replyToSender; }
     public String getReplyToText() { return replyToText; }

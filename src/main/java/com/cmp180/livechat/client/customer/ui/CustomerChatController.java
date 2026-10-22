@@ -3,6 +3,7 @@ package com.cmp180.livechat.client.customer.ui;
 import com.cmp180.livechat.client.customer.context.CustomerContext;
 import com.cmp180.livechat.client.customer.network.CustomerNetworkListener;
 import com.cmp180.livechat.client.customer.model.ChatMessage;
+import com.cmp180.livechat.common.ProfanityFilter;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -293,10 +294,12 @@ public class CustomerChatController implements CustomerNetworkListener {
 
     @FXML
     private void handleSend(ActionEvent event) {
-        String content = txtMessage.getText().trim();
-        if (content.isEmpty() || currentStaffId == null) {
+        String raw = txtMessage.getText().trim();
+        if (raw.isEmpty() || currentStaffId == null) {
             return;
         }
+
+        String content = ProfanityFilter.filter(raw);
 
         if (content.length() > Protocol.MAX_TEXT_LENGTH) {
             Alert alert = new Alert(Alert.AlertType.WARNING);
@@ -486,14 +489,15 @@ public class CustomerChatController implements CustomerNetworkListener {
     }
 
     private void sendFilePayload(String fileName, long fileSize, byte[] fileData, boolean isImage, String caption) {
+        String cleanCaption = (caption != null && !caption.trim().isEmpty()) ? ProfanityFilter.filter(caption.trim()) : "";
         String msgId = UUID.randomUUID().toString();
         String replyId = (replyingTo != null) ? replyingTo.getId() : null;
         String replySender = (replyingTo != null) ? (replyingTo.getType() == ChatMessage.Type.MY_MSG ? "chính mình" : replyingTo.getSenderName()) : null;
         String replyText = (replyingTo != null) ? (replyingTo.isRecalled() ? "Tin nhắn đã được thu hồi" : (replyingTo.isFile() ? ("[" + (replyingTo.isVoice() ? "Tin nhắn thoại" : (replyingTo.isImage() ? "Hình ảnh" : "Tệp")) + "] " + replyingTo.getFileName()) : replyingTo.getText())) : null;
 
-        CustomerContext.getInstance().getNetworkService().sendFileMessage(fileName, fileSize, fileData, isImage, caption, currentStaffId, msgId, replySender, replyText, replyId);
+        CustomerContext.getInstance().getNetworkService().sendFileMessage(fileName, fileSize, fileData, isImage, cleanCaption, currentStaffId, msgId, replySender, replyText, replyId);
 
-        ChatMessage msg = new ChatMessage(msgId, caption, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId, fileName, fileSize, fileData, isImage);
+        ChatMessage msg = new ChatMessage(msgId, cleanCaption, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId, fileName, fileSize, fileData, isImage);
         listMessages.getItems().add(msg);
         scrollToBottom();
         handleCancelReply();
@@ -589,8 +593,9 @@ public class CustomerChatController implements CustomerNetworkListener {
             if (statusDot != null) statusDot.setFill(javafx.scene.paint.Color.web("#eab308"));
             lblStatus.setText("Đang chờ nhân viên kết nối...");
             if (listMessages.getItems().isEmpty() || 
-                !listMessages.getItems().get(listMessages.getItems().size() - 1).getText().contains("hàng đợi")) {
-                listMessages.getItems().add(new ChatMessage("Bạn đang ở trong hàng đợi. Vui lòng chờ...", ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
+                !listMessages.getItems().get(listMessages.getItems().size() - 1).getText().contains("kết nối")) {
+                listMessages.getItems().add(new ChatMessage("Đang chờ nhân viên kết nối...", ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
+                scrollToBottom();
             }
         });
     }
@@ -621,7 +626,7 @@ public class CustomerChatController implements CustomerNetworkListener {
                 stopCallMedia();
                 if (isRecordingVoice) { handleCancelRecord(); }
                 if (statusDot != null) statusDot.setFill(javafx.scene.paint.Color.web("#eab308"));
-                lblStatus.setText("Đang chờ nhân viên khác tiếp nhận...");
+                lblStatus.setText("Đang trong hàng chờ...");
                 listMessages.getItems().add(new ChatMessage(message, ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
                 scrollToBottom();
             }

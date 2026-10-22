@@ -7,6 +7,7 @@ import com.cmp180.livechat.client.customer.network.CustomerNetworkListener;
 import com.cmp180.livechat.client.ui.ServerConfig;
 import com.cmp180.livechat.client.ui.SettingsDialog;
 import com.cmp180.livechat.client.ui.ThemeManager;
+import com.cmp180.livechat.common.ProfanityFilter;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -136,11 +137,29 @@ public class CustomerLoginController implements CustomerNetworkListener {
         if (name == null) return false;
         String trimmed = name.trim();
         if (trimmed.length() < 2 || trimmed.length() > 50) return false;
-        // Phải chứa ít nhất 1 chữ cái (bao gồm chữ tiếng Việt có dấu)
-        boolean hasLetter = trimmed.matches(".*[\\p{L}].*");
-        // Không được chứa các ký tự thuần số hoặc thuần dấu đặc biệt
-        boolean onlyPunctOrDigits = trimmed.matches("^[0-9\\s\\p{Punct}]+$");
-        return hasLetter && !onlyPunctOrDigits;
+
+        // Tên chỉ được chứa chữ cái (bao gồm tiếng Việt có dấu), khoảng trắng và duy nhất dấu gạch nối '-'
+        // Tuyệt đối không được chứa các ký tự như / . , + hay số và các ký tự đặc biệt khác
+        if (!trimmed.matches("^[\\p{L}\\s\\-]+$")) {
+            return false;
+        }
+
+        // Phải chứa ít nhất 1 chữ cái
+        if (!trimmed.matches(".*[\\p{L}].*")) {
+            return false;
+        }
+
+        // Không được chỉ toàn dấu gạch nối hoặc khoảng trắng
+        if (trimmed.matches("^[\\s\\-]+$")) {
+            return false;
+        }
+
+        // Không được chứa từ ngữ vi phạm tiêu chuẩn cộng đồng
+        if (ProfanityFilter.containsProfanity(trimmed)) {
+            return false;
+        }
+
+        return true;
     }
 
     @FXML
@@ -608,9 +627,26 @@ public class CustomerLoginController implements CustomerNetworkListener {
             return;
         }
 
+        // Kiểm tra từ ngữ vi phạm tiêu chuẩn cộng đồng: chuyển thành *** và tính là không hợp lệ
+        if (ProfanityFilter.containsProfanity(name)) {
+            String masked = ProfanityFilter.filter(name);
+            if (txtNewName != null) {
+                txtNewName.setText(masked);
+                txtNewName.positionCaret(masked.length());
+            }
+            if (lblErrorNew != null) {
+                lblErrorNew.setText("Tên chứa từ ngữ vi phạm tiêu chuẩn cộng đồng!");
+            }
+            return;
+        }
+
         if (!isValidCustomerName(name)) {
             if (lblErrorNew != null) {
-                lblErrorNew.setText("Tên không hợp lệ (tối thiểu 2 ký tự, không chứa toàn số hoặc ký tự lạ)!");
+                if (name.matches(".*[/.,+].*") || name.matches(".*[^\\p{L}\\s\\-].*")) {
+                    lblErrorNew.setText("Tên không hợp lệ! Không được chứa ký tự như / . , + (duy nhất chấp nhận dấu '-')");
+                } else {
+                    lblErrorNew.setText("Tên không hợp lệ (tối thiểu 2 ký tự, chỉ chứa chữ cái và dấu '-')!");
+                }
             }
             return;
         }

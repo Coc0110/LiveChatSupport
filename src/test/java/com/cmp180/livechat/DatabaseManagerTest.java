@@ -353,5 +353,38 @@ public class DatabaseManagerTest {
         assertEquals(1, msgsOther.size());
         assertEquals("Tin nhắn Kỹ thuật - Không được lọt", msgsOther.get(0).content);
     }
+
+    @Test
+    @DisplayName("Kiểm tra 45 tài khoản nhân viên CSKH sinh viên được gán cứng và đăng nhập bằng MSSV / Họ tên")
+    void testHardcodedStudentStaffList() {
+        assertEquals(45, DatabaseManager.DEFAULT_STUDENT_STAFF.length, "Phải có đúng 45 sinh viên trong danh sách gán cứng");
+
+        // 1. Kiểm tra tài khoản Hoàng Trung Anh (MSSV: 2380602692)
+        DatabaseManager.StaffRecord htaByMssv = db.authenticateStaff("2380602692", "2380602692");
+        assertNotNull(htaByMssv, "Đăng nhập bằng MSSV 2380602692 phải thành công");
+        assertEquals("Hoàng Trung Anh", htaByMssv.fullName);
+        assertEquals("2380602692", htaByMssv.username);
+
+        // Đăng nhập bằng Họ và tên
+        DatabaseManager.StaffRecord htaByName = db.authenticateStaff("Hoàng Trung Anh", "2380602692");
+        assertNotNull(htaByName, "Đăng nhập bằng Họ và tên 'Hoàng Trung Anh' phải thành công");
+        assertEquals("Hoàng Trung Anh", htaByName.fullName);
+
+        // Sai mật khẩu
+        assertNull(db.authenticateStaff("2380602692", "sai_mat_khau"));
+        assertNull(db.authenticateStaff("Hoàng Trung Anh", "123456"));
+
+        // 2. Kiểm duyệt toàn bộ 45 tài khoản sinh viên đều đăng nhập thành công với mật khẩu là MSSV
+        for (String[] entry : DatabaseManager.DEFAULT_STUDENT_STAFF) {
+            String mssv = entry[0];
+            String expectedName = entry[1];
+
+            DatabaseManager.StaffRecord record = db.authenticateStaff(mssv, mssv);
+            assertNotNull(record, "Nhân viên " + expectedName + " (MSSV: " + mssv + ") phải đăng nhập thành công");
+            assertEquals(expectedName, record.fullName);
+            assertEquals("STAFF", record.role);
+            assertNotNull(record.primarySkill);
+        }
+    }
 }
 

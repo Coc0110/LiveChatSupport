@@ -25,6 +25,9 @@ public class SettingsDialog {
         NETWORK
     }
 
+    private static final String SVG_TOGGLE_OFF = "M16 18H8C4.68629 18 2 15.3137 2 12C2 8.68629 4.68629 6 8 6H16C19.3137 6 22 8.68629 22 12C22 15.3137 19.3137 18 16 18ZM5 12C5 10.3431 6.34315 9 8 9C9.65685 9 11 10.3431 11 12C11 13.6569 9.65685 15 8 15C6.34315 15 5 13.6569 5 12Z";
+    private static final String SVG_TOGGLE_ON = "M16 18H8C4.68629 18 2 15.3137 2 12C2 8.68629 4.68629 6 8 6H16C19.3137 6 22 8.68629 22 12C22 15.3137 19.3137 18 16 18ZM13 12C13 10.3431 14.3431 9 16 9C17.6569 9 19 10.3431 19 12C19 13.6569 17.6569 15 16 15C14.3431 15 13 13.6569 13 12Z";
+
     public static void show(Window owner) {
         Stage stage = new Stage();
         stage.initModality(Modality.WINDOW_MODAL);
@@ -175,14 +178,14 @@ public class SettingsDialog {
 
         HBox inRow = new HBox();
         inRow.setAlignment(Pos.CENTER_LEFT);
-        Label inBubble = new Label("Xin chào! Bạn thấy giao diện này thế nào?");
+        Label inBubble = new Label(ThemeManager.isDarkMode() ? "Đây là giao diện nền tối" : "Đây là giao diện nền sáng");
         inBubble.setPadding(new Insets(6, 12, 6, 12));
         inBubble.setStyle("-fx-background-radius: 12 12 12 0; -fx-font-size: 13px;");
         inRow.getChildren().add(inBubble);
 
         HBox outRow = new HBox();
         outRow.setAlignment(Pos.CENTER_RIGHT);
-        Label outBubble = new Label("Màu sắc trông rất hiện đại & bắt mắt!");
+        Label outBubble = new Label("Đây là màu sắc chủ đạo đoạn chat");
         outBubble.setPadding(new Insets(6, 12, 6, 12));
         outBubble.setStyle("-fx-text-fill: white; -fx-background-radius: 12 12 0 12; -fx-font-size: 13px;");
         outRow.getChildren().add(outBubble);
@@ -213,19 +216,52 @@ public class SettingsDialog {
         soundCard.setPadding(new Insets(16));
         soundCard.setStyle("-fx-background-radius: 10; -fx-border-radius: 10; -fx-border-width: 1;");
 
-        CheckBox chkSound = new CheckBox("Bật âm thanh thông báo khi có tin nhắn mới");
-        chkSound.setSelected(ServerConfig.isSoundEnabled());
-        chkSound.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
-        chkSound.setCursor(javafx.scene.Cursor.HAND);
+        HBox toggleRow = new HBox(12);
+        toggleRow.setAlignment(Pos.CENTER_LEFT);
+        toggleRow.setCursor(javafx.scene.Cursor.HAND);
 
-        Label lblSoundHint = new Label(ServerConfig.isSoundEnabled() ? "Chuông thông báo đang được BẬT." : "Chuông thông báo đang TẮT. Tin nhắn đến sẽ không phát âm thanh.");
+        Button btnToggleSound = new Button();
+        btnToggleSound.setCursor(javafx.scene.Cursor.HAND);
+        btnToggleSound.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0;");
+
+        SVGPath svgToggle = new SVGPath();
+        svgToggle.setFill(Color.TRANSPARENT);
+        svgToggle.setStrokeWidth(2.0);
+        svgToggle.setStrokeLineCap(StrokeLineCap.ROUND);
+        svgToggle.setStrokeLineJoin(StrokeLineJoin.ROUND);
+        svgToggle.setScaleX(1.3);
+        svgToggle.setScaleY(1.3);
+        btnToggleSound.setGraphic(svgToggle);
+
+        Label lblSoundToggleTitle = new Label("Bật âm thanh thông báo khi có tin nhắn mới");
+        lblSoundToggleTitle.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+        lblSoundToggleTitle.setCursor(javafx.scene.Cursor.HAND);
+
+        toggleRow.getChildren().addAll(btnToggleSound, lblSoundToggleTitle);
+
+        Label lblSoundHint = new Label();
         lblSoundHint.setFont(Font.font("Segoe UI", 12.5));
 
-        chkSound.setOnAction(e -> {
-            boolean enabled = chkSound.isSelected();
-            ServerConfig.setSoundEnabled(enabled);
+        java.util.function.Consumer<Boolean> updateSoundToggleUI = (enabled) -> {
+            String color = enabled ? "#22c55e" : "#ef4444";
+            svgToggle.setContent(enabled ? SVG_TOGGLE_ON : SVG_TOGGLE_OFF);
+            svgToggle.setStroke(Color.web(color));
             lblSoundHint.setText(enabled ? "Chuông thông báo đang được BẬT." : "Chuông thông báo đang TẮT. Tin nhắn đến sẽ không phát âm thanh.");
-            lblSoundHint.setStyle("-fx-text-fill: " + (enabled ? "#16a34a" : "#dc2626") + ";");
+            lblSoundHint.setStyle("-fx-text-fill: " + color + ";");
+        };
+
+        updateSoundToggleUI.accept(ServerConfig.isSoundEnabled());
+
+        btnToggleSound.setOnAction(e -> {
+            boolean newState = !ServerConfig.isSoundEnabled();
+            ServerConfig.setSoundEnabled(newState);
+            updateSoundToggleUI.accept(newState);
+        });
+        lblSoundToggleTitle.setOnMouseClicked(e -> btnToggleSound.fire());
+        toggleRow.setOnMouseClicked(e -> {
+            if (e.getTarget() != btnToggleSound && e.getTarget() != lblSoundToggleTitle) {
+                btnToggleSound.fire();
+            }
         });
 
         HBox soundActionRow = new HBox(12);
@@ -239,7 +275,7 @@ public class SettingsDialog {
         });
 
         soundActionRow.getChildren().add(btnTestSound);
-        soundCard.getChildren().addAll(chkSound, lblSoundHint, soundActionRow);
+        soundCard.getChildren().addAll(toggleRow, lblSoundHint, soundActionRow);
 
         VBox soundTipBox = new VBox(4);
         soundTipBox.setPadding(new Insets(10, 14, 10, 14));
@@ -393,9 +429,7 @@ public class SettingsDialog {
             } else if (currentTab[0] == Tab.SOUND) {
                 tabContentContainer.getChildren().add(soundContent);
                 lblContentTitle.setText("Cài đặt âm thanh");
-                chkSound.setSelected(ServerConfig.isSoundEnabled());
-                lblSoundHint.setText(ServerConfig.isSoundEnabled() ? "Chuông thông báo đang được BẬT." : "Chuông thông báo đang TẮT. Tin nhắn đến sẽ không phát âm thanh.");
-                lblSoundHint.setStyle("-fx-text-fill: " + (ServerConfig.isSoundEnabled() ? "#16a34a" : "#dc2626") + ";");
+                updateSoundToggleUI.accept(ServerConfig.isSoundEnabled());
                 styleSidebarTabBtn(btnTabAppearance, false, dark, brand, brandLight);
                 styleSidebarTabBtn(btnTabSound, true, dark, brand, brandLight);
                 styleSidebarTabBtn(btnTabNetwork, false, dark, brand, brandLight);
@@ -507,7 +541,9 @@ public class SettingsDialog {
 
             // Preview Box styling
             previewBox.setStyle("-fx-background-color: " + (dark ? "#121212" : "#f4f7f8") + "; -fx-background-radius: 10; -fx-border-radius: 10; -fx-border-color: " + (dark ? "#2f3031" : "#e0e4eb") + "; -fx-border-width: 1;");
+            inBubble.setText(dark ? "Đây là giao diện nền tối" : "Đây là giao diện nền sáng");
             inBubble.setStyle("-fx-background-color: " + (dark ? "#242526" : "#ffffff") + "; -fx-text-fill: " + (dark ? "#e4e6eb" : "#050505") + "; -fx-background-radius: 12 12 12 0; -fx-font-size: 13px;");
+            outBubble.setText("Đây là màu sắc chủ đạo đoạn chat");
             outBubble.setStyle("-fx-background-color: " + brand + "; -fx-text-fill: white; -fx-background-radius: 12 12 0 12; -fx-font-size: 13px;");
 
             btnResetTheme.setStyle("-fx-background-color: transparent; -fx-text-fill: " + (dark ? "#b0b3b8" : "#65676b") + "; -fx-font-size: 12px;");
@@ -516,7 +552,8 @@ public class SettingsDialog {
             lblSoundHeader.setStyle("-fx-text-fill: " + (dark ? "#8e9297" : "#65676b") + ";");
             lblSoundDesc.setStyle("-fx-text-fill: " + (dark ? "#b0b3b8" : "#65676b") + ";");
             soundCard.setStyle("-fx-background-color: " + (dark ? "#242526" : "#f8f9fa") + "; -fx-border-color: " + (dark ? "#2f3031" : "#e4e6eb") + "; -fx-border-radius: 10; -fx-background-radius: 10; -fx-border-width: 1;");
-            chkSound.setStyle("-fx-text-fill: " + (dark ? "#e4e6eb" : "#1c1e21") + ";");
+            lblSoundToggleTitle.setStyle("-fx-text-fill: " + (dark ? "#e4e6eb" : "#1c1e21") + ";");
+            updateSoundToggleUI.accept(ServerConfig.isSoundEnabled());
             btnTestSound.setStyle("-fx-background-color: " + (dark ? "#323438" : "#e4e6eb") + "; -fx-text-fill: " + (dark ? "#e4e6eb" : "#050505") + "; -fx-background-radius: 8; -fx-font-size: 12.5px; -fx-padding: 6 16;");
             soundTipBox.setStyle("-fx-background-color: " + (dark ? "rgba(255,255,255,0.05)" : "#eef3f8") + "; -fx-background-radius: 8;");
             lblSoundTipTitle.setStyle("-fx-text-fill: " + (dark ? "#e4e6eb" : "#1c1e21") + ";");

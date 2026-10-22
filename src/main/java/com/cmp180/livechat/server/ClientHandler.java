@@ -1,6 +1,8 @@
 package com.cmp180.livechat.server;
 
+import com.cmp180.livechat.client.customer.ui.CustomerLoginController;
 import com.cmp180.livechat.common.Message;
+import com.cmp180.livechat.common.ProfanityFilter;
 import com.cmp180.livechat.common.Protocol;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -169,6 +171,12 @@ public class ClientHandler implements Runnable {
                 handleGetSessionMessages(msg);
                 break;
 
+            case Protocol.CMD_REQ_CHAT_HISTORY:
+                if (Protocol.ROLE_STAFF.equals(this.role)) {
+                    sessionManager.sendCustomerChatHistoryToStaff(this, msg.getReceiverId());
+                }
+                break;
+
             case Protocol.CMD_GET_ONLINE_STAFF:
                 if (Protocol.ROLE_STAFF.equals(this.role)) {
                     sessionManager.sendOnlineStaffList(this);
@@ -221,6 +229,19 @@ public class ClientHandler implements Runnable {
         if (cleanPhone.startsWith("+84")) cleanPhone = "0" + cleanPhone.substring(3);
         else if (cleanPhone.startsWith("84") && cleanPhone.length() == 11) cleanPhone = "0" + cleanPhone.substring(2);
         this.customerPhone = !cleanPhone.isEmpty() ? cleanPhone : "Khách";
+
+        // Kiểm tra từ ngữ vi phạm tiêu chuẩn cộng đồng hoặc ký tự không hợp lệ trong tên
+        if (ProfanityFilter.containsProfanity(fullName)) {
+            String masked = ProfanityFilter.filter(fullName);
+            server.log("[TÊN KHÔNG HỢP LỆ] Khách hàng '" + cleanPhone + "' dùng tên vi phạm tiêu chuẩn: '" + fullName + "' -> '" + masked + "'");
+            sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Tên chứa từ ngữ vi phạm tiêu chuẩn cộng đồng: " + masked));
+            return;
+        }
+        if (fullName != null && !fullName.trim().isEmpty() && !CustomerLoginController.isValidCustomerName(fullName)) {
+            server.log("[TÊN KHÔNG HỢP LỆ] Khách hàng '" + cleanPhone + "' đặt tên không đúng định dạng: '" + fullName + "'");
+            sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Tên không hợp lệ! Tên không được có ký tự như / . , + (duy nhất chấp nhận dấu '-')"));
+            return;
+        }
 
         // Lưu / Tra cứu trong SQLite
         DatabaseManager.CustomerRecord rec = DatabaseManager.getInstance().registerOrUpdateCustomer(this.customerPhone, fullName);
