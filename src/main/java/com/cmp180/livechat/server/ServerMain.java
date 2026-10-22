@@ -29,6 +29,8 @@ public class ServerMain {
     public void start() {
         isRunning = true;
         log("=== HỆ THỐNG LIVE CHAT SUPPORT SERVER (PORT " + PORT + ") ===");
+        AIBotService.getInstance().setLogger(this::log);
+        AIBotService.getInstance().checkAndLogStatus();
         try {
             udpRelayServer.start();
             serverSocket = new ServerSocket(PORT);

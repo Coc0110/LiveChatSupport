@@ -51,6 +51,8 @@ public class ServerGUI extends JFrame {
         setLocationRelativeTo(null);
 
         initUI();
+        AIBotService.getInstance().setLogger(this::log);
+        AIBotService.getInstance().checkAndLogStatus();
     }
 
     private void initUI() {

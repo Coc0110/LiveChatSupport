@@ -1,6 +1,7 @@
 package com.cmp180.livechat.server;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -8,20 +9,28 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * Dịch vụ LCS chat bot hỗ trợ tự động cho khách hàng khi đang trong hàng chờ.
- * Hỗ trợ liên kết trực tiếp Google Gemini API (gemini-1.5-flash) bằng API Key của người dùng.
- * Cung cấp cơ chế tự động chuyển đổi sang bộ quy tắc chuyên gia (Fallback) khi chưa có Key hoặc lỗi mạng.
+ * Hỗ trợ liên kết trực tiếp Google Gemini API (gemini-2.5-flash) bằng API Key của người dùng.
+ * Cung cấp cơ chế tự động ghi nhật ký (Server Log) và chuyển đổi sang bộ quy tắc chuyên gia (Fallback) khi chưa có Key hoặc lỗi mạng.
  */
 public class AIBotService {
 
+    public static final String PRIMARY_MODEL = "gemini-2.5-flash";
+    public static final String FALLBACK_MODEL = "gemini-flash-latest";
+
     private static volatile AIBotService instance;
     private volatile String customApiKey = null;
+    private volatile boolean onlineGeminiEnabled = true;
     private final HttpClient httpClient;
+    private Consumer<String> serverLogger = null;
 
     public static AIBotService getInstance() {
         if (instance == null) {
@@ -36,8 +45,41 @@ public class AIBotService {
 
     private AIBotService() {
         this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(8))
+                .connectTimeout(Duration.ofSeconds(10))
                 .build();
+    }
+
+    /**
+     * Gán hàm nhận nhật ký từ Server (ServerGUI.log hoặc ServerMain.log).
+     */
+    public void setLogger(Consumer<String> logger) {
+        this.serverLogger = logger;
+    }
+
+    /**
+     * Ghi nhật ký ra console hoặc giao diện Server Log nếu đã liên kết logger.
+     */
+    public void log(String message) {
+        if (serverLogger != null) {
+            try {
+                serverLogger.accept(message);
+            } catch (Exception e) {
+                System.out.println(message);
+            }
+        } else {
+            System.out.println(message);
+        }
+    }
+
+    /**
+     * Cho phép bật/tắt gọi trực tuyến Google Gemini API (dùng cho môi trường thử nghiệm).
+     */
+    public void setOnlineGeminiEnabled(boolean enabled) {
+        this.onlineGeminiEnabled = enabled;
+    }
+
+    public boolean isOnlineGeminiEnabled() {
+        return onlineGeminiEnabled;
     }
 
     /**
@@ -48,43 +90,119 @@ public class AIBotService {
     }
 
     /**
-     * Lấy Gemini API Key từ nhiều nguồn:
-     * 1. API Key được gán động qua mã (customApiKey)
+     * Thông tin chi tiết về việc tìm kiếm và nhận diện Gemini API Key.
+     */
+    public static class KeyResolution {
+        public final boolean found;
+        public final String key;
+        public final String source;
+
+        public KeyResolution(boolean found, String key, String source) {
+            this.found = found;
+            this.key = key;
+            this.source = source;
+        }
+
+        public String getMaskedKey() {
+            if (key == null || key.length() < 8) return "***";
+            int prefixLen = Math.min(10, key.length() / 2);
+            return key.substring(0, prefixLen) + "...***" + key.substring(key.length() - 3);
+        }
+    }
+
+    /**
+     * Quét và nhận diện Gemini API Key từ nhiều nguồn:
+     * 1. API Key gán động qua bộ nhớ (customApiKey)
      * 2. Biến môi trường hệ điều hành: GEMINI_API_KEY
      * 3. Thuộc tính máy ảo Java: -DGEMINI_API_KEY=...
-     * 4. Tệp tin cấu hình: gemini_api_key.txt hoặc config/gemini_api_key.txt
+     * 4. Các tệp tin cấu hình: gemini_api_key.txt, config/gemini_api_key.txt (tại thư mục hiện tại, user.dir, parent, user.home)
      */
-    public String getGeminiApiKey() {
-        if (customApiKey != null && !customApiKey.isEmpty()) {
-            return customApiKey;
+    public KeyResolution resolveApiKey() {
+        if (customApiKey != null && !customApiKey.trim().isEmpty()) {
+            return new KeyResolution(true, customApiKey.trim(), "Bộ nhớ ứng dụng (Dynamic Custom Key)");
         }
 
         String envKey = System.getenv("GEMINI_API_KEY");
         if (envKey != null && !envKey.trim().isEmpty()) {
-            return envKey.trim();
+            return new KeyResolution(true, envKey.trim(), "Biến môi trường hệ điều hành (GEMINI_API_KEY)");
         }
 
         String propKey = System.getProperty("GEMINI_API_KEY");
         if (propKey != null && !propKey.trim().isEmpty()) {
-            return propKey.trim();
+            return new KeyResolution(true, propKey.trim(), "Thuộc tính máy ảo Java (-DGEMINI_API_KEY)");
         }
 
-        File[] files = new File[] {
-            new File("gemini_api_key.txt"),
-            new File("config/gemini_api_key.txt")
-        };
-        for (File f : files) {
+        String userDir = System.getProperty("user.dir", ".");
+        String userHome = System.getProperty("user.home", ".");
+
+        List<File> candidateFiles = new ArrayList<>();
+        candidateFiles.add(new File("gemini_api_key.txt"));
+        candidateFiles.add(new File("config/gemini_api_key.txt"));
+        candidateFiles.add(new File(userDir, "gemini_api_key.txt"));
+        candidateFiles.add(new File(userDir, "config/gemini_api_key.txt"));
+        candidateFiles.add(new File("../gemini_api_key.txt"));
+        candidateFiles.add(new File(userHome, ".gemini/gemini_api_key.txt"));
+
+        for (File f : candidateFiles) {
             if (f.exists() && f.isFile()) {
                 try {
-                    String content = Files.readString(f.toPath()).trim();
-                    if (!content.isEmpty() && !content.startsWith("#")) {
-                        return content;
+                    String raw = Files.readString(f.toPath(), StandardCharsets.UTF_8);
+                    if (raw.startsWith("\uFEFF")) {
+                        raw = raw.substring(1);
+                    }
+                    String[] lines = raw.split("\\r?\\n");
+                    for (String line : lines) {
+                        String trimmed = line.trim();
+                        if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith("//")) {
+                            continue;
+                        }
+                        if (trimmed.startsWith("GEMINI_API_KEY=")) {
+                            trimmed = trimmed.substring("GEMINI_API_KEY=".length()).trim();
+                        }
+                        if ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) ||
+                            (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+                            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+                        }
+                        if (trimmed.length() >= 10) {
+                            return new KeyResolution(true, trimmed, "Tệp tin '" + f.getName() + "' (" + f.getAbsolutePath() + ")");
+                        }
                     }
                 } catch (Exception ignored) {}
             }
         }
 
-        return null;
+        return new KeyResolution(false, null, "Chưa tìm thấy (Đã quét: gemini_api_key.txt, config/gemini_api_key.txt, biến môi trường GEMINI_API_KEY)");
+    }
+
+    /**
+     * Trả về API Key nếu có.
+     */
+    public String getGeminiApiKey() {
+        KeyResolution res = resolveApiKey();
+        return res.found ? res.key : null;
+    }
+
+    /**
+     * Kiểm tra trạng thái Gemini API Key và thông báo rõ ràng lên Server Log.
+     */
+    public void checkAndLogStatus() {
+        KeyResolution res = resolveApiKey();
+        if (res.found) {
+            log("[AI CHAT BOT] ================================================================");
+            log("[AI CHAT BOT] [✓ KÍCH HOẠT] Google Gemini AI đã sẵn sàng hoạt động!");
+            log("[AI CHAT BOT] - Nguồn nhận diện: " + res.source);
+            log("[AI CHAT BOT] - Khóa API đã nhận: " + res.getMaskedKey() + " (Độ dài: " + res.key.length() + " ký tự)");
+            log("[AI CHAT BOT] - Mô hình AI: " + PRIMARY_MODEL + " (Dự phòng: " + FALLBACK_MODEL + ")");
+            log("[AI CHAT BOT] - Trạng thái: SẴN SÀNG trả lời tự động cho khách hàng trong hàng chờ.");
+            log("[AI CHAT BOT] ================================================================");
+        } else {
+            log("[AI CHAT BOT] ================================================================");
+            log("[AI CHAT BOT] [⚠️ CẢNH BÁO] CHƯA NHẬN DIỆN ĐƯỢC GOOGLE GEMINI API KEY!");
+            log("[AI CHAT BOT] - Đã quét các vị trí: gemini_api_key.txt, config/gemini_api_key.txt, biến GEMINI_API_KEY");
+            log("[AI CHAT BOT] - Hướng dẫn: Bạn vui lòng dán Gemini API Key vào file 'gemini_api_key.txt' tại thư mục gốc của Server.");
+            log("[AI CHAT BOT] - Chế độ hiện tại: Hệ thống tạm thời sử dụng Bộ tri thức chuyên gia nội bộ (Local Fallback).");
+            log("[AI CHAT BOT] ================================================================");
+        }
     }
 
     /**
@@ -96,73 +214,98 @@ public class AIBotService {
             return "Tôi có thể giúp gì cho bạn? Bạn hãy chia sẻ câu hỏi hoặc vấn đề bạn đang gặp phải nhé!";
         }
 
-        // 1. Thử gọi Google Gemini API nếu người dùng đã cấu hình Key
-        String apiKey = getGeminiApiKey();
-        if (apiKey != null && !apiKey.isEmpty()) {
-            String geminiResponse = callGemini(apiKey, customer, query);
+        KeyResolution keyRes = resolveApiKey();
+        if (onlineGeminiEnabled && keyRes.found) {
+            String geminiResponse = callGemini(keyRes.key, customer, query);
             if (geminiResponse != null && !geminiResponse.trim().isEmpty()) {
                 return geminiResponse.trim();
             }
+        } else if (onlineGeminiEnabled) {
+            String customerName = (customer != null && customer.getName() != null) ? customer.getName() : "Khách hàng";
+            log("[AI CHAT BOT] Khách hàng '" + customerName + "' gửi câu hỏi: \"" + query + "\"");
+            log("[AI CHAT BOT] [⚠️ CHƯA CÓ KEY] Đang xử lý bằng Bộ tri thức chuyên gia nội bộ (Local Fallback).");
         }
 
-        // 2. Fallback: Dùng bộ tri thức & xử lý ngôn ngữ nội bộ (Local Knowledge Base)
+        // Fallback: Dùng bộ tri thức & xử lý ngôn ngữ nội bộ (Local Knowledge Base)
         return generateLocalResponse(customer, query);
     }
 
     /**
-     * Gửi yêu cầu đến Google Gemini API (gemini-1.5-flash)
+     * Gửi yêu cầu đến Google Gemini API với cơ chế tự động thử model chính và model dự phòng.
      */
     private String callGemini(String apiKey, ClientHandler customer, String query) {
+        String customerName = (customer != null && customer.getName() != null) ? customer.getName() : "Khách hàng";
+        log("[AI CHAT BOT] Khách hàng '" + customerName + "' gửi câu hỏi: \"" + query + "\"");
+        log("[AI CHAT BOT] Đang kết nối Google Gemini API (" + PRIMARY_MODEL + ")...");
         try {
-            String customerName = (customer != null && customer.getName() != null) ? customer.getName() : "Khách hàng";
-            String topic = (customer != null && customer.getIssueTopic() != null) ? customer.getIssueTopic() : "Hỗ trợ chung";
-
-            String systemPrompt = "Bạn là LCS chat bot, trợ lý chăm sóc khách hàng thông minh của hệ thống LiveChat Support (chuyên về thiết bị công nghệ, Laptop, PC, linh kiện máy tính, hỗ trợ kỹ thuật, bảo hành và đơn hàng).\n"
-                    + "Khách hàng đang trong hàng chờ nhân viên tư vấn. Hãy trả lời súc tích, tự nhiên, thân thiện bằng tiếng Việt, có sử dụng emoji phù hợp (không trả lời quá dài dòng gây ngợp khung chat).\n"
-                    + "Thông tin khách: Tên: " + customerName + ", Chủ đề quan tâm: " + topic + ".\n"
-                    + "QUY TẮC VỀ PHẠM VI HỖ TRỢ:\n"
-                    + "1. Bạn CHỈ CHUYÊN hỗ trợ: tư vấn mua Laptop/PC, linh kiện, khắc phục sự cố phần mềm/phần cứng máy tính, chính sách bảo hành đổi trả, và tra cứu đơn hàng vận chuyển.\n"
-                    + "2. NẾU KHÁCH HỎI NGOÀI CHỦ ĐỀ HỖ TRỢ (như nấu ăn, làm thơ, giải toán, bài tập, thời tiết, tin tức giải trí, đời tư cá nhân, chính trị...): Hãy từ chối một cách lịch sự, nhã nhặn trong 1-2 câu; giải thích rằng bạn là trợ lý chuyên trách sản phẩm công nghệ của LiveChat Support nên không hỗ trợ lĩnh vực này, và khéo léo hỏi xem khách có cần hỗ trợ gì về máy tính, kỹ thuật hoặc đơn hàng không.\n"
-                    + "3. Nếu khách cung cấp số điện thoại hoặc mã đơn hàng: Hãy xác nhận bạn đã lưu lại để nhân viên CSKH tra cứu ngay khi tiếp nhận.\n"
-                    + "4. Nếu khách muốn gặp người thật / nhân viên tư vấn: Thông báo hệ thống đang điều phối nhân viên phù hợp nhất.";
-
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
-
-            String jsonPayload = "{\n"
-                    + "  \"system_instruction\": {\n"
-                    + "    \"parts\": [{\"text\": \"" + escapeJson(systemPrompt) + "\"}]\n"
-                    + "  },\n"
-                    + "  \"contents\": [\n"
-                    + "    {\"role\": \"user\", \"parts\": [{\"text\": \"" + escapeJson(query) + "\"}]}\n"
-                    + "  ],\n"
-                    + "  \"generationConfig\": {\n"
-                    + "    \"temperature\": 0.7,\n"
-                    + "    \"maxOutputTokens\": 600\n"
-                    + "  }\n"
-                    + "}";
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(12))
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload, StandardCharsets.UTF_8))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-
-            if (response.statusCode() == 200) {
-                String responseBody = response.body();
-                String extracted = extractTextFromGeminiResponse(responseBody);
-                if (extracted != null && !extracted.trim().isEmpty()) {
-                    return extracted.trim();
-                }
-            } else {
-                System.err.println("Gemini API Status " + response.statusCode() + ": " + response.body());
+            String answer = callGeminiWithModel(PRIMARY_MODEL, apiKey, customer, query);
+            log("[AI CHAT BOT] [✓ THÀNH CÔNG] Google Gemini (" + PRIMARY_MODEL + ") phản hồi thành công (" + answer.length() + " ký tự).");
+            return answer;
+        } catch (Exception e1) {
+            log("[AI CHAT BOT] [⚠️ CẢNH BÁO] Lỗi khi gọi mô hình " + PRIMARY_MODEL + ": " + e1.getMessage());
+            try {
+                log("[AI CHAT BOT] Đang thử kết nối mô hình dự phòng (" + FALLBACK_MODEL + ")...");
+                String answer = callGeminiWithModel(FALLBACK_MODEL, apiKey, customer, query);
+                log("[AI CHAT BOT] [✓ THÀNH CÔNG] Google Gemini (" + FALLBACK_MODEL + ") phản hồi thành công (" + answer.length() + " ký tự).");
+                return answer;
+            } catch (Exception e2) {
+                log("[AI CHAT BOT] [❌ THẤT BÀI] Không thể kết nối Google Gemini API: " + e2.getMessage());
+                log("[AI CHAT BOT] -> Tự động kích hoạt Bộ tri thức chuyên gia nội bộ (Local Fallback).");
             }
-        } catch (Exception e) {
-            System.err.println("Gemini API call failed (will use local fallback): " + e.getMessage());
         }
         return null;
+    }
+
+    private String callGeminiWithModel(String model, String apiKey, ClientHandler customer, String query) throws Exception {
+        String customerName = (customer != null && customer.getName() != null) ? customer.getName() : "Khách hàng";
+        String topic = (customer != null && customer.getIssueTopic() != null) ? customer.getIssueTopic() : "Hỗ trợ chung";
+
+        String systemPrompt = "Bạn là LCS chat bot, trợ lý chăm sóc khách hàng thông minh của hệ thống LiveChat Support (chuyên về thiết bị công nghệ, Laptop, PC, linh kiện máy tính, hỗ trợ kỹ thuật, bảo hành và đơn hàng).\n"
+                + "Khách hàng đang trong hàng chờ nhân viên tư vấn. Hãy trả lời súc tích, tự nhiên, thân thiện bằng tiếng Việt, có sử dụng emoji phù hợp (không trả lời quá dài dòng gây ngợp khung chat).\n"
+                + "Thông tin khách: Tên: " + customerName + ", Chủ đề quan tâm: " + topic + ".\n"
+                + "QUY TẮC VỀ PHẠM VI HỖ TRỢ:\n"
+                + "1. Bạn CHỈ CHUYÊN hỗ trợ: tư vấn mua Laptop/PC, linh kiện, khắc phục sự cố phần mềm/phần cứng máy tính, chính sách bảo hành đổi trả, và tra cứu đơn hàng vận chuyển.\n"
+                + "2. NẾU KHÁCH HỎI NGOÀI CHỦ ĐỀ HỖ TRỢ (như nấu ăn, làm thơ, giải toán, bài tập, thời tiết, tin tức giải trí, đời tư cá nhân, chính trị...): Hãy từ chối một cách lịch sự, nhã nhặn trong 1-2 câu; giải thích rằng bạn là trợ lý chuyên trách sản phẩm công nghệ của LiveChat Support nên không hỗ trợ lĩnh vực này, và khéo léo hỏi xem khách có cần hỗ trợ gì về máy tính, kỹ thuật hoặc đơn hàng không.\n"
+                + "3. Nếu khách cung cấp số điện thoại hoặc mã đơn hàng: Hãy xác nhận bạn đã lưu lại để nhân viên CSKH tra cứu ngay khi tiếp nhận.\n"
+                + "4. Nếu khách muốn gặp người thật / nhân viên tư vấn: Thông báo hệ thống đang điều phối nhân viên phù hợp nhất.";
+
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + apiKey;
+
+        String jsonPayload = "{\n"
+                + "  \"system_instruction\": {\n"
+                + "    \"parts\": [{\"text\": \"" + escapeJson(systemPrompt) + "\"}]\n"
+                + "  },\n"
+                + "  \"contents\": [\n"
+                + "    {\"role\": \"user\", \"parts\": [{\"text\": \"" + escapeJson(query) + "\"}]}\n"
+                + "  ],\n"
+                + "  \"generationConfig\": {\n"
+                + "    \"temperature\": 0.7,\n"
+                + "    \"maxOutputTokens\": 800,\n"
+                + "    \"thinkingConfig\": {\n"
+                + "      \"thinkingBudget\": 0\n"
+                + "    }\n"
+                + "  }\n"
+                + "}";
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(15))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonPayload, StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+
+        if (response.statusCode() == 200) {
+            String responseBody = response.body();
+            String extracted = extractTextFromGeminiResponse(responseBody);
+            if (extracted != null && !extracted.trim().isEmpty()) {
+                return extracted.trim();
+            }
+            throw new IOException("HTTP 200 nhưng không trích xuất được nội dung trả về: " + responseBody);
+        } else {
+            throw new IOException("HTTP " + response.statusCode() + ": " + response.body());
+        }
     }
 
     private String escapeJson(String s) {
@@ -193,44 +336,64 @@ public class AIBotService {
         if (json == null) return null;
         int candIdx = json.indexOf("\"candidates\"");
         if (candIdx == -1) return null;
-        int textIdx = json.indexOf("\"text\"", candIdx);
-        if (textIdx == -1) return null;
-        int colonIdx = json.indexOf(':', textIdx);
-        if (colonIdx == -1) return null;
-        int startQuote = json.indexOf('"', colonIdx);
-        if (startQuote == -1) return null;
 
-        StringBuilder sb = new StringBuilder();
-        boolean escape = false;
-        for (int i = startQuote + 1; i < json.length(); i++) {
-            char c = json.charAt(i);
-            if (escape) {
-                if (c == 'n') sb.append('\n');
-                else if (c == 'r') sb.append('\r');
-                else if (c == 't') sb.append('\t');
-                else if (c == '"') sb.append('"');
-                else if (c == '\\') sb.append('\\');
-                else if (c == 'u' && i + 4 < json.length()) {
-                    String hex = json.substring(i + 1, i + 5);
-                    try {
-                        sb.append((char) Integer.parseInt(hex, 16));
-                        i += 4;
-                    } catch (Exception ex) {
+        StringBuilder result = new StringBuilder();
+        int searchIdx = candIdx;
+
+        while (true) {
+            int textIdx = json.indexOf("\"text\"", searchIdx);
+            if (textIdx == -1) break;
+
+            int usageIdx = json.indexOf("\"usageMetadata\"");
+            if (usageIdx != -1 && textIdx > usageIdx) {
+                break;
+            }
+
+            int colonIdx = json.indexOf(':', textIdx);
+            if (colonIdx == -1) break;
+            int startQuote = json.indexOf('"', colonIdx);
+            if (startQuote == -1) break;
+
+            StringBuilder sb = new StringBuilder();
+            boolean escape = false;
+            int i = startQuote + 1;
+            for (; i < json.length(); i++) {
+                char c = json.charAt(i);
+                if (escape) {
+                    if (c == 'n') sb.append('\n');
+                    else if (c == 'r') sb.append('\r');
+                    else if (c == 't') sb.append('\t');
+                    else if (c == '"') sb.append('"');
+                    else if (c == '\\') sb.append('\\');
+                    else if (c == 'u' && i + 4 < json.length()) {
+                        String hex = json.substring(i + 1, i + 5);
+                        try {
+                            sb.append((char) Integer.parseInt(hex, 16));
+                            i += 4;
+                        } catch (Exception ex) {
+                            sb.append(c);
+                        }
+                    } else {
                         sb.append(c);
                     }
+                    escape = false;
+                } else if (c == '\\') {
+                    escape = true;
+                } else if (c == '"') {
+                    break;
                 } else {
                     sb.append(c);
                 }
-                escape = false;
-            } else if (c == '\\') {
-                escape = true;
-            } else if (c == '"') {
-                break;
-            } else {
-                sb.append(c);
             }
+            if (sb.length() > 0) {
+                if (result.length() > 0) result.append("\n");
+                result.append(sb);
+            }
+            searchIdx = i + 1;
         }
-        return sb.toString();
+
+        String res = result.toString().trim();
+        return res.isEmpty() ? null : res;
     }
 
     /**
@@ -402,5 +565,15 @@ public class AIBotService {
             return false;
         }
         return text.contains(kw);
+    }
+
+    public static void main(String[] args) {
+        AIBotService bot = AIBotService.getInstance();
+        bot.setLogger(System.out::println);
+        bot.checkAndLogStatus();
+        String testQuery = (args != null && args.length > 0) ? String.join(" ", args) : "Tư vấn mua laptop 20 triệu";
+        System.out.println("\n[THỬ NGHIỆM TRỰC TIẾP] Gửi câu hỏi: \"" + testQuery + "\"");
+        String reply = bot.generateResponse(null, testQuery);
+        System.out.println("\n[PHẢN HỒI TỪ BOT]:\n" + reply);
     }
 }

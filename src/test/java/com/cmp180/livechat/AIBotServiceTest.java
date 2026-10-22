@@ -2,6 +2,7 @@ package com.cmp180.livechat;
 
 import com.cmp180.livechat.server.AIBotService;
 import com.cmp180.livechat.server.ClientHandler;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,14 @@ public class AIBotServiceTest {
     @BeforeEach
     public void setUp() {
         aiBotService = AIBotService.getInstance();
+        aiBotService.setOnlineGeminiEnabled(false);
+    }
+
+    @AfterEach
+    public void tearDown() {
+        if (aiBotService != null) {
+            aiBotService.setOnlineGeminiEnabled(true);
+        }
     }
 
     @Test
@@ -181,5 +190,25 @@ public class AIBotServiceTest {
         String resBye = aiBotService.generateResponse(null, "Tạm biệt bot nhé");
         assertNotNull(resBye);
         assertTrue(resBye.contains("Tạm biệt") || resBye.contains("Cảm ơn bạn"));
+    }
+
+    @Test
+    @DisplayName("Kiểm tra cơ chế quét và nhận diện API Key")
+    public void testApiKeyResolution() {
+        AIBotService.KeyResolution res = aiBotService.resolveApiKey();
+        assertNotNull(res);
+        assertNotNull(res.source);
+        if (res.found) {
+            assertNotNull(res.key);
+            assertFalse(res.key.isEmpty());
+            assertTrue(res.getMaskedKey().contains("...***"));
+        }
+
+        // Kiểm tra log status không ném ngoại lệ
+        final java.util.List<String> logs = new java.util.ArrayList<>();
+        aiBotService.setLogger(logs::add);
+        aiBotService.checkAndLogStatus();
+        assertFalse(logs.isEmpty());
+        assertTrue(logs.stream().anyMatch(l -> l.contains("[AI CHAT BOT]")));
     }
 }
