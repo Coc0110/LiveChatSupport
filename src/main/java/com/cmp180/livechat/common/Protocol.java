@@ -48,4 +48,10 @@ public class Protocol {
     public static final String CMD_CALL_END = "CALL_END";
     public static final String CMD_CALL_DATA = "CALL_DATA";
     public static final String CMD_VIDEO_DATA = "VIDEO_DATA";
+
+    // AI Chat Bot & Điều phối chuyển giao nhân viên
+    public static final String CMD_START_AI_CHAT = "START_AI_CHAT";
+    public static final String CMD_STAFF_AVAILABLE = "STAFF_AVAILABLE";
+    public static final String CMD_CHOOSE_STAFF = "CHOOSE_STAFF";
+    public static final String CMD_STAY_WITH_AI = "STAY_WITH_AI";
 }

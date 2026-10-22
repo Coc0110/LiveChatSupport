@@ -131,6 +131,7 @@ public class CustomerChatController implements CustomerNetworkListener {
 
     private String currentStaffId = null;
     private String currentStaffName = null;
+    private boolean isChattingWithAI = false;
 
     @FXML private Button btnAccount;
     @FXML private Button btnSettings;
@@ -295,7 +296,10 @@ public class CustomerChatController implements CustomerNetworkListener {
     @FXML
     private void handleSend(ActionEvent event) {
         String raw = txtMessage.getText().trim();
-        if (raw.isEmpty() || currentStaffId == null) {
+        if (raw.isEmpty()) {
+            return;
+        }
+        if (currentStaffId == null && !isChattingWithAI) {
             return;
         }
 
@@ -311,6 +315,21 @@ public class CustomerChatController implements CustomerNetworkListener {
             alert.setContentText("Nội dung tin nhắn vượt quá giới hạn " + Protocol.MAX_TEXT_LENGTH + " ký tự (Hiện tại: " + content.length() + " ký tự). Vui lòng rút ngắn nội dung hoặc gửi bằng tệp đính kèm.");
             ThemeManager.applyTheme(alert);
             alert.showAndWait();
+            return;
+        }
+
+        if (isChattingWithAI) {
+            String msgId = UUID.randomUUID().toString();
+            String replySender = (replyingTo != null) ? (replyingTo.getType() == ChatMessage.Type.MY_MSG ? "chính mình" : replyingTo.getSenderName()) : null;
+            String replyText = (replyingTo != null) ? (replyingTo.isRecalled() ? "Tin nhắn đã được thu hồi" : (replyingTo.isFile() ? ("[" + (replyingTo.isVoice() ? "Tin nhắn thoại" : (replyingTo.isImage() ? "Hình ảnh" : "Tệp")) + "] " + replyingTo.getFileName()) : replyingTo.getText())) : null;
+            String replyId = (replyingTo != null) ? replyingTo.getId() : null;
+
+            CustomerContext.getInstance().getNetworkService().sendChatMessage(content, "AI_BOT", msgId, replySender, replyText, replyId);
+            ChatMessage msg = new ChatMessage(msgId, content, ChatMessage.Type.MY_MSG, "Bạn", System.currentTimeMillis(), replySender, replyText, replyId);
+            listMessages.getItems().add(msg);
+            scrollToBottom();
+            txtMessage.clear();
+            handleCancelReply();
             return;
         }
 
@@ -590,11 +609,14 @@ public class CustomerChatController implements CustomerNetworkListener {
     @Override
     public void onConnectedToQueue() {
         Platform.runLater(() -> {
+            isChattingWithAI = false;
             if (statusDot != null) statusDot.setFill(javafx.scene.paint.Color.web("#eab308"));
-            lblStatus.setText("Đang chờ nhân viên kết nối...");
+            lblStatus.setText("Đang trong hàng chờ...");
             if (listMessages.getItems().isEmpty() || 
-                !listMessages.getItems().get(listMessages.getItems().size() - 1).getText().contains("kết nối")) {
-                listMessages.getItems().add(new ChatMessage("Đang chờ nhân viên kết nối...", ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
+                !listMessages.getItems().get(listMessages.getItems().size() - 1).getText().contains("hàng chờ")) {
+                ChatMessage waitMsg = new ChatMessage("Đang trong hàng chờ...", ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
+                waitMsg.setActionType(ChatMessage.ActionType.AI_INVITE);
+                listMessages.getItems().add(waitMsg);
                 scrollToBottom();
             }
         });
@@ -604,6 +626,7 @@ public class CustomerChatController implements CustomerNetworkListener {
     public void onReturnedToQueue(String message) {
         Platform.runLater(() -> {
             handleCancelReply();
+            isChattingWithAI = false;
             if (typingBar != null) { typingBar.setVisible(false); typingBar.setManaged(false); }
             if (currentStaffId != null) {
                 currentStaffId = null;
@@ -627,15 +650,53 @@ public class CustomerChatController implements CustomerNetworkListener {
                 if (isRecordingVoice) { handleCancelRecord(); }
                 if (statusDot != null) statusDot.setFill(javafx.scene.paint.Color.web("#eab308"));
                 lblStatus.setText("Đang trong hàng chờ...");
-                listMessages.getItems().add(new ChatMessage(message, ChatMessage.Type.SYSTEM_MSG, "Hệ thống"));
+                ChatMessage waitMsg = new ChatMessage(message != null ? message : "Đang trong hàng chờ...", ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
+                waitMsg.setActionType(ChatMessage.ActionType.AI_INVITE);
+                listMessages.getItems().add(waitMsg);
                 scrollToBottom();
             }
         });
     }
 
     @Override
+    public void onStaffAvailable(String staffName, String staffId) {
+        Platform.runLater(() -> {
+            SoundManager.playNotificationSound();
+            ChatMessage handoffMsg = new ChatMessage("Nhân viên " + staffName + " đã sẵn sàng hỗ trợ bạn!", ChatMessage.Type.SYSTEM_MSG, "Hệ thống");
+            handoffMsg.setActionType(ChatMessage.ActionType.STAFF_HANDOFF);
+            handoffMsg.setTargetStaffId(staffId);
+            handoffMsg.setTargetStaffName(staffName);
+            listMessages.getItems().add(handoffMsg);
+            scrollToBottom();
+        });
+    }
+
+    public void startAIChat() {
+        isChattingWithAI = true;
+        currentStaffId = "AI_BOT";
+        currentStaffName = "LCS chat bot";
+        lblTitle.setText("LCS chat bot");
+        lblStatus.setText("Đang chat với: LCS chat bot (Trong hàng chờ)");
+        if (statusDot != null) statusDot.setFill(javafx.scene.paint.Color.web("#8b5cf6"));
+        txtMessage.setDisable(false);
+        btnSend.setDisable(false);
+        CustomerContext.getInstance().getNetworkService().sendStartAIChat();
+        SoundManager.playNotificationSound();
+        listMessages.refresh();
+    }
+
+    public void handleChooseStaff(String staffId) {
+        CustomerContext.getInstance().getNetworkService().sendChooseStaff(staffId);
+    }
+
+    public void handleStayWithAI() {
+        CustomerContext.getInstance().getNetworkService().sendStayWithAI();
+    }
+
+    @Override
     public void onPairedWithStaff(String staffName, String staffId) {
         Platform.runLater(() -> {
+            isChattingWithAI = false;
             isRatingHandled = false;
             handleCancelReply();
             currentStaffId = staffId;
@@ -722,6 +783,17 @@ public class CustomerChatController implements CustomerNetworkListener {
     @Override
     public void onChatHistoryReceived(String senderRole, String senderName, long timestamp, String message, String messageId, String replyToSender, String replyToText, String replyToId, boolean isRecalled, String fileName, long fileSize, byte[] fileData, boolean isImage) {
         Platform.runLater(() -> {
+            boolean exists = false;
+            if (messageId != null) {
+                for (ChatMessage m : listMessages.getItems()) {
+                    if (messageId.equals(m.getId())) {
+                        exists = true;
+                        break;
+                    }
+                }
+            }
+            if (exists) return;
+
             ChatMessage.Type type;
             if ("CUSTOMER".equalsIgnoreCase(senderRole)) {
                 type = ChatMessage.Type.MY_MSG;
@@ -1822,6 +1894,131 @@ public class CustomerChatController implements CustomerNetworkListener {
             setStyle("-fx-background-color: transparent; -fx-padding: 6px;");
         }
 
+        private void renderAIInviteCard(ChatMessage item) {
+            actionRow.getChildren().clear();
+            bubbleBox.getChildren().clear();
+            quoteBox.getChildren().clear();
+
+            boolean isDark = getScene() != null && getScene().getRoot().getStyleClass().contains("dark-mode");
+
+            VBox card = new VBox(8);
+            card.setAlignment(Pos.CENTER);
+            card.setPadding(new Insets(10, 16, 12, 16));
+            card.setMaxWidth(380);
+
+            String bg = isDark ? "#1e1e24" : "#ffffff";
+            String border = isDark ? "#3f3f46" : "#e4e4e7";
+            card.setStyle("-fx-background-color: " + bg + "; -fx-border-color: " + border + "; -fx-border-radius: 14; -fx-background-radius: 14; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.08), 8, 0, 0, 2);");
+
+            Label lblWait = new Label(item.getText() != null ? item.getText() : "Đang trong hàng chờ...");
+            lblWait.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12.5));
+            lblWait.setStyle("-fx-text-fill: " + (isDark ? "#facc15" : "#ca8a04") + ";");
+
+            Label lblSub = new Label("Bạn có thể trò chuyện với LCS chat bot trong khi chờ đợi");
+            lblSub.setFont(Font.font("Segoe UI", 11.5));
+            lblSub.setStyle("-fx-text-fill: " + (isDark ? "#9ca3af" : "#6b7280") + ";");
+
+            Button btnChatAI = new Button();
+            Node robotIcon = EmojiManager.getEmojiNode("🤖", 14);
+            Label btnText = new Label(" Chat với LCS chat bot");
+            btnText.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+            btnText.setStyle("-fx-text-fill: white;");
+            HBox btnGraphic = new HBox(4, robotIcon, btnText);
+            btnGraphic.setAlignment(Pos.CENTER);
+            btnChatAI.setGraphic(btnGraphic);
+            btnChatAI.setCursor(Cursor.HAND);
+
+            if (isChattingWithAI) {
+                btnChatAI.setDisable(true);
+                btnText.setText(" ✓ Đang trò chuyện với LCS chat bot");
+                btnChatAI.setStyle("-fx-background-color: #6b7280; -fx-background-radius: 8; -fx-padding: 6 16;");
+            } else {
+                btnChatAI.setStyle("-fx-background-color: linear-gradient(to right, #8b5cf6, #6366f1); -fx-background-radius: 8; -fx-padding: 6 16; -fx-cursor: hand;");
+                btnChatAI.setOnAction(e -> {
+                    btnChatAI.setDisable(true);
+                    btnText.setText(" ✓ Đang trò chuyện với LCS chat bot");
+                    startAIChat();
+                });
+            }
+
+            card.getChildren().addAll(lblWait, lblSub, btnChatAI);
+
+            root.setAlignment(Pos.CENTER);
+            root.getChildren().setAll(card);
+            setGraphic(root);
+            setText(null);
+            setStyle("-fx-background-color: transparent; -fx-padding: 8px 10px;");
+        }
+
+        private void renderStaffHandoffCard(ChatMessage item) {
+            actionRow.getChildren().clear();
+            bubbleBox.getChildren().clear();
+            quoteBox.getChildren().clear();
+
+            boolean isDark = getScene() != null && getScene().getRoot().getStyleClass().contains("dark-mode");
+
+            VBox card = new VBox(10);
+            card.setAlignment(Pos.CENTER);
+            card.setPadding(new Insets(12, 18, 12, 18));
+            card.setMaxWidth(380);
+
+            String bg = isDark ? "#1e1e24" : "#ffffff";
+            String border = isDark ? "#6366f1" : "#818cf8";
+            card.setStyle("-fx-background-color: " + bg + "; -fx-border-color: " + border + "; -fx-border-radius: 14; -fx-background-radius: 14; -fx-border-width: 1.5; -fx-effect: dropshadow(gaussian, rgba(99,102,241,0.2), 10, 0, 0, 3);");
+
+            Label lblNotice = new Label(item.getText());
+            lblNotice.setFont(Font.font("Segoe UI", FontWeight.BOLD, 13));
+            lblNotice.setStyle("-fx-text-fill: " + (isDark ? "#f3f4f6" : "#111827") + ";");
+            lblNotice.setWrapText(true);
+            lblNotice.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+
+            Label lblPrompt = new Label("Bạn muốn chuyển sang trao đổi với nhân viên hay tiếp tục trò chuyện với LCS chat bot?");
+            lblPrompt.setFont(Font.font("Segoe UI", 11.5));
+            lblPrompt.setStyle("-fx-text-fill: " + (isDark ? "#9ca3af" : "#4b5563") + ";");
+            lblPrompt.setWrapText(true);
+            lblPrompt.setTextAlignment(javafx.scene.text.TextAlignment.CENTER);
+
+            HBox btnRow = new HBox(10);
+            btnRow.setAlignment(Pos.CENTER);
+
+            Button btnSwitch = new Button("👤 Chuyển sang nhân viên");
+            btnSwitch.setCursor(Cursor.HAND);
+            btnSwitch.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+            btnSwitch.setStyle("-fx-background-color: #22c55e; -fx-text-fill: white; -fx-background-radius: 8; -fx-padding: 7 14;");
+
+            Button btnStay = new Button();
+            Node robotStayIcon = EmojiManager.getEmojiNode("🤖", 14);
+            Label stayText = new Label(" Tiếp tục với LCS chat bot");
+            stayText.setFont(Font.font("Segoe UI", FontWeight.BOLD, 12));
+            stayText.setStyle("-fx-text-fill: " + (isDark ? "#f3f4f6" : "#1f2937") + ";");
+            HBox stayGraphic = new HBox(4, robotStayIcon, stayText);
+            stayGraphic.setAlignment(Pos.CENTER);
+            btnStay.setGraphic(stayGraphic);
+            btnStay.setCursor(Cursor.HAND);
+            btnStay.setStyle("-fx-background-color: " + (isDark ? "#374151" : "#e5e7eb") + "; -fx-background-radius: 8; -fx-padding: 7 14;");
+
+            btnSwitch.setOnAction(e -> {
+                btnSwitch.setDisable(true);
+                btnStay.setDisable(true);
+                handleChooseStaff(item.getTargetStaffId());
+            });
+
+            btnStay.setOnAction(e -> {
+                btnSwitch.setDisable(true);
+                btnStay.setDisable(true);
+                handleStayWithAI();
+            });
+
+            btnRow.getChildren().addAll(btnSwitch, btnStay);
+            card.getChildren().addAll(lblNotice, lblPrompt, btnRow);
+
+            root.setAlignment(Pos.CENTER);
+            root.getChildren().setAll(card);
+            setGraphic(root);
+            setText(null);
+            setStyle("-fx-background-color: transparent; -fx-padding: 8px 10px;");
+        }
+
         @Override
         protected void updateItem(ChatMessage item, boolean empty) {
             super.updateItem(item, empty);
@@ -1842,6 +2039,14 @@ public class CustomerChatController implements CustomerNetworkListener {
                 }
 
                 if (item.getType() == ChatMessage.Type.SYSTEM_MSG) {
+                    if (item.getActionType() == ChatMessage.ActionType.AI_INVITE) {
+                        renderAIInviteCard(item);
+                        return;
+                    }
+                    if (item.getActionType() == ChatMessage.ActionType.STAFF_HANDOFF) {
+                        renderStaffHandoffCard(item);
+                        return;
+                    }
                     lblText.setText(item.getText());
                     lblText.setStyle("-fx-background-color: transparent; -fx-text-fill: #888888; -fx-font-size: 12px; -fx-font-style: italic; -fx-padding: 0;");
                     root.setAlignment(Pos.CENTER);
@@ -1938,6 +2143,7 @@ public class CustomerChatController implements CustomerNetworkListener {
 
                     String textColor;
                     String cellPadding = item.isVoice() ? "3 3 3 3" : (item.isImage() ? "4 4 6 4" : "8 14 8 14");
+                    boolean isAI = (item.getSenderName() != null && (item.getSenderName().contains("AI") || item.getSenderName().contains("bot") || item.getSenderName().contains("LCS"))) || "AI".equalsIgnoreCase(item.getSenderName());
                     if (item.getType() == ChatMessage.Type.MY_MSG) {
                         textColor = "#ffffff";
                         if (isSoloImage) {
@@ -1950,12 +2156,32 @@ public class CustomerChatController implements CustomerNetworkListener {
                         if (isSoloImage) {
                             bubbleBox.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
                         } else {
-                            if (isDarkTheme) {
-                                bubbleBox.setStyle("-fx-background-color: #242526; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+                            if (isAI) {
+                                if (isDarkTheme) {
+                                    bubbleBox.setStyle("-fx-background-color: #241e38; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-border-color: #7c3aed; -fx-border-width: 1.2; -fx-border-radius: 15 15 15 0; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+                                } else {
+                                    bubbleBox.setStyle("-fx-background-color: #f5f3ff; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-border-color: #8b5cf6; -fx-border-width: 1.2; -fx-border-radius: 15 15 15 0; -fx-effect: dropshadow(gaussian, rgba(139,92,246,0.1), 5, 0, 0, 2);");
+                                }
                             } else {
-                                bubbleBox.setStyle("-fx-background-color: white; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);");
+                                if (isDarkTheme) {
+                                    bubbleBox.setStyle("-fx-background-color: #242526; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+                                } else {
+                                    bubbleBox.setStyle("-fx-background-color: white; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);");
+                                }
                             }
                         }
+                    }
+
+                    if (item.getType() != ChatMessage.Type.MY_MSG && isAI) {
+                        HBox aiBadge = new HBox(5);
+                        aiBadge.setAlignment(Pos.CENTER_LEFT);
+                        Node iconNode = EmojiManager.getEmojiNode("🤖", 14);
+                        Label lblAiName = new Label("LCS chat bot");
+                        lblAiName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+                        lblAiName.setStyle("-fx-text-fill: #8b5cf6;");
+                        aiBadge.getChildren().addAll(iconNode, lblAiName);
+                        aiBadge.setPadding(new Insets(0, 0, 3, 0));
+                        bubbleBox.getChildren().add(0, aiBadge);
                     }
 
                     if (item.isFile()) {

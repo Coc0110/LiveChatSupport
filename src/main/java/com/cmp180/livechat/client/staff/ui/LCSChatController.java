@@ -2107,6 +2107,7 @@ public class LCSChatController implements StaffNetworkListener {
 
                     String textColor;
                     String cellPadding = item.isVoice() ? "3 3 3 3" : (item.isImage() ? "4 4 6 4" : "8 14 8 14");
+                    boolean isAI = (item.getSenderName() != null && (item.getSenderName().contains("AI") || item.getSenderName().contains("bot") || item.getSenderName().contains("LCS"))) || "AI".equalsIgnoreCase(item.getSenderName());
                     if (item.getType() == ChatMessage.Type.MY_MSG) {
                         textColor = "#ffffff";
                         if (isSoloImage) {
@@ -2119,12 +2120,32 @@ public class LCSChatController implements StaffNetworkListener {
                         if (isSoloImage) {
                             bubbleBox.setStyle("-fx-background-color: transparent; -fx-padding: 0;");
                         } else {
-                            if (isDarkTheme) {
-                                bubbleBox.setStyle("-fx-background-color: #242526; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+                            if (isAI) {
+                                if (isDarkTheme) {
+                                    bubbleBox.setStyle("-fx-background-color: #241e38; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-border-color: #7c3aed; -fx-border-width: 1.2; -fx-border-radius: 15 15 15 0; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+                                } else {
+                                    bubbleBox.setStyle("-fx-background-color: #f5f3ff; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-border-color: #8b5cf6; -fx-border-width: 1.2; -fx-border-radius: 15 15 15 0; -fx-effect: dropshadow(gaussian, rgba(139,92,246,0.1), 5, 0, 0, 2);");
+                                }
                             } else {
-                                bubbleBox.setStyle("-fx-background-color: white; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);");
+                                if (isDarkTheme) {
+                                    bubbleBox.setStyle("-fx-background-color: #242526; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.3), 5, 0, 0, 2);");
+                                } else {
+                                    bubbleBox.setStyle("-fx-background-color: white; -fx-background-radius: 15 15 15 0; -fx-padding: " + cellPadding + "; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 5, 0, 0, 2);");
+                                }
                             }
                         }
+                    }
+
+                    if (item.getType() != ChatMessage.Type.MY_MSG && isAI) {
+                        HBox aiBadge = new HBox(5);
+                        aiBadge.setAlignment(Pos.CENTER_LEFT);
+                        Node iconNode = EmojiManager.getEmojiNode("🤖", 14);
+                        Label lblAiName = new Label("LCS chat bot");
+                        lblAiName.setFont(Font.font("Segoe UI", FontWeight.BOLD, 11));
+                        lblAiName.setStyle("-fx-text-fill: #8b5cf6;");
+                        aiBadge.getChildren().addAll(iconNode, lblAiName);
+                        aiBadge.setPadding(new Insets(0, 0, 3, 0));
+                        bubbleBox.getChildren().add(0, aiBadge);
                     }
 
                     if (item.isFile()) {
@@ -2321,6 +2342,11 @@ public class LCSChatController implements StaffNetworkListener {
                 String displayName = item.getFullName();
                 if (displayName.endsWith(" (Đang chat)")) displayName = displayName.replace(" (Đang chat)", "");
                 
+                boolean isAIChatting = displayName.contains("[Đang chat AI]");
+                if (isAIChatting) {
+                    displayName = displayName.replace(" [Đang chat AI]", "").trim();
+                }
+
                 avatar.setText(displayName.substring(0, 1).toUpperCase());
                 
                 String name = displayName;
@@ -2331,8 +2357,8 @@ public class LCSChatController implements StaffNetworkListener {
                     issue = displayName.substring(idx + 2, displayName.length() - 1);
                 }
                 
-                nameLabel.setTooltip(new Tooltip(name));
-                issueLabel.setTooltip(new Tooltip(item.isInterrupted() ? ("Đang tư vấn dở • " + issue) : issue));
+                nameLabel.setTooltip(new Tooltip(isAIChatting ? (name + " (Đang chat với AI)") : name));
+                issueLabel.setTooltip(new Tooltip(isAIChatting ? ("Đang chat với AI • " + issue) : (item.isInterrupted() ? ("Đang tư vấn dở • " + issue) : issue)));
                 
                 boolean isDarkTheme = getScene() != null && getScene().getRoot().getStyleClass().contains("dark-mode");
                 nameLabel.setText(name);
@@ -2340,6 +2366,9 @@ public class LCSChatController implements StaffNetworkListener {
                 if (!item.isActive() && item.isInterrupted()) {
                     issueLabel.setText("Đang tư vấn dở • " + issue);
                     issueLabel.setStyle("-fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: " + (isDarkTheme ? "#FFB74D;" : "#E65100;"));
+                } else if (!item.isActive() && isAIChatting) {
+                    issueLabel.setText("🤖 Đang chat AI • " + issue);
+                    issueLabel.setStyle("-fx-font-size: 12; -fx-font-weight: bold; -fx-text-fill: " + (isDarkTheme ? "#a78bfa;" : "#7c3aed;"));
                 } else {
                     issueLabel.setText(issue);
                     issueLabel.setStyle("-fx-font-size: 12; -fx-text-fill: " + (isDarkTheme ? "#b0b3b8;" : "#888888;"));

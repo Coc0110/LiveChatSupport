@@ -102,9 +102,15 @@ public class SessionManager {
         }
 
         if (targetCustomer != null) {
-            waitingCustomers.remove(targetCustomer);
-            createSession(targetCustomer, staff);
-            broadcastQueueToStaff();
+            if (targetCustomer.isChattingWithAI()) {
+                targetCustomer.setPendingStaff(staff);
+                targetCustomer.sendMessage(new Message(Protocol.CMD_STAFF_AVAILABLE, staff.getName(), staff.getClientId(), "Nhân viên " + staff.getName() + " đã sẵn sàng hỗ trợ bạn."));
+                staff.sendMessage(new Message(Protocol.CMD_WAITING, "Server", "Đã gửi đề nghị tiếp nhận tới khách hàng (khách đang trò chuyện cùng AI)."));
+            } else {
+                waitingCustomers.remove(targetCustomer);
+                createSession(targetCustomer, staff);
+                broadcastQueueToStaff();
+            }
         } else {
             staff.sendMessage(new Message(Protocol.CMD_ERROR, "Server", "Khách hàng này không còn trong hàng chờ."));
         }
@@ -195,10 +201,19 @@ public class SessionManager {
 
             ClientHandler staff = findBestStaffForCustomer(customer);
             if (staff != null) {
-                waitingCustomers.remove(customer);
-                createSession(customer, staff);
-                dispatchedAny = true;
-                server.log("-> [TỰ ĐỘNG ĐIỀU PHỐI] Khách hàng '" + customer.getName() + "' (Chủ đề: " + customer.getIssueTopic() + ") -> CSKH '" + staff.getName() + "' (Chuyên môn: " + staff.getPrimarySkill() + ")");
+                if (customer.isChattingWithAI()) {
+                    // Khách hàng đang tương tác với AI: gửi thông báo mời lựa chọn thay vì ngắt ngang
+                    if (customer.getPendingStaff() != staff) {
+                        customer.setPendingStaff(staff);
+                        customer.sendMessage(new Message(Protocol.CMD_STAFF_AVAILABLE, staff.getName(), staff.getClientId(), "Nhân viên " + staff.getName() + " đã sẵn sàng hỗ trợ bạn."));
+                        server.log("-> [AI -> CSKH SẴN SÀNG] Khách hàng '" + customer.getName() + "' đang chat với AI -> CSKH '" + staff.getName() + "' sẵn sàng tiếp nhận.");
+                    }
+                } else {
+                    waitingCustomers.remove(customer);
+                    createSession(customer, staff);
+                    dispatchedAny = true;
+                    server.log("-> [TỰ ĐỘNG ĐIỀU PHỐI] Khách hàng '" + customer.getName() + "' (Chủ đề: " + customer.getIssueTopic() + ") -> CSKH '" + staff.getName() + "' (Chuyên môn: " + staff.getPrimarySkill() + ")");
+                }
             }
         }
 
@@ -235,6 +250,9 @@ public class SessionManager {
                 String meta = entry.senderRole + "|" + entry.senderName + "|" + entry.timestamp + "|" + (entry.isRecalled ? "RECALLED" : "NORMAL");
                 staff.sendMessage(new Message(Protocol.CMD_CHAT_HISTORY, meta, customer.getClientId(), entry.encryptedContent, entry.messageId, entry.replyToSender, entry.replyToText, entry.replyToId, entry.fileName, entry.fileSize, entry.fileData, entry.isImage));
                 customer.sendMessage(new Message(Protocol.CMD_CHAT_HISTORY, meta, staff.getClientId(), entry.encryptedContent, entry.messageId, entry.replyToSender, entry.replyToText, entry.replyToId, entry.fileName, entry.fileSize, entry.fileData, entry.isImage));
+                
+                // Đồng bộ tin nhắn lịch sử (bao gồm cả AI) vào CSDL SQLite cho phiên mới
+                DatabaseManager.getInstance().saveMessage(session.getSessionId(), entry.messageId, entry.senderRole, entry.senderName, entry.encryptedContent, entry.replyToSender, entry.replyToText, entry.replyToId, entry.fileName, entry.fileSize, entry.isImage, entry.timestamp, entry.fileData);
             }
         }
         
@@ -399,6 +417,10 @@ public class SessionManager {
                     return;
                 }
             }
+            if (sender.isChattingWithAI()) {
+                handleAIChatMessage(sender, msg);
+                return;
+            }
         } else if (Protocol.ROLE_STAFF.equalsIgnoreCase(sender.getRole())) {
             for (ChatSession session : activeSessionsList) {
                 if (session.getStaff() == sender && session.getCustomer().getClientId().equals(receiverId)) {
@@ -502,10 +524,10 @@ public class SessionManager {
             }
         }
         
-        // 2. Khách hàng ĐANG CHỜ (Hoặc ĐANG TƯ VẤN DỞ khi nhân viên cũ rớt mạng)
+        // 2. Khách hàng ĐANG CHỜ (Hoặc ĐANG TƯ VẤN DỞ khi nhân viên cũ rớt mạng, hoặc ĐANG CHAT VỚI AI)
         for (ClientHandler c : waitingCustomers) {
-            String status = c.isInterrupted() ? Protocol.STATUS_INTERRUPTED : "WAITING";
-            String displayName = c.getName() + (c.getIssueTopic() != null && !c.getIssueTopic().isEmpty() ? " (" + c.getIssueTopic() + ")" : "");
+            String status = c.isInterrupted() ? Protocol.STATUS_INTERRUPTED : (c.isChattingWithAI() ? "AI_CHATTING" : "WAITING");
+            String displayName = c.getName() + (c.getIssueTopic() != null && !c.getIssueTopic().isEmpty() ? " (" + c.getIssueTopic() + ")" : "") + (c.isChattingWithAI() ? " [Đang chat AI]" : "");
             queueData.append(c.getClientId()).append("|")
                      .append(displayName).append("|")
                      .append(status).append("|")
@@ -514,6 +536,94 @@ public class SessionManager {
         
         Message msg = new Message(Protocol.CMD_QUEUE_UPDATE, "Server", queueData.toString());
         staff.sendMessage(msg);
+    }
+
+    // ==========================================
+    // CÁC HÀM XỬ LÝ AI CHAT BOT VÀ ĐIỀU PHỐI CHUYỂN GIAO
+    // ==========================================
+
+    public synchronized void startAIChat(ClientHandler customer) {
+        customer.setChattingWithAI(true);
+        server.log("-> [AI CHAT BOT] Khách hàng '" + customer.getName() + "' (Chủ đề: " + customer.getIssueTopic() + ") đã bắt đầu chat với LCS chat bot.");
+
+        String topic = customer.getIssueTopic();
+        String welcome = "Xin chào " + customer.getName() + "! 👋 Tôi là LCS chat bot hỗ trợ tự động của LiveChat Support. Trong thời gian chờ nhân viên tiếp nhận, bạn có câu hỏi hoặc cần giải đáp thông tin gì về " + (topic != null ? topic : "dịch vụ") + " không ạ?";
+        String enc = com.cmp180.livechat.common.SecurityManager.encrypt(welcome);
+        String msgId = java.util.UUID.randomUUID().toString();
+        customer.addHistory(msgId, "AI", "LCS chat bot", enc, null, null, null);
+        customer.sendMessage(new Message(Protocol.CMD_CHAT, "LCS chat bot", "AI_BOT", enc, msgId, null, null));
+
+        broadcastQueueToStaff();
+        checkAndNotifyStaffAvailable(customer);
+    }
+
+    private void handleAIChatMessage(ClientHandler sender, Message msg) {
+        String plainContent = com.cmp180.livechat.common.SecurityManager.decrypt(msg.getContent());
+        if (ProfanityFilter.containsProfanity(plainContent)) {
+            plainContent = ProfanityFilter.filter(plainContent);
+            msg.setContent(com.cmp180.livechat.common.SecurityManager.encrypt(plainContent));
+        }
+
+        // Lưu vào lịch sử chat của khách hàng
+        sender.addHistory(msg.getMessageId(), "CUSTOMER", sender.getName(), msg.getContent(), msg.getReplyToSender(), msg.getReplyToText(), msg.getReplyToId());
+
+        final String query = plainContent;
+        new Thread(() -> {
+            try {
+                // Hiển thị trạng thái đang soạn tin (typing) cho AI
+                sender.sendMessage(new Message(Protocol.CMD_TYPING, "LCS chat bot", "AI_BOT", Protocol.TYPING_START));
+                Thread.sleep(600);
+
+                String aiReply = AIBotService.getInstance().generateResponse(sender, query);
+                sender.sendMessage(new Message(Protocol.CMD_TYPING, "LCS chat bot", "AI_BOT", Protocol.TYPING_STOP));
+
+                String encReply = com.cmp180.livechat.common.SecurityManager.encrypt(aiReply);
+                String aiMsgId = java.util.UUID.randomUUID().toString();
+                sender.addHistory(aiMsgId, "AI", "LCS chat bot", encReply, sender.getName(), query, msg.getMessageId());
+                sender.sendMessage(new Message(Protocol.CMD_CHAT, "LCS chat bot", "AI_BOT", encReply, aiMsgId, sender.getName(), query, msg.getMessageId(), null, 0, null, false));
+
+                // Sau mỗi phản hồi của AI, kiểm tra xem đã có nhân viên CSKH nào rảnh để thông báo cho khách không
+                checkAndNotifyStaffAvailable(sender);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    public synchronized void checkAndNotifyStaffAvailable(ClientHandler customer) {
+        if (!customer.isChattingWithAI()) return;
+        ClientHandler staff = findBestStaffForCustomer(customer);
+        if (staff != null && customer.getPendingStaff() != staff) {
+            customer.setPendingStaff(staff);
+            customer.sendMessage(new Message(Protocol.CMD_STAFF_AVAILABLE, staff.getName(), staff.getClientId(), "Nhân viên " + staff.getName() + " đã sẵn sàng hỗ trợ bạn."));
+            server.log("-> [AI -> CSKH SẴN SÀNG] Khách hàng '" + customer.getName() + "' đang chat với AI -> Đã gửi thông báo nhân viên '" + staff.getName() + "' sẵn sàng tiếp nhận.");
+        }
+    }
+
+    public synchronized void customerChooseStaff(ClientHandler customer, String staffId) {
+        ClientHandler targetStaff = null;
+        if (customer.getPendingStaff() != null && customer.getPendingStaff().getClientId().equals(staffId)) {
+            targetStaff = customer.getPendingStaff();
+        } else {
+            targetStaff = findBestStaffForCustomer(customer);
+        }
+
+        if (targetStaff != null && getActiveSessionCount(targetStaff) < MAX_ACTIVE_SESSIONS_PER_STAFF) {
+            customer.setChattingWithAI(false);
+            customer.setPendingStaff(null);
+            waitingCustomers.remove(customer);
+            createSession(customer, targetStaff);
+            broadcastQueueToStaff();
+            server.log("-> [CHUYỂN GIAO PHIÊN TỪ AI] Khách hàng '" + customer.getName() + "' chuyển sang CSKH '" + targetStaff.getName() + "'.");
+        } else {
+            customer.sendMessage(new Message(Protocol.CMD_WAITING, "Server", "Nhân viên hiện đang bận. Bạn tiếp tục trò chuyện với AI, hệ thống sẽ kết nối ngay khi nhân viên rảnh!"));
+        }
+    }
+
+    public synchronized void customerStayWithAI(ClientHandler customer) {
+        customer.setPendingStaff(null);
+        server.log("-> [TIẾP TỤC VỚI AI] Khách hàng '" + customer.getName() + "' lựa chọn tiếp tục trò chuyện cùng AI.");
+        tryAutoDispatch();
     }
 
     private void broadcastQueueToStaff() {

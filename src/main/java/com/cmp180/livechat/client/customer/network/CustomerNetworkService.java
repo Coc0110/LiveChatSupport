@@ -181,6 +181,10 @@ public class CustomerNetworkService {
                         for (CustomerNetworkListener l : listeners) l.onReturnedToQueue(msg.getContent());
                         break;
 
+                    case Protocol.CMD_STAFF_AVAILABLE:
+                        for (CustomerNetworkListener l : listeners) l.onStaffAvailable(msg.getSenderId(), msg.getReceiverId());
+                        break;
+
                     case Protocol.CMD_PAIRED:
                         this.currentSessionId = msg.getMessageId();
                         for (CustomerNetworkListener l : listeners) l.onPairedWithStaff(msg.getSenderId(), msg.getReceiverId());
@@ -522,6 +526,21 @@ public class CustomerNetworkService {
     public void sendVideoData(String targetId, byte[] videoChunk) {
         if (!isConnected || videoChunk == null) return;
         sendMessage(new Message(Protocol.CMD_VIDEO_DATA, this.customerPhone, targetId, null, null, null, null, null, 0, videoChunk, false));
+    }
+
+    public void sendStartAIChat() {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_START_AI_CHAT, this.customerPhone, "Server", ""));
+    }
+
+    public void sendChooseStaff(String staffId) {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_CHOOSE_STAFF, this.customerPhone, staffId, ""));
+    }
+
+    public void sendStayWithAI() {
+        if (!isConnected) return;
+        sendMessage(new Message(Protocol.CMD_STAY_WITH_AI, this.customerPhone, "Server", ""));
     }
 
     public String getServerHost() { return serverHost; }

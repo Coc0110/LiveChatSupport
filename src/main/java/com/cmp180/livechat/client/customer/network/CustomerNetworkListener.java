@@ -3,6 +3,7 @@ package com.cmp180.livechat.client.customer.network;
 public interface CustomerNetworkListener {
     void onConnectedToQueue();
     default void onReturnedToQueue(String message) {}
+    default void onStaffAvailable(String staffName, String staffId) {}
     void onPairedWithStaff(String staffName, String staffId);
     void onMessageReceived(String senderName, String message);
     default void onMessageReceived(String senderName, String message, String messageId, String replyToSender, String replyToText) {

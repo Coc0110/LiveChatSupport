@@ -79,6 +79,8 @@ public class ClientHandler implements Runnable {
 
     // Cờ đánh dấu "Đang tư vấn dở" và lịch sử chat của khách hàng
     private volatile boolean interrupted = false;
+    private volatile boolean chattingWithAI = false;
+    private volatile ClientHandler pendingStaff = null;
     private final List<HistoryEntry> chatHistory = new CopyOnWriteArrayList<>();
 
     public ClientHandler(Socket socket, ServerMain server, SessionManager sessionManager) {
@@ -187,6 +189,18 @@ public class ClientHandler implements Runnable {
                 if (Protocol.ROLE_STAFF.equals(this.role)) {
                     sessionManager.transferSession(this, msg.getReceiverId(), msg.getContent());
                 }
+                break;
+
+            case Protocol.CMD_START_AI_CHAT:
+                sessionManager.startAIChat(this);
+                break;
+
+            case Protocol.CMD_CHOOSE_STAFF:
+                sessionManager.customerChooseStaff(this, msg.getReceiverId());
+                break;
+
+            case Protocol.CMD_STAY_WITH_AI:
+                sessionManager.customerStayWithAI(this);
                 break;
 
             case Protocol.CMD_HEARTBEAT:
@@ -433,6 +447,10 @@ public class ClientHandler implements Runnable {
     public String getDbCustomerId() { return dbCustomerId != null ? dbCustomerId : clientId; }
     public String getIssueTopic() { return issueTopic; }
     public String getPrimarySkill() { return primarySkill != null ? primarySkill : "Tất cả"; }
+    public boolean isChattingWithAI() { return chattingWithAI; }
+    public void setChattingWithAI(boolean chattingWithAI) { this.chattingWithAI = chattingWithAI; }
+    public ClientHandler getPendingStaff() { return pendingStaff; }
+    public void setPendingStaff(ClientHandler pendingStaff) { this.pendingStaff = pendingStaff; }
 
     public boolean isInterrupted() { return interrupted; }
     public void setInterrupted(boolean interrupted) { this.interrupted = interrupted; }

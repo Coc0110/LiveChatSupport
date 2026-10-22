@@ -9,9 +9,16 @@ public class ChatMessage {
         MY_MSG, STAFF_MSG, SYSTEM_MSG
     }
 
+    public enum ActionType {
+        NONE, AI_INVITE, STAFF_HANDOFF
+    }
+
     private String id;
     private String text;
     private Type type;
+    private ActionType actionType = ActionType.NONE;
+    private String targetStaffId;
+    private String targetStaffName;
     private String senderName;
     private long timestamp;
     private String status; // "Đã gửi", "Đã đọc", etc.
@@ -65,6 +72,12 @@ public class ChatMessage {
     public String getText() { return text; }
     public void setText(String text) { this.text = text; }
     public Type getType() { return type; }
+    public ActionType getActionType() { return actionType; }
+    public void setActionType(ActionType actionType) { this.actionType = actionType; }
+    public String getTargetStaffId() { return targetStaffId; }
+    public void setTargetStaffId(String targetStaffId) { this.targetStaffId = targetStaffId; }
+    public String getTargetStaffName() { return targetStaffName; }
+    public void setTargetStaffName(String targetStaffName) { this.targetStaffName = targetStaffName; }
     public String getSenderName() { return senderName; }
     public long getTimestamp() { return timestamp; }
     public String getStatus() { return status; }
